@@ -722,11 +722,11 @@ public class CalculateStatisticsService(
                     await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
                     try
                     {
-                          var safeProjectName = request.Project.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-                          var safeExperimentName = request.Experiment.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-                          logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", safeProjectName, safeExperimentName);
+                        var safeProjectName = request.Project.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
+                        var safeExperimentName = request.Experiment.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
+                        logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", safeProjectName, safeExperimentName);
                         await ProcessQueuedRequestAsync(request, stoppingToken);
-                          logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", safeProjectName, safeExperimentName);
+                        logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", safeProjectName, safeExperimentName);
                     }
                     finally
                     {
