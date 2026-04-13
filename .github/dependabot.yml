@@ -1,0 +1,61 @@
+version: 2
+updates:
+  # NuGet dependencies for catalog service
+  - package-ecosystem: "nuget"
+    directory: "/catalog"
+    schedule:
+      interval: "weekly"
+    groups:
+      nuget-catalog:
+        patterns:
+          - "*"
+
+  # NuGet dependencies for evaluator service
+  - package-ecosystem: "nuget"
+    directory: "/evaluator"
+    schedule:
+      interval: "weekly"
+    groups:
+      nuget-evaluator:
+        patterns:
+          - "*"
+
+  # npm dependencies for UI
+  - package-ecosystem: "npm"
+    directory: "/ui"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-ui:
+        patterns:
+          - "*"
+
+  # pip dependencies for evaluation
+  - package-ecosystem: "pip"
+    directory: "/evaluation"
+    schedule:
+      interval: "weekly"
+    groups:
+      pip-evaluation:
+        patterns:
+          - "*"
+
+  # Docker dependencies
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker:
+        patterns:
+          - "*"
+
+  # GitHub Actions dependencies
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

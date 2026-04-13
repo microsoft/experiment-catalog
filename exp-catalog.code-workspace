@@ -1,0 +1,14 @@
+{
+  "folders": [
+    {
+      "path": "catalog"
+    },
+    {
+      "path": "ui"
+    },
+    {
+      "path": "evaluator"
+    }
+  ],
+  "settings": {}
+}

@@ -1,0 +1,57 @@
+name: "CodeQL"
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Allows manual triggers from Actions tab
+  schedule:
+    - cron: "30 5 * * 1" # Run weekly on Monday at 5:30 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      security-events: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [csharp, javascript, python]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@38697555549f1db7851b81482ff19f1fa5c4fedc # v3
+        with:
+          languages: ${{ matrix.language }}
+
+      - name: Setup .NET
+        if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@c2fa09f4bde5ebb9d1777cf28262a3eb3db3ced7 # v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Build C# projects
+        if: matrix.language == 'csharp'
+        run: |
+          dotnet build catalog/exp-catalog.csproj
+          dotnet build evaluator/evaluator.csproj
+
+      - name: Autobuild
+        if: matrix.language != 'csharp'
+        uses: github/codeql-action/autobuild@38697555549f1db7851b81482ff19f1fa5c4fedc # v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@38697555549f1db7851b81482ff19f1fa5c4fedc # v3
+        with:
+          category: "/language:${{ matrix.language }}"
