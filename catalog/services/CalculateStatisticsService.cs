@@ -28,10 +28,22 @@ public class CalculateStatisticsService(
     /// <param name="request">The request containing project, experiment, and set information.</param>
     public void Enqueue(CalculateStatisticsRequest request)
     {
+        if (!request.Project.IsValidName() || !storageService.TryValidProjectName(request.Project, out var projectError))
+        {
+            throw new HttpException(400, projectError ?? "The project field is invalid.");
+        }
+
+        if (!request.Experiment.IsValidName() || !storageService.TryValidExperimentName(request.Experiment, out var experimentError))
+        {
+            throw new HttpException(400, experimentError ?? "The experiment field is invalid.");
+        }
+
         requestQueue.Enqueue(request);
+        var safeProjectName = request.Project.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
+        var safeExperimentName = request.Experiment.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
         logger.LogInformation(
             "enqueued p-value calculation request for '{Project}/{Experiment}'.",
-            request.Project, request.Experiment);
+            safeProjectName, safeExperimentName);
     }
 
     /// <summary>
@@ -700,9 +712,11 @@ public class CalculateStatisticsService(
                     await MaintenanceLock.Semaphore.WaitAsync(stoppingToken);
                     try
                     {
-                        logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", request.Project, request.Experiment);
+                          var safeProjectName = request.Project.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
+                          var safeExperimentName = request.Experiment.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
+                          logger.LogInformation("processing queued statistical calculations for '{p}/{e}'...", safeProjectName, safeExperimentName);
                         await ProcessQueuedRequestAsync(request, stoppingToken);
-                        logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", request.Project, request.Experiment);
+                          logger.LogInformation("completed queued statistical calculations for '{p}/{e}'.", safeProjectName, safeExperimentName);
                     }
                     finally
                     {

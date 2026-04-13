@@ -67,6 +67,7 @@ public class ExperimentService(
         string excludeTagsStr = "",
         CancellationToken cancellationToken = default)
     {
+        var safeProjectName = projectName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
         var comparison = new Comparison();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
@@ -90,7 +91,7 @@ public class ExperimentService(
         }
         catch (Exception e)
         {
-            logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
+            logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", safeProjectName);
         }
 
         // get configuration
@@ -174,6 +175,7 @@ public class ExperimentService(
         string excludeTagsStr = "",
         CancellationToken cancellationToken = default)
     {
+        var safeProjectName = projectName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
         var comparison = new ComparisonByRef();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
@@ -195,7 +197,7 @@ public class ExperimentService(
         }
         catch (Exception e)
         {
-            logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
+            logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", safeProjectName);
         }
 
         // get the experiment info
