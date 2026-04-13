@@ -28,12 +28,22 @@ public class CalculateStatisticsService(
     /// <param name="request">The request containing project, experiment, and set information.</param>
     public void Enqueue(CalculateStatisticsRequest request)
     {
-        if (!request.Project.IsValidName() || !storageService.TryValidProjectName(request.Project, out var projectError))
+        if (!request.Project.IsValidName())
+        {
+            throw new HttpException(400, "The project field is invalid.");
+        }
+
+        if (!storageService.TryValidProjectName(request.Project, out var projectError))
         {
             throw new HttpException(400, projectError ?? "The project field is invalid.");
         }
 
-        if (!request.Experiment.IsValidName() || !storageService.TryValidExperimentName(request.Experiment, out var experimentError))
+        if (!request.Experiment.IsValidName())
+        {
+            throw new HttpException(400, "The experiment field is invalid.");
+        }
+
+        if (!storageService.TryValidExperimentName(request.Experiment, out var experimentError))
         {
             throw new HttpException(400, experimentError ?? "The experiment field is invalid.");
         }
