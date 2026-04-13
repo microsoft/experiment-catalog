@@ -1,0 +1,17 @@
+# Build artifacts
+bin/
+obj/
+publish/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Logs
+*.log
+
+# Local settings
+appsettings.Development.json
+local.settings.json

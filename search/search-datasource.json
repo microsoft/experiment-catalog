@@ -1,0 +1,10 @@
+{
+  "name": "cse-devblogs-datasource",
+  "type": "azureblob",
+  "credentials": {
+    "connectionString": null
+  },
+  "container": {
+    "name": null
+  }
+}

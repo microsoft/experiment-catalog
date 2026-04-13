@@ -1,0 +1,141 @@
+{
+  "name": null,
+  "description": "Skillset to extract content, parse frontmatter, and generate embeddings for blog posts",
+  "skills": [
+    {
+      "@odata.type": "#Microsoft.Skills.Custom.WebApiSkill",
+      "name": "parse-markdown-skill",
+      "description": "Parse YAML frontmatter from markdown blog posts",
+      "context": "/document",
+      "uri": null,
+      "httpMethod": "POST",
+      "timeout": "PT30S",
+      "batchSize": 10,
+      "authResourceId": null,
+      "inputs": [
+        {
+          "name": "content",
+          "source": "/document/content"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "authors",
+          "targetName": "authors"
+        },
+        {
+          "name": "postSlug",
+          "targetName": "post_slug"
+        },
+        {
+          "name": "postDate",
+          "targetName": "post_date"
+        },
+        {
+          "name": "tags",
+          "targetName": "tags"
+        },
+        {
+          "name": "summary",
+          "targetName": "summary"
+        },
+        {
+          "name": "postTitle",
+          "targetName": "title"
+        }
+      ]
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.SplitSkill",
+      "name": "split-skill",
+      "description": "Split content into chunks for embedding",
+      "context": "/document",
+      "inputs": [
+        {
+          "name": "text",
+          "source": "/document/content"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "textItems",
+          "targetName": "chunks"
+        }
+      ],
+      "textSplitMode": "pages",
+      "maximumPageLength": 2000,
+      "pageOverlapLength": 500
+    },
+    {
+      "@odata.type": "#Microsoft.Skills.Text.AzureOpenAIEmbeddingSkill",
+      "name": "embedding-skill",
+      "description": "Generate embeddings using Azure OpenAI",
+      "context": "/document/chunks/*",
+      "inputs": [
+        {
+          "name": "text",
+          "source": "/document/chunks/*"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "embedding",
+          "targetName": "vector"
+        }
+      ],
+      "resourceUri": null,
+      "deploymentId": null,
+      "modelName": null
+    }
+  ],
+  "indexProjections": {
+    "selectors": [
+      {
+        "targetIndexName": null,
+        "parentKeyFieldName": "parent_id",
+        "sourceContext": "/document/chunks/*",
+        "mappings": [
+          {
+            "name": "chunk",
+            "source": "/document/chunks/*"
+          },
+          {
+            "name": "embedding",
+            "source": "/document/chunks/*/vector"
+          },
+          {
+            "name": "title",
+            "source": "/document/title"
+          },
+          {
+            "name": "url",
+            "source": "/document/metadata_storage_path"
+          },
+          {
+            "name": "authors",
+            "source": "/document/authors"
+          },
+          {
+            "name": "post_slug",
+            "source": "/document/post_slug"
+          },
+          {
+            "name": "post_date",
+            "source": "/document/post_date"
+          },
+          {
+            "name": "tags",
+            "source": "/document/tags"
+          },
+          {
+            "name": "summary",
+            "source": "/document/summary"
+          }
+        ]
+      }
+    ],
+    "parameters": {
+      "projectionMode": "skipIndexingParentDocuments"
+    }
+  }
+}

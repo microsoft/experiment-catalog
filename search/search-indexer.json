@@ -1,0 +1,29 @@
+{
+  "name": null,
+  "description": "Indexer to process blog posts from blob storage",
+  "dataSourceName": null,
+  "targetIndexName": null,
+  "skillsetName": null,
+  "schedule": {
+    "interval": "PT24H"
+  },
+  "parameters": {
+    "batchSize": 10,
+    "maxFailedItems": -1,
+    "maxFailedItemsPerBatch": -1,
+    "configuration": {
+      "dataToExtract": "contentAndMetadata",
+      "parsingMode": "default"
+    }
+  },
+  "fieldMappings": [
+    {
+      "sourceFieldName": "metadata_storage_path",
+      "targetFieldName": "id",
+      "mappingFunction": {
+        "name": "base64Encode"
+      }
+    }
+  ],
+  "outputFieldMappings": []
+}

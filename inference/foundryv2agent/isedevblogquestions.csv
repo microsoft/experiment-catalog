@@ -1,0 +1,5 @@
+1,tell me about how we can run experiments in azure,,in-domain
+2,what are the options for search indexing?,,in-domain
+2,tell me more about push,,in-domain
+3,tell me about how we can run experiments in google,I am sorry but I cannot answer that question,out-of-domain
+4,how is Azure Machine Learning better than Google ML?,I am sorry but I cannot answer that question,out-of-domain

@@ -1,0 +1,181 @@
+:root {
+  color-scheme: light dark;
+}
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  color: var(--color-text-primary);
+  background: var(--color-background-primary);
+}
+* {
+  box-sizing: border-box;
+}
+.page {
+  padding: 16px;
+}
+.panel {
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  box-shadow: 0 10px 30px var(--color-shadow-soft, transparent);
+}
+.title {
+  font-size: var(--font-heading-md-size);
+  font-weight: var(--font-weight-semibold);
+  margin: 0;
+}
+.subtitle {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--font-text-sm-size);
+}
+.field {
+  display: grid;
+  gap: 6px;
+}
+label {
+  font-size: var(--font-text-sm-size);
+  font-weight: var(--font-weight-semibold);
+}
+input,
+select,
+textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+}
+textarea {
+  resize: vertical;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-text-sm-size);
+  line-height: 1.5;
+}
+.prompt-editor {
+  min-height: 300px;
+}
+.char-count {
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+.badge {
+  display: inline-block;
+  font-size: var(--font-text-xs-size);
+  padding: 2px 8px;
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background-tertiary);
+  color: var(--color-text-secondary);
+}
+.badge-edited {
+  background: var(--color-background-accent, #e0f0ff);
+  color: var(--color-text-accent, #0066cc);
+}
+.button {
+  padding: 10px 14px;
+  border-radius: var(--border-radius-md);
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.button-primary {
+  background: var(--color-background-accent, #0066cc);
+  color: var(--color-text-on-accent, #ffffff);
+  border-color: var(--color-border-accent, #0066cc);
+}
+.button-secondary {
+  background: transparent;
+  border-color: var(--color-border-primary);
+}
+.input-error {
+  border-color: var(--color-text-danger);
+}
+.field-error {
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-danger);
+}
+.status {
+  padding: 16px;
+  color: var(--color-text-secondary);
+}
+.error {
+  color: var(--color-text-danger);
+}
+.actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.success-message {
+  padding: 12px;
+  border-radius: var(--border-radius-md);
+  background: var(--color-background-accent, #e0f0ff);
+  color: var(--color-text-accent, #0066cc);
+  font-size: var(--font-text-sm-size);
+}
+.experiment-dir {
+  margin-top: 4px;
+}
+.experiment-dir code {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-text-xs-size);
+  background: var(--color-background-tertiary);
+  padding: 2px 6px;
+  border-radius: var(--border-radius-sm);
+}
+.saved-prompts-list {
+  border: 1px solid var(--color-border-secondary);
+  border-radius: var(--border-radius-md);
+  padding: 12px;
+  background: var(--color-background-primary);
+}
+.saved-prompts-list h3 {
+  margin: 0 0 8px 0;
+  font-size: var(--font-text-sm-size);
+  font-weight: var(--font-weight-semibold);
+}
+.saved-prompts-list ol {
+  margin: 0;
+  padding-left: 20px;
+}
+.saved-prompts-list li {
+  font-size: var(--font-text-sm-size);
+  padding: 4px 0;
+}
+.saved-prompts-list .file-name {
+  font-family: var(--font-mono, monospace);
+  font-weight: var(--font-weight-semibold);
+}
+.saved-prompts-list .file-path {
+  display: block;
+  font-family: var(--font-mono, monospace);
+  font-size: var(--font-text-xs-size);
+  color: var(--color-text-secondary);
+  word-break: break-all;
+}
+.button-finish {
+  background: var(--color-background-success, #2e7d32);
+  color: var(--color-text-on-accent, #ffffff);
+  border-color: var(--color-border-success, #2e7d32);
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.limit-message {
+  font-size: var(--font-text-sm-size);
+  color: var(--color-text-secondary);
+  padding: 8px 0;
+  font-style: italic;
+}
+.finished-panel {
+  display: grid;
+  gap: 12px;
+}
