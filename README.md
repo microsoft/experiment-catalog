@@ -36,8 +36,6 @@ The application consists of several main components:
 | -------------- | ----------------------------------------------------------------------------------------------- |
 | **catalog**    | C# .NET backend that stores experiment data in Azure Blob Storage                               |
 | **ui**         | Svelte-based frontend for visualizing and comparing experiments                                 |
-| **evaluator**  | An evaluation runner that can execute inference and evaluation then send results to the catalog |
-| **evaluation** | An example evaluation script                                                                    |
 
 ## Key Concepts
 
@@ -96,7 +94,6 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js 20+](https://nodejs.org/)
-- [Python 3.9+](https://www.python.org/) (for tags utility)
 - [Docker](https://www.docker.com/) (for containerized deployment)
 - Azure Storage Account
 
@@ -190,17 +187,9 @@ Start with `make setup` after cloning, then use `make ci` before pushing changes
 
 All examples for using the API can be found in [catalog.http](./catalog/catalog.http).
 
-## Evaluator Usage
-
-The evaluator is a .NET console application that can run inference and evaluation, then send results to the Experiment Catalog. You can find the evaluator in the [evaluator](./evaluator) directory with full instructions in the [evaluator README](./evaluator/README.md).
-
-## Evaluation Example
-
-You can find an example evaluation script in the [evaluation](./evaluation) directory.
-
 ## Telemetry
 
-Experiment Catalog supports optional telemetry export for the catalog and evaluator services through the `OPEN_TELEMETRY_CONNECTION_STRING` environment variable. Telemetry is disabled by default. To keep telemetry turned off, do not set `OPEN_TELEMETRY_CONNECTION_STRING` for either service.
+Experiment Catalog supports optional telemetry export for the catalog service through the `OPEN_TELEMETRY_CONNECTION_STRING` environment variable. Telemetry is disabled by default. To keep telemetry turned off, do not set `OPEN_TELEMETRY_CONNECTION_STRING`.
 
 **Data Collection**. The software may collect information about you and your use of the software and send it to Microsoft. Microsoft may use this information to provide services and improve our products and services. You may turn off the telemetry as described in the repository. There are also some features in the software that may enable you and Microsoft to collect data from users of your applications. If you use these features, you must comply with applicable law, including providing appropriate notices to users of your applications together with a copy of Microsoft's privacy statement. Our privacy statement is located at <https://go.microsoft.com/fwlink/?LinkID=824704>. You can learn more about data collection and use in the help documentation and our privacy statement. Your use of the software operates as your consent to these practices.
 

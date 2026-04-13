@@ -6,7 +6,7 @@ Make agent and harness workflows diagnosable without reproducing locally.
 
 ## Current Instrumentation
 
-The catalog and evaluator services already use OpenTelemetry with Azure Monitor exporter:
+The catalog service already uses OpenTelemetry with Azure Monitor exporter:
 
 - `OpenTelemetry.Instrumentation.AspNetCore` for automatic HTTP tracing.
 - `OpenTelemetry.Instrumentation.Http` for outbound HTTP call tracing.
@@ -44,8 +44,6 @@ The catalog and evaluator services already use OpenTelemetry with Azure Monitor 
 - `statistics.calculated`
 - `analysis.started`
 - `analysis.completed`
-- `evaluation.started`
-- `evaluation.completed`
 
 ## Logging Rules
 

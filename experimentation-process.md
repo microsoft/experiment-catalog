@@ -89,7 +89,7 @@ From our experience, we had the following thoughts on our evaluation system:
 
 - **Transformation**: The ability to transform data formats on input and output was helpful only very early in the engagement until we standardized on a format for all files (ground truth, inference, and evaluation).
 
-All these features are supported by the [Evaluator](./evaluator) project.
+These capabilities were useful during the original engagement, but they are not implemented in this repository.
 
 ## Other Thoughts
 

@@ -21,15 +21,6 @@ run_step() {
 # --- .NET vulnerable packages ---
 run_step "dotnet vulnerable packages" dotnet list experiment-catalog.sln package --vulnerable --include-transitive
 
-# --- Python (pip-audit if available) ---
-if [ -d "evaluation" ] && [ -f "evaluation/requirements.txt" ]; then
-  if command -v pip-audit >/dev/null 2>&1; then
-    run_step "pip-audit (evaluation)" pip-audit -r evaluation/requirements.txt
-  else
-    echo "==> Security: [skip] pip-audit not found (install with: pip install pip-audit)"
-  fi
-fi
-
 echo
 if [ "$failures" -gt 0 ]; then
   echo "Security scan failed: $failures check(s) failed."

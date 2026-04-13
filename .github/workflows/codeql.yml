@@ -45,7 +45,6 @@ jobs:
         if: matrix.language == 'csharp'
         run: |
           dotnet build catalog/exp-catalog.csproj
-          dotnet build evaluator/evaluator.csproj
 
       - name: Autobuild
         if: matrix.language != 'csharp'

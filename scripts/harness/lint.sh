@@ -32,21 +32,6 @@ if [ -d "ui" ] && [ -f "ui/package.json" ]; then
   cd "$root_dir"
 fi
 
-# --- Python (evaluation) ---
-if [ -d "evaluation" ]; then
-  if command -v ruff >/dev/null 2>&1; then
-    run_step "ruff check (evaluation)" ruff check evaluation/
-  elif command -v flake8 >/dev/null 2>&1; then
-    run_step "flake8 (evaluation)" flake8 evaluation/
-  else
-    echo "==> Lint: [skip] no Python linter found (install ruff or flake8)"
-  fi
-
-  if command -v ruff >/dev/null 2>&1; then
-    run_step "ruff format --check (evaluation)" ruff format --check evaluation/
-  fi
-fi
-
 # --- Shell scripts ---
 if command -v shellcheck >/dev/null 2>&1; then
   run_step "shellcheck (scripts)" shellcheck scripts/harness/*.sh scripts/audit_harness.sh

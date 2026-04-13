@@ -19,9 +19,8 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 ### Prerequisites
 
-* [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for the catalog and evaluator services
+* [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for the catalog service
 * [Node.js 20 or later](https://nodejs.org/) for the UI
-* [Python 3.9 or later](https://www.python.org/) for evaluation scripts and helpers
 * [Docker](https://www.docker.com/) for container builds and local image validation
 * Access to the Azure resources required by the component you are working on
 
@@ -46,14 +45,10 @@ Run `make setup` after cloning and `make ci` before opening a pull request.
 
 * See [catalog/README.md](./catalog/README.md) for catalog API configuration and usage.
 * See [ui/README.md](./ui/README.md) for the Svelte UI.
-* See [evaluator/README.md](./evaluator/README.md) for the queue-based evaluator service.
-* See [evaluation/README.md](./evaluation/README.md) for the sample evaluation worker.
 
 ## Repository layout
 
 * `catalog/` contains the .NET 10 API and MCP surface for experiment storage and analysis.
-* `evaluator/` contains the .NET 10 service that orchestrates inference and evaluation jobs.
-* `evaluation/` contains sample Python evaluation scripts and prompt templates.
 * `ui/` contains the Svelte and TypeScript web application.
 * `catalog.tests/` contains automated tests for the catalog service.
 * `docs/` contains design and architecture documents.
