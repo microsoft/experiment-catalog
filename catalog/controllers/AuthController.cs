@@ -97,30 +97,21 @@ public class AuthController() : ControllerBase
         // discover the authorization endpoint from the OIDC authority
         var discoveryDoc = await GetDiscoveryDocumentAsync(config.OIDC_AUTHORITY!, httpClientFactory);
         var authorizationEndpoint = discoveryDoc.GetProperty("authorization_endpoint").GetString();
-        if (!Uri.TryCreate(config.OIDC_AUTHORITY, UriKind.Absolute, out var authorityUri)
-            || !Uri.TryCreate(authorizationEndpoint, UriKind.Absolute, out var authorizationUri)
-            || !string.Equals(authorizationUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
-        {
-            return StatusCode(500, "OIDC discovery returned an invalid authorization endpoint.");
-        }
 
         // build authorization URL
         // Use X-Forwarded-Proto header if present (when behind a reverse proxy like Azure Container Apps)
         var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
         var redirectUri = $"{scheme}://{Request.Host}/auth/callback";
-        var authUrl = new UriBuilder(authorityUri.Scheme, authorityUri.Host, authorityUri.IsDefaultPort ? -1 : authorityUri.Port, authorizationUri.AbsolutePath)
-        {
-            Query =
-                $"response_type=code" +
-                $"&client_id={Uri.EscapeDataString(config.OIDC_CLIENT_ID)}" +
-                $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
-                $"&scope={Uri.EscapeDataString(string.Join(" ", scopes))}" +
-                $"&state={Uri.EscapeDataString(state)}" +
-                $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
-                $"&code_challenge_method=S256"
-        };
+        var authUrl = $"{authorizationEndpoint}" +
+            $"?response_type=code" +
+            $"&client_id={Uri.EscapeDataString(config.OIDC_CLIENT_ID)}" +
+            $"&redirect_uri={Uri.EscapeDataString(redirectUri)}" +
+            $"&scope={Uri.EscapeDataString(string.Join(" ", scopes))}" +
+            $"&state={Uri.EscapeDataString(state)}" +
+            $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
+            $"&code_challenge_method=S256";
 
-        return Redirect(authUrl.Uri.AbsoluteUri);
+        return Redirect(authUrl);
     }
 
     [AllowAnonymous]
@@ -233,11 +224,6 @@ public class AuthController() : ControllerBase
         }
 
         Response.Cookies.Append(TokenCookieName, idToken, tokenCookieOptions);
-        if (Url.IsLocalUrl(returnUrl))
-        {
-            return LocalRedirect(returnUrl);
-        }
-
         return Redirect(returnUrl);
     }
 

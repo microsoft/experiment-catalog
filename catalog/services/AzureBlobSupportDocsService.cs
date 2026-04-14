@@ -68,20 +68,15 @@ public class AzureBlobSupportDocsService(
     public async Task<byte[]> GetSupportingDocumentAsync(string url, CancellationToken cancellationToken = default)
     {
         var client = await this.ConnectAsync(cancellationToken);
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var blobUri))
-        {
-            throw new HttpException(400, "the URL is not a valid absolute URI.");
-        }
 
         // verify the URL is for the correct storage account
-        var expectedHost = $"{client.AccountName}.blob.core.windows.net";
-        if (!string.Equals(blobUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
-            || !string.Equals(blobUri.Host, expectedHost, StringComparison.OrdinalIgnoreCase))
+        if (!url.StartsWith($"https://{client.AccountName}.blob.core.windows.net/", StringComparison.OrdinalIgnoreCase))
         {
-            throw new HttpException(400, $"the URL does not point to the storage account used for the supporting documents (https://{expectedHost}/).");
+            throw new HttpException(400, $"the URL does not point to the storage account used for the supporting documents (https://{client.AccountName}.blob.core.windows.net/).");
         }
 
         // extract container name and blob name from the URI path
+        var blobUri = new Uri(url);
         var pathSegments = blobUri.AbsolutePath.TrimStart('/').Split('/', 2);
         if (pathSegments.Length < 2)
         {
@@ -99,9 +94,7 @@ public class AzureBlobSupportDocsService(
         {
             throw new HttpException(400, blobError!);
         }
-        var safeBlobName = blobName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-        var safeContainerName = containerName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-        logger.LogDebug("attempting to download blob {b} from container {c}...", safeBlobName, safeContainerName);
+        logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
 
         // download the blob
         var containerClient = client.GetBlobContainerClient(containerName);
@@ -110,7 +103,7 @@ public class AzureBlobSupportDocsService(
         using var memoryStream = new MemoryStream();
         await response.Value.Content.CopyToAsync(memoryStream);
         var result = memoryStream.ToArray();
-        logger.LogDebug("successfully downloaded blob {b} from container {c}.", safeBlobName, safeContainerName);
+        logger.LogDebug("successfully downloaded blob {b} from container {c}.", blobName, containerName);
         return result;
     }
 }

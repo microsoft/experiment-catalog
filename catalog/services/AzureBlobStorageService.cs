@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -26,9 +25,6 @@ public class AzureBlobStorageService(
     ILogger<AzureBlobStorageService> logger) : IStorageService
 {
     private BlobServiceClient? blobServiceClient;
-    private readonly ConcurrentDictionary<string, CachedBlobFile> cachedBlobFiles = new(StringComparer.Ordinal);
-
-    private sealed record CachedBlobFile(string ETag, string FilePath);
 
     private async Task<BlobServiceClient> GetBlobServiceClientAsync(CancellationToken cancellationToken = default)
     {
@@ -74,8 +70,6 @@ public class AzureBlobStorageService(
 
     private async Task<BlobContainerClient> ConnectAsync(string projectName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var connectLock = await concurrencyService.GetConnectLock(cancellationToken);
         try
         {
@@ -204,61 +198,6 @@ public class AzureBlobStorageService(
         return true;
     }
 
-    private void EnsureValidProjectName(string projectName)
-    {
-        if (!projectName.IsValidName())
-        {
-            throw new HttpException(400, "the project name must contain only letters, digits, hyphens, underscores, periods, or colons (3-50 characters).");
-        }
-
-        if (!TryValidProjectName(projectName, out var errorMessage))
-        {
-            throw new HttpException(400, errorMessage!);
-        }
-    }
-
-    private void EnsureValidExperimentName(string experimentName)
-    {
-        if (!experimentName.IsValidName())
-        {
-            throw new HttpException(400, "the experiment name must contain only letters, digits, hyphens, underscores, periods, or colons (3-50 characters).");
-        }
-
-        if (!TryValidExperimentName(experimentName, out var errorMessage))
-        {
-            throw new HttpException(400, errorMessage!);
-        }
-    }
-
-    private static void EnsureValidName(string value, string parameterName)
-    {
-        if (!value.IsValidName())
-        {
-            throw new HttpException(400, $"the {parameterName} must contain only letters, digits, hyphens, underscores, periods, or colons (3-50 characters).");
-        }
-    }
-
-    private static string GetBlobCacheKey(string containerName, string blobName)
-    {
-        return $"{containerName}/{blobName}";
-    }
-
-    private static string GetInternalCacheFilePath(string cacheRoot)
-    {
-        return Path.Combine(cacheRoot, $"{Guid.NewGuid():N}.cache");
-    }
-
-    private void RemoveCacheEntriesForFile(string filePath)
-    {
-        foreach (var entry in cachedBlobFiles)
-        {
-            if (string.Equals(entry.Value.FilePath, filePath, StringComparison.Ordinal))
-            {
-                cachedBlobFiles.TryRemove(entry.Key, out _);
-            }
-        }
-    }
-
     public async Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default)
     {
         var client = await this.ConnectAsync(cancellationToken);
@@ -277,8 +216,6 @@ public class AzureBlobStorageService(
 
     public async Task AddProjectAsync(Project project, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(project.Name);
-
         var client = await this.ConnectAsync(cancellationToken);
         var containerClient = client.GetBlobContainerClient(project.Name);
         await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
@@ -291,8 +228,6 @@ public class AzureBlobStorageService(
 
     public async Task<IList<string>> ListTagsAsync(string projectName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var tags = new List<string>();
         await foreach (var blobItem in containerClient.GetBlobsAsync(cancellationToken: cancellationToken))
@@ -307,9 +242,6 @@ public class AzureBlobStorageService(
 
     public async Task AddTagAsync(string projectName, Tag tag, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidName(tag.Name, "tag name");
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var blobClient = containerClient.GetBlobClient($"tag_{tag.Name}.json");
         var serializedJson = JsonConvert.SerializeObject(tag);
@@ -319,8 +251,6 @@ public class AzureBlobStorageService(
 
     private static async Task<Tag> LoadTagAsync(BlobContainerClient containerClient, string tagName, CancellationToken cancellationToken = default)
     {
-        EnsureValidName(tagName, "tag name");
-
         var blobClient = containerClient.GetBlobClient($"tag_{tagName}.json");
         var response = await blobClient.DownloadAsync(cancellationToken: cancellationToken);
         using var memoryStream = new MemoryStream();
@@ -335,17 +265,10 @@ public class AzureBlobStorageService(
 
     public async Task<IList<Tag>> GetTagsAsync(string projectName, IEnumerable<string> tags, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var concurrencyLock = await concurrencyService.GetConcurrencyLock(cancellationToken);
-        var validatedTags = tags.ToArray();
-        foreach (var tagName in validatedTags)
-        {
-            EnsureValidName(tagName, "tag name");
-        }
 
-        var tasks = validatedTags.Select(async tag =>
+        var tasks = tags.Select(async tag =>
         {
             await concurrencyLock.WaitAsync(cancellationToken);
             try
@@ -354,9 +277,7 @@ public class AzureBlobStorageService(
             }
             catch (Azure.RequestFailedException ex) when (ex.Status == 404)
             {
-                var safeTag = tag.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-                var safeProjectName = projectName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-                logger.LogWarning("tag {tag} not found in project {project}; it will be loaded with no refs.", safeTag, safeProjectName);
+                logger.LogWarning("tag {tag} not found in project {project}; it will be loaded with no refs.", tag, projectName);
                 return new Tag { Name = tag };
             }
             finally
@@ -370,8 +291,6 @@ public class AzureBlobStorageService(
 
     public async Task AddMetricsAsync(string projectName, IList<MetricDefinition> metrics, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var blobClient = containerClient.GetBlobClient($"metric_definitions.json");
         var serializedJson = JsonConvert.SerializeObject(metrics);
@@ -381,8 +300,6 @@ public class AzureBlobStorageService(
 
     public async Task<IList<MetricDefinition>> GetMetricsAsync(string projectName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var blobClient = containerClient.GetBlobClient("metric_definitions.json");
         if (!await blobClient.ExistsAsync(cancellationToken)) return new List<MetricDefinition>();
@@ -399,8 +316,6 @@ public class AzureBlobStorageService(
 
     public async Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
 
         // get experiment names
@@ -433,9 +348,6 @@ public class AzureBlobStorageService(
 
     public async Task AddExperimentAsync(string projectName, Experiment experiment, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experiment.Name);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experiment.Name}.jsonl");
         var response = await appendBlobClient.ExistsAsync(cancellationToken);
@@ -451,9 +363,6 @@ public class AzureBlobStorageService(
 
     public async Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experimentName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var metadata = new Dictionary<string, string>
         {
@@ -465,10 +374,6 @@ public class AzureBlobStorageService(
 
     public async Task SetBaselineForExperiment(string projectName, string experimentName, string setName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experimentName);
-        EnsureValidName(setName, "set name");
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
 
         // ensure experiment is not being optimized
@@ -491,9 +396,6 @@ public class AzureBlobStorageService(
 
     private async Task AddStorageRecord(string projectName, string experimentName, string json, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experimentName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
 
         // ensure experiment is not being optimized
@@ -531,8 +433,6 @@ public class AzureBlobStorageService(
         bool includeResults = true,
         CancellationToken cancellationToken = default)
     {
-        EnsureValidExperimentName(experimentName);
-
         var blobName = $"{experimentName}.jsonl";
         var appendBlobClient = containerClient.GetAppendBlobClient(blobName);
         var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
@@ -610,24 +510,24 @@ public class AzureBlobStorageService(
         // NOTE: if we don't include results, we just pull from the blob directly
         if (includeResults && !string.IsNullOrEmpty(config.AZURE_STORAGE_CACHE_FOLDER))
         {
-            var cacheRoot = Path.GetFullPath(config.AZURE_STORAGE_CACHE_FOLDER);
-            var cacheKey = GetBlobCacheKey(containerName, blobName);
-            var expectedETag = etag.ToString().Trim('"');
+            //var sanitizedETag = etag.ToString().Trim('"').Replace("0x", "");
+            var sanitizedETag = etag.ToString().Trim('"');
+            var blobNameWithoutExt = Path.GetFileNameWithoutExtension(blobName);
+            var blobExt = Path.GetExtension(blobName);
+            var cachedFileTemplate = Path.Combine(config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_");
+            var cachedFilePath = Path.Combine(config.AZURE_STORAGE_CACHE_FOLDER, $"{containerName}_{blobNameWithoutExt}_{sanitizedETag}{blobExt}");
             try
             {
-                if (TryGetCachedFileStream(cacheKey, expectedETag, out var cachedStream))
+                if (TryGetCachedFileStream(cachedFilePath, out var cachedStream))
                 {
-                    logger.LogDebug("using cached experiment content.");
                     return cachedStream;
                 }
-
-                logger.LogDebug("no cached experiment content found; downloading from blob.");
-                return await DownloadAndCacheBlobAsync(appendBlobClient, cacheRoot, cacheKey, expectedETag, cancellationToken);
+                return await DownloadAndCacheBlobAsync(appendBlobClient, cachedFileTemplate, cachedFilePath, cancellationToken);
             }
             catch (IOException ex)
             {
                 // cache file may have been deleted by maintenance or another process, fall back to blob
-                logger.LogWarning(ex, "cache contention detected while accessing experiment cache; falling back to blob download.");
+                logger.LogWarning(ex, "cache contention detected for {file}, falling back to blob download.", cachedFilePath);
             }
         }
 
@@ -636,37 +536,23 @@ public class AzureBlobStorageService(
     }
 
     private bool TryGetCachedFileStream(
-        string cacheKey,
-        string expectedETag,
+        string cachedFilePath,
         out Stream stream)
     {
         stream = Stream.Null;
 
-        if (!cachedBlobFiles.TryGetValue(cacheKey, out var cacheEntry))
+        if (!File.Exists(cachedFilePath))
         {
+            logger.LogDebug("no cached file found for {file}, downloading from blob.", cachedFilePath);
             return false;
         }
 
-        if (!string.Equals(cacheEntry.ETag, expectedETag, StringComparison.Ordinal))
-        {
-            cachedBlobFiles.TryRemove(cacheKey, out _);
-            if (File.Exists(cacheEntry.FilePath))
-            {
-                File.Delete(cacheEntry.FilePath);
-            }
-            return false;
-        }
-
-        if (!File.Exists(cacheEntry.FilePath))
-        {
-            cachedBlobFiles.TryRemove(cacheKey, out _);
-            return false;
-        }
+        logger.LogDebug("using cached file for {file}.", cachedFilePath);
 
         // read entire file into memory for consistent, fast performance
         // NOTE: this avoids slow line-by-line disk I/O and OS file cache variability
         // NOTE: this may throw IOException if file is deleted between exists check and read (contention)
-        var fileBytes = File.ReadAllBytes(cacheEntry.FilePath);
+        var fileBytes = File.ReadAllBytes(cachedFilePath);
         stream = new MemoryStream(fileBytes, writable: false);
         return true;
     }
@@ -686,43 +572,41 @@ public class AzureBlobStorageService(
 
     private async Task<Stream> DownloadAndCacheBlobAsync(
         AppendBlobClient appendBlobClient,
-        string cacheRoot,
-        string cacheKey,
-        string expectedETag,
+        string cachedFileTemplate,
+        string cachedFilePath,
         CancellationToken cancellationToken)
     {
         var response = await appendBlobClient.DownloadAsync(cancellationToken: cancellationToken);
-        var cachedFilePath = GetInternalCacheFilePath(cacheRoot);
 
         // ensure cache folder exists
-        if (!Directory.Exists(cacheRoot))
+        var cacheFolder = Path.GetDirectoryName(cachedFilePath);
+        if (!string.IsNullOrEmpty(cacheFolder) && !Directory.Exists(cacheFolder))
         {
-            Directory.CreateDirectory(cacheRoot);
+            Directory.CreateDirectory(cacheFolder);
+        }
+
+        // delete old cached files for this blob (different ETags)
+        if (!string.IsNullOrEmpty(cacheFolder))
+        {
+            var searchPattern = Path.GetFileName(cachedFileTemplate) + "*";
+            foreach (var oldFile in Directory.EnumerateFiles(cacheFolder, searchPattern))
+            {
+                try
+                {
+                    File.Delete(oldFile);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "failed to delete old cached file: {file}", oldFile);
+                }
+            }
         }
 
         // download to file
         {
-            using var fileStream = new FileStream(cachedFilePath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+            using var fileStream = new FileStream(cachedFilePath, FileMode.Create, FileAccess.Write, FileShare.None);
             await response.Value.Content.CopyToAsync(fileStream, cancellationToken);
         }
-
-        if (cachedBlobFiles.TryGetValue(cacheKey, out var previousEntry)
-            && !string.Equals(previousEntry.FilePath, cachedFilePath, StringComparison.Ordinal))
-        {
-            try
-            {
-                if (File.Exists(previousEntry.FilePath))
-                {
-                    File.Delete(previousEntry.FilePath);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "failed to delete old cached file: {file}", previousEntry.FilePath);
-            }
-        }
-
-        cachedBlobFiles[cacheKey] = new CachedBlobFile(expectedETag, cachedFilePath);
 
         // read cached file into memory for consistent, fast performance
         // NOTE: this may throw IOException if file is deleted by maintenance (contention)
@@ -760,7 +644,6 @@ public class AzureBlobStorageService(
                     if (fileInfo.LastWriteTimeUtc < cutoffTime)
                     {
                         fileInfo.Delete();
-                        RemoveCacheEntriesForFile(file);
                         deletedCount++;
                     }
                 }
@@ -779,8 +662,6 @@ public class AzureBlobStorageService(
 
     public async Task<Experiment> GetProjectBaselineAsync(string projectName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
 
         // identify the baseline experiment
@@ -797,9 +678,6 @@ public class AzureBlobStorageService(
 
     public async Task<Experiment> GetExperimentAsync(string projectName, string experimentName, bool includeResults = true, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experimentName);
-
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var experiment = await LoadExperimentAsync(containerClient, experimentName, includeResults, cancellationToken: cancellationToken);
         return experiment;
@@ -858,14 +736,9 @@ public class AzureBlobStorageService(
 
     public async Task OptimizeExperimentAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
     {
-        EnsureValidProjectName(projectName);
-        EnsureValidExperimentName(experimentName);
-
         try
         {
-            var safeProjectName = projectName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-            var safeExperimentName = experimentName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-            logger.LogDebug("attempting to optimize project {p}, experiment {e}...", safeProjectName, safeExperimentName);
+            logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
 
             // open the source blob
             var containerClient = await this.ConnectAsync(projectName, cancellationToken);
@@ -890,13 +763,11 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
-            logger.LogDebug("successfully optimized project {p}, experiment {e}.", safeProjectName, safeExperimentName);
+            logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
         }
         catch (Exception ex)
         {
-            var safeProjectName = projectName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-            var safeExperimentName = experimentName.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal);
-            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", safeProjectName, safeExperimentName);
+            logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }
     }

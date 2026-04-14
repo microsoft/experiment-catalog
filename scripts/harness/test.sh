@@ -20,7 +20,7 @@ if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
 
   # Use the Playwright Docker image for consistent cross-platform rendering.
   # Update the tag when upgrading @playwright/test in package.json.
-  PW_IMAGE="mcr.microsoft.com/playwright:v1.58.2-noble"
+  PW_IMAGE="mcr.microsoft.com/playwright:v1.59.1-noble"
 
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
     echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
