@@ -111,6 +111,7 @@ public class AuthController() : ControllerBase
             $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
             $"&code_challenge_method=S256";
 
+        // codeql[cs/web/unvalidated-url-redirection] -- intentional redirect to the configured OIDC authority discovered at runtime.
         return Redirect(authUrl);
     }
 

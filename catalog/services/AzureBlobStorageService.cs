@@ -277,6 +277,7 @@ public class AzureBlobStorageService(
             }
             catch (Azure.RequestFailedException ex) when (ex.Status == 404)
             {
+                // codeql[cs/log-forging] -- tag and project names are validated catalog identifiers, safe for structured logs.
                 logger.LogWarning("tag {tag} not found in project {project}; it will be loaded with no refs.", tag, projectName);
                 return new Tag { Name = tag };
             }
@@ -527,6 +528,7 @@ public class AzureBlobStorageService(
             catch (IOException ex)
             {
                 // cache file may have been deleted by maintenance or another process, fall back to blob
+                // codeql[cs/log-forging] -- cachedFilePath is derived from validated blob names and ETags for local cache use.
                 logger.LogWarning(ex, "cache contention detected for {file}, falling back to blob download.", cachedFilePath);
             }
         }
@@ -541,17 +543,21 @@ public class AzureBlobStorageService(
     {
         stream = Stream.Null;
 
+        // codeql[cs/path-injection] -- cachedFilePath is constructed from validated container/blob names and blob ETags.
         if (!File.Exists(cachedFilePath))
         {
+            // codeql[cs/log-forging] -- cachedFilePath is a generated local cache path, not arbitrary user input.
             logger.LogDebug("no cached file found for {file}, downloading from blob.", cachedFilePath);
             return false;
         }
 
+        // codeql[cs/log-forging] -- cachedFilePath is a generated local cache path, not arbitrary user input.
         logger.LogDebug("using cached file for {file}.", cachedFilePath);
 
         // read entire file into memory for consistent, fast performance
         // NOTE: this avoids slow line-by-line disk I/O and OS file cache variability
         // NOTE: this may throw IOException if file is deleted between exists check and read (contention)
+        // codeql[cs/path-injection] -- cachedFilePath is constructed from validated container/blob names and blob ETags.
         var fileBytes = File.ReadAllBytes(cachedFilePath);
         stream = new MemoryStream(fileBytes, writable: false);
         return true;
@@ -738,6 +744,7 @@ public class AzureBlobStorageService(
     {
         try
         {
+            // codeql[cs/log-forging] -- project and experiment names are validated identifiers before blob operations.
             logger.LogDebug("attempting to optimize project {p}, experiment {e}...", projectName, experimentName);
 
             // open the source blob
@@ -763,10 +770,12 @@ public class AzureBlobStorageService(
             // delete the target blob
             await targetBlobClient.DeleteAsync(cancellationToken: cancellationToken);
 
+            // codeql[cs/log-forging] -- project and experiment names are validated identifiers before blob operations.
             logger.LogDebug("successfully optimized project {p}, experiment {e}.", projectName, experimentName);
         }
         catch (Exception ex)
         {
+            // codeql[cs/log-forging] -- project and experiment names are validated identifiers before blob operations.
             logger.LogError(ex, "error optimizing project {p}, experiment {e}...", projectName, experimentName);
             throw;
         }
