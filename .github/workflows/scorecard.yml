@@ -3,16 +3,19 @@
 # policy, and support documentation.
 
 name: Scorecard supply-chain security
+
+# NOTE: OpenSSF Scorecard requires a **public** repository.
+# While the repo is private, only manual dispatch is enabled to avoid
+# guaranteed failures on every push.  Once the repo is public, restore
+# the push / schedule / branch_protection_rule triggers below.
 on:
-  # For Branch-Protection check. Only the default branch is supported. See
-  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#branch-protection
-  branch_protection_rule:
-  # To guarantee Maintained check is occasionally updated. See
-  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
-  schedule:
-    - cron: "26 23 * * 6"
-  push:
-    branches: ["main"]
+  workflow_dispatch: # manual-only while repo is private
+  # --- re-enable these triggers once the repository is public ---
+  # branch_protection_rule:
+  # schedule:
+  #   - cron: "26 23 * * 6"
+  # push:
+  #   branches: ["main"]
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -28,9 +31,9 @@ jobs:
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
-      # Uncomment the permissions below if installing in a private repository.
-      # contents: read
-      # actions: read
+      # Required for private repositories.
+      contents: read
+      actions: read
 
     steps:
       - name: "Checkout code"
