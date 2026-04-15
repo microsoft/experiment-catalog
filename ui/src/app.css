@@ -1,0 +1,112 @@
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: #535bf2;
+}
+
+body {
+  margin: 0;
+  display: flex;
+}
+
+#app {
+  padding: 2rem;
+}
+
+img.loading {
+  height: 5rem;
+  width: 5rem;
+}
+
+.link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: inherit;
+  font-weight: inherit;
+  color: inherit;
+  text-decoration: underline;
+}
+
+button.link {
+  text-decoration-color: #777;
+}
+
+button.link:hover {
+  text-decoration-color: #ccc;
+}
+
+button.link:disabled {
+  cursor: default;
+  color: #666;
+  text-decoration-color: #666;
+  text-decoration: none;
+}
+
+a.link {
+  text-decoration-color: #999;
+}
+
+a.link:hover {
+  text-decoration-color: #000;
+}
+
+.auth-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 50vh;
+  gap: 1rem;
+}
+
+.auth-container button {
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  cursor: pointer;
+  background-color: #646cff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+}
+
+.auth-container button:hover {
+  background-color: #535bf2;
+}
+
+.user-bar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  padding: 0.5rem 1rem;
+  z-index: 1000;
+}
+
+.user-link {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.user-link:hover {
+  color: rgba(255, 255, 255, 0.87);
+}
