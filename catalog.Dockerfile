@@ -6,7 +6,7 @@ RUN npm install
 RUN npm run build
 
 # create the build container
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:f061e5a7532b36fa1d1b684857fe1f504ba92115b9934f154643266613c44c62 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:adc02be8b87957d07208a4a3e51775935b33bad3317de8c45b1e67357b4c073b AS build
 ARG TARGETARCH
 LABEL stage=build
 WORKDIR /api
@@ -16,7 +16,7 @@ COPY --from=ui-build /ui/dist/ ./wwwroot/
 RUN dotnet publish -c Release -o out -a $TARGETARCH
 
 # create the runtime container
-FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:ccdca44cd4f256d50187f920dc8ccc2a9ea7a8a4597ac1d51e08fddb2e3b3205
+FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:9271888dde1f4408dfb7ce75bc0f513c903d20ff2f1287ab153b641d4588ec7d
 ARG INSTALL_AZURE_CLI=false
 WORKDIR /app
 COPY --from=build /api/out .
