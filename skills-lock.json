@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "harness-engineering-playbook": {
+      "source": "broomva/harness-engineering-skill",
+      "sourceType": "github",
+      "computedHash": "594a978630b13d74fdab8cef4517177a7f7639dbfb0fb39d9262ff720dfeaccc"
+    }
+  }
+}

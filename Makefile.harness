@@ -1,0 +1,23 @@
+.PHONY: setup smoke test lint typecheck check security ci
+
+setup:
+	@./scripts/harness/setup.sh
+
+security:
+	@./scripts/harness/security.sh
+
+smoke:
+	@./scripts/harness/smoke.sh
+
+test:
+	@./scripts/harness/test.sh
+
+lint:
+	@./scripts/harness/lint.sh
+
+typecheck:
+	@./scripts/harness/typecheck.sh
+
+check: lint typecheck
+
+ci: smoke check test
