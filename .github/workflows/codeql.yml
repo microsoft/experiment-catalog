@@ -1,13 +1,7 @@
 name: "CodeQL"
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch: # Allows manual triggers from Actions tab
-  schedule:
-    - cron: "30 5 * * 1" # Run weekly on Monday at 5:30 UTC
+  workflow_dispatch: # Disabled automatic triggers until CodeQL is ready for this repo
 
 permissions:
   contents: read
