@@ -3,6 +3,7 @@
 A comprehensive tool for cataloging, comparing, and analyzing experiment results. The Experiment Catalog enables teams to track evaluation runs across projects, compare metrics against baselines, and identify performance regressions or improvements in AI/ML experimentation workflows.
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/plasne/experiment-catalog/badge)](https://scorecard.dev/viewer/?uri=github.com/plasne/experiment-catalog)
+[![CodeQL](https://github.com/microsoft/experiment-catalog/actions/workflows/codeql.yml/badge.svg)](https://github.com/microsoft/experiment-catalog/actions/workflows/codeql.yml)
 
 ## Overview
 
