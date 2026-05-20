@@ -1,0 +1,34 @@
+name: PR Title Validation
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions: read-all
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Validate pull request title follows Conventional Commits
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "Validating PR title: '$PR_TITLE'"
+
+          pattern='^(feat|fix|docs|refactor|test|chore|ci|build|perf|revert)(\([a-z0-9._/-]+\))?!?: .{1,72}$'
+
+          if [[ "$PR_TITLE" =~ $pattern ]]; then
+            echo "PR title is valid."
+            exit 0
+          fi
+
+          echo "PR title does not match required format."
+          echo "Expected: type(scope): short description"
+          echo "Allowed types: feat, fix, docs, refactor, test, chore, ci, build, perf, revert"
+          echo "Examples:"
+          echo "  feat(ui): add baseline comparison table"
+          echo "  fix(api)!: remove deprecated auth endpoint"
+          exit 1

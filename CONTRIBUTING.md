@@ -1,4 +1,11 @@
-# Contributing to Experiment Catalog
+---
+title: Contributing to Experiment Catalog
+description: Contribution workflow, quality gates, and pull request requirements for experiment-catalog.
+ms.date: 2026-05-20
+ms.topic: how-to
+---
+
+## Contributing to Experiment Catalog
 
 ## Overview
 
@@ -60,6 +67,35 @@ Run `make setup` after cloning and `make ci` before opening a pull request.
 * Add or update tests when behavior changes.
 * Run the relevant harness commands locally before requesting review.
 * Do not merge a pull request unless the `license/cla` check has passed.
+* Use a Conventional Commits style pull request title:
+  * `feat(scope): short description`
+  * `fix(scope): short description`
+  * Add `!` before `:` for breaking changes, for example: `feat(api)!: remove deprecated endpoint`
+
+Allowed PR title types:
+
+* `feat`
+* `fix`
+* `docs`
+* `refactor`
+* `test`
+* `chore`
+* `ci`
+* `build`
+* `perf`
+* `revert`
+
+PR titles are validated automatically in CI by the `PR Title Validation` workflow.
+
+## Branch protection expectations
+
+Main branch protections are part of the repository governance model.
+
+* Pull request required before merging to `main`
+* At least 1 approval required
+* Code owner review required where applicable
+* Required status checks must pass
+* Force push and branch deletion blocked
 
 ## Review expectations
 
