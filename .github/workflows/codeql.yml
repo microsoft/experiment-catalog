@@ -1,7 +1,13 @@
 name: "CodeQL"
 
 on:
-  workflow_dispatch: # Disabled automatic triggers until CodeQL is ready for this repo
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Allows manual triggers from Actions tab
+  schedule:
+    - cron: "30 5 * * 1" # Run weekly on Monday at 5:30 UTC
 
 permissions:
   contents: read
@@ -39,7 +45,6 @@ jobs:
         if: matrix.language == 'csharp'
         run: |
           dotnet build catalog/exp-catalog.csproj
-          dotnet build evaluator/evaluator.csproj
 
       - name: Autobuild
         if: matrix.language != 'csharp'
