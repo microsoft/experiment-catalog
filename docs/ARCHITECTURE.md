@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Experiment Catalog is a platform for managing A/B experiments and their results. It provides a REST API and MCP server for creating projects, defining experiments with metric definitions, recording results, and performing statistical analysis. A Svelte SPA provides the user interface.
+Experiment Catalog is a platform for managing A/B experiments and their results. It provides a REST API and MCP server for creating projects, defining experiments with metric definitions, recording results, and performing statistical analysis. A Svelte SPA provides the user interface. A separate evaluator service orchestrates evaluation workflows.
 
 ## Boundaries
 
@@ -14,6 +14,8 @@ Experiment Catalog is a platform for managing A/B experiments and their results.
 | Storage Layer      | Domain model            | Azure Blob JSON records        | `catalog/services/*StorageService` |
 | Configuration      | Environment variables   | Typed config object            | `catalog/config/`                  |
 | UI Build           | Svelte components       | Static HTML/JS/CSS bundle      | `ui/src/`                          |
+| Evaluator API      | HTTP request            | Evaluation result              | `evaluator/controllers/`           |
+| Evaluation Scripts | Python CLI args         | Evaluation scores              | `evaluation/`                      |
 
 ## Data Shape Contracts
 
@@ -34,6 +36,8 @@ Experiment Catalog is a platform for managing A/B experiments and their results.
 | `catalog/policies/`    | Policy evaluation (e.g., percent improvement)  | Domain logic     |
 | `catalog/extensions/`  | Validation attributes and helper extensions    | Cross-cutting    |
 | `catalog.tests/`       | Unit tests for catalog                         | Test boundary    |
+| `evaluator/`           | Evaluation orchestration service               | Separate service |
+| `evaluation/`          | Python evaluation scripts                      | External tooling |
 | `ui/`                  | Svelte SPA frontend                            | Client boundary  |
 
 ## Execution Flow

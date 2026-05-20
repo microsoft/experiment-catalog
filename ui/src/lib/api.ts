@@ -17,16 +17,33 @@ const JSON_HEADERS = {
     "Content-Type": "application/json",
 } as const;
 
-async function fetchJson<T>(path: string): Promise<T> {
-    const response = await fetch(url(path), { credentials: "include" });
-    return response.json() as Promise<T>;
-}
-
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 export interface AuthStatus {
     username?: string;
     is_required?: boolean;
+}
+
+function toLocalReturnUrl(returnUrl: string): string {
+    // Server accepts local URLs; convert absolute same-origin URLs to local paths.
+    if (returnUrl.startsWith("/")) {
+        return returnUrl;
+    }
+
+    if (typeof window === "undefined") {
+        return "/";
+    }
+
+    try {
+        const parsed = new URL(returnUrl, window.location.origin);
+        if (parsed.origin === window.location.origin) {
+            return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+        }
+    } catch {
+        // Ignore parse errors and fall through to a safe default.
+    }
+
+    return "/";
 }
 
 export async function getAuthStatus(): Promise<AuthStatus> {
@@ -36,8 +53,36 @@ export async function getAuthStatus(): Promise<AuthStatus> {
     return response.json() as Promise<AuthStatus>;
 }
 
+// ── Settings ────────────────────────────────────────────────────────────────
+
+export async function getUiSettings(): Promise<UiSettings> {
+    try {
+        const response = await fetch(url("/api/settings"), {
+            credentials: "include",
+        });
+        return response.json() as Promise<UiSettings>;
+    } catch {
+        return {};
+    }
+}
+
 export function getLoginUrl(returnUrl: string): string {
-    return `${apiPrefix}/auth/login?return-url=${encodeURIComponent(returnUrl)}`;
+    return `${apiPrefix}/auth/login?return-url=${encodeURIComponent(toLocalReturnUrl(returnUrl))}`;
+}
+
+// ── Fetch helper ────────────────────────────────────────────────────────────
+
+async function fetchJson<T>(path: string): Promise<T> {
+    const response = await fetch(url(path), { credentials: "include" });
+    if (response.status === 401) {
+        // Clear stale cookie and redirect to login
+        document.cookie =
+            "auth_not_required=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/";
+        const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.href = getLoginUrl(returnUrl);
+        throw new Error("Authentication required");
+    }
+    return response.json() as Promise<T>;
 }
 
 // ── Projects ────────────────────────────────────────────────────────────────
@@ -87,6 +132,17 @@ export async function createExperiment(
     });
 }
 
+// ── Download ────────────────────────────────────────────────────────────────
+
+export function getExperimentDownloadUrl(
+    projectName: string,
+    experimentName: string,
+): string {
+    return url(
+        `/api/projects/${projectName}/experiments/${experimentName}/download`,
+    );
+}
+
 // ── Comparison ──────────────────────────────────────────────────────────────
 
 export async function getComparison(
@@ -113,6 +169,15 @@ export async function getComparisonByRef(
 }
 
 // ── Sets / Results ──────────────────────────────────────────────────────────
+
+export async function getSets(
+    projectName: string,
+    experimentName: string,
+): Promise<string[]> {
+    return fetchJson<string[]>(
+        `/api/projects/${projectName}/experiments/${experimentName}/sets`,
+    );
+}
 
 export async function getSetResults(
     projectName: string,

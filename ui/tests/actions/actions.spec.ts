@@ -7,7 +7,7 @@ import { test, expect } from '../fixtures';
  * as the project baseline", and "compute statistics" buttons on ExperimentPage,
  * plus the "set this permutation as the experiment baseline" button on SetPage.
  *
- * Each action is gated by a confirmation checkbox.
+ * Action buttons are always enabled and clickable directly.
  */
 test.describe('Experiment page action buttons', () => {
   const base = '/?project=alpha-project&experiment=exp-001';
@@ -21,22 +21,9 @@ test.describe('Experiment page action buttons', () => {
 
   // ── Use the project baseline ─────────────────────────────────────────
 
-  test('"use the project baseline" button is disabled by default', async ({ mockedPage: page }) => {
+  test('"use the project baseline" button is enabled', async ({ mockedPage: page }) => {
     const btn = page.getByRole('button', { name: 'use the project baseline' });
-    await expect(btn).toBeDisabled();
-  });
-
-  test('checking confirm enables "use the project baseline"', async ({ mockedPage: page }) => {
-    const checkbox = page.getByRole('checkbox', {
-      name: /Confirm set as project baseline/,
-    }).first();
-    const btn = page.getByRole('button', { name: 'use the project baseline' });
-
-    await checkbox.check();
     await expect(btn).toBeEnabled();
-
-    await checkbox.uncheck();
-    await expect(btn).toBeDisabled();
   });
 
   test('"use the project baseline" sends PATCH request', async ({ mockedPage: page }) => {
@@ -46,10 +33,6 @@ test.describe('Experiment page action buttons', () => {
         req.method() === 'PATCH',
     );
 
-    const checkbox = page.getByRole('checkbox', {
-      name: /Confirm set as project baseline/,
-    }).first();
-    await checkbox.check();
     await page.getByRole('button', { name: 'use the project baseline' }).click();
 
     const req = await patchRequest;
@@ -61,31 +44,13 @@ test.describe('Experiment page action buttons', () => {
 
   // ── Set as project baseline ──────────────────────────────────────────
 
-  test('"set this experiment as the project baseline" is disabled by default', async ({
+  test('"set this experiment as the project baseline" is enabled', async ({
     mockedPage: page,
   }) => {
     const btn = page.getByRole('button', {
       name: 'set this experiment as the project baseline',
     });
-    await expect(btn).toBeDisabled();
-  });
-
-  test('checking confirm enables "set as project baseline"', async ({ mockedPage: page }) => {
-    // This is the second checkbox with the same aria-label pattern
-    const checkboxes = page.getByRole('checkbox', {
-      name: /Confirm set as project baseline/,
-    });
-    // Use .nth(1) for the second checkbox
-    const checkbox = checkboxes.nth(1);
-    const btn = page.getByRole('button', {
-      name: 'set this experiment as the project baseline',
-    });
-
-    await checkbox.check();
     await expect(btn).toBeEnabled();
-
-    await checkbox.uncheck();
-    await expect(btn).toBeDisabled();
   });
 
   test('"set as project baseline" sends PATCH to /baseline', async ({ mockedPage: page }) => {
@@ -96,10 +61,6 @@ test.describe('Experiment page action buttons', () => {
         req.method() === 'PATCH',
     );
 
-    const checkboxes = page.getByRole('checkbox', {
-      name: /Confirm set as project baseline/,
-    });
-    await checkboxes.nth(1).check();
     await page
       .getByRole('button', { name: 'set this experiment as the project baseline' })
       .click();
@@ -110,26 +71,11 @@ test.describe('Experiment page action buttons', () => {
 
   // ── Compute statistics ───────────────────────────────────────────────
 
-  test('"compute statistics" button is disabled by default', async ({ mockedPage: page }) => {
+  test('"compute statistics" button is enabled', async ({ mockedPage: page }) => {
     const btn = page.getByRole('button', {
-      name: 'compute statistics for this experiment',
+      name: 'compute statistics',
     });
-    await expect(btn).toBeDisabled();
-  });
-
-  test('checking confirm enables "compute statistics"', async ({ mockedPage: page }) => {
-    const checkbox = page.getByRole('checkbox', {
-      name: /Confirm compute statistics/,
-    });
-    const btn = page.getByRole('button', {
-      name: 'compute statistics for this experiment',
-    });
-
-    await checkbox.check();
     await expect(btn).toBeEnabled();
-
-    await checkbox.uncheck();
-    await expect(btn).toBeDisabled();
   });
 
   test('"compute statistics" sends POST with project and experiment', async ({
@@ -146,9 +92,8 @@ test.describe('Experiment page action buttons', () => {
         req.method() === 'POST',
     );
 
-    await page.getByRole('checkbox', { name: /Confirm compute statistics/ }).check();
     await page
-      .getByRole('button', { name: 'compute statistics for this experiment' })
+      .getByRole('button', { name: 'compute statistics' })
       .click();
 
     const req = await postRequest;
@@ -161,7 +106,7 @@ test.describe('Experiment page action buttons', () => {
 test.describe('SetPage baseline button', () => {
   const base = '/?project=alpha-project&experiment=exp-001&page=set:set-a';
 
-  test('"set this permutation as the experiment baseline" is disabled by default', async ({
+  test('"set this permutation as the experiment baseline" is enabled', async ({
     mockedPage: page,
   }) => {
     await page.goto(base);
@@ -170,7 +115,7 @@ test.describe('SetPage baseline button', () => {
     const btn = page.getByRole('button', {
       name: /set this permutation as the experiment baseline/,
     });
-    await expect(btn).toBeDisabled();
+    await expect(btn).toBeEnabled();
   });
 
   test('sends PATCH to set baseline when confirmed and clicked', async ({ mockedPage: page }) => {
@@ -183,9 +128,6 @@ test.describe('SetPage baseline button', () => {
         req.method() === 'PATCH',
     );
 
-    await page
-      .getByRole('checkbox', { name: /Confirm set as project baseline/ })
-      .check();
     await page
       .getByRole('button', { name: /set this permutation as the experiment baseline/ })
       .click();

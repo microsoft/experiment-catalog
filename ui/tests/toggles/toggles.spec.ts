@@ -98,24 +98,24 @@ test.describe('Show/hide toggles on experiment page', () => {
 });
 
 test.describe('Statistics expand/collapse', () => {
-  test('clicking Statistics label toggles details', async ({ mockedPage: page }) => {
+  test('clicking Details summary toggles statistics content', async ({ mockedPage: page }) => {
     await page.goto('/?project=alpha-project&experiment=exp-001');
     await expect(
       page.getByRole('heading', { name: /EXPERIMENT: exp-001/ }),
     ).toBeVisible();
 
-    // Initially collapsed — details not visible
-    await expect(page.locator('.statistics-details')).not.toBeVisible();
+    // Initially collapsed — statistics subsections not visible
+    await expect(page.locator('.statistics-subsections')).not.toBeVisible();
 
-    // Click the Statistics label
-    await page.getByRole('button', { name: 'Statistics:' }).click();
+    // Click the Details summary to expand
+    await page.locator('details.reference-info summary').click();
 
-    // Details should now be visible
-    await expect(page.locator('.statistics-details')).toBeVisible();
+    // Statistics content should now be visible
+    await expect(page.locator('.statistics-subsections')).toBeVisible();
     await expect(page.getByText('P-Value Calculation')).toBeVisible();
 
     // Click again to collapse
-    await page.getByRole('button', { name: 'Statistics:' }).click();
-    await expect(page.locator('.statistics-details')).not.toBeVisible();
+    await page.locator('details.reference-info summary').click();
+    await expect(page.locator('.statistics-subsections')).not.toBeVisible();
   });
 });

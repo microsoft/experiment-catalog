@@ -79,7 +79,7 @@
 
 <div class="metrics-filter">
   {#if metricDefinitions.length > 10}
-    <button class="link" onclick={() => (isCollapsed = !isCollapsed)}>
+    <button class="btn" onclick={() => (isCollapsed = !isCollapsed)}>
       metrics ({selectedMetrics.length}/{metricDefinitions.length})
     </button>
   {:else}

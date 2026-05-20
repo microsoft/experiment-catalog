@@ -69,6 +69,51 @@ if [ -d "ui" ] && [ -f "ui/package.json" ]; then
   cd "$root_dir"
 fi
 
+# --- Python (optional, for evaluation/) ---
+echo "==> Checking Python (optional, for evaluation/)..."
+if command -v python3 >/dev/null 2>&1; then
+  python_version=$(python3 --version 2>&1)
+  ok "$python_version"
+
+  if [ -d "evaluation" ] && [ -f "evaluation/requirements.txt" ]; then
+    echo "==> Setting up Python venv for evaluation..."
+    if [ ! -d "evaluation/.venv" ]; then
+      python3 -m venv evaluation/.venv
+    fi
+    # shellcheck source=/dev/null
+    source evaluation/.venv/bin/activate
+    pip install -q -r evaluation/requirements.txt
+    ok "evaluation dependencies installed"
+    deactivate
+  fi
+
+  # Install ruff for Python linting if not present
+  if ! command -v ruff >/dev/null 2>&1; then
+    echo "==> Installing ruff (Python linter)..."
+    if pip3 install -q ruff 2>/dev/null || pipx install ruff 2>/dev/null; then
+      ok "ruff installed"
+    else
+      warn "could not install ruff — Python linting will be skipped"
+    fi
+  else
+    ok "ruff already available"
+  fi
+
+  # Install pip-audit for security scanning if not present
+  if ! command -v pip-audit >/dev/null 2>&1; then
+    echo "==> Installing pip-audit (Python security scanner)..."
+    if pip3 install -q pip-audit 2>/dev/null || pipx install pip-audit 2>/dev/null; then
+      ok "pip-audit installed"
+    else
+      warn "could not install pip-audit — Python security scanning will be skipped"
+    fi
+  else
+    ok "pip-audit already available"
+  fi
+else
+  warn "Python 3 not found — evaluation/ scripts won't work"
+fi
+
 # --- Optional tools ---
 echo "==> Checking optional tools..."
 if command -v shellcheck >/dev/null 2>&1; then

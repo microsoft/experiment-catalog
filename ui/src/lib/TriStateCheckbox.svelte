@@ -42,7 +42,7 @@
     onclick={toggle}
     aria-labelledby="label-{buttonId}"
   ></button>
-  <label id="label-{buttonId}" for={buttonId}>{label}</label> ;
+  <label id="label-{buttonId}" for={buttonId}>{label}</label>
 </nobr>
 
 <style>

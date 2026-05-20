@@ -99,9 +99,7 @@ public class AuthController() : ControllerBase
         var authorizationEndpoint = discoveryDoc.GetProperty("authorization_endpoint").GetString();
 
         // build authorization URL
-        // Use X-Forwarded-Proto header if present (when behind a reverse proxy like Azure Container Apps)
-        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
-        var redirectUri = $"{scheme}://{Request.Host}/auth/callback";
+        var redirectUri = $"{config.EXTERNAL_SCHEME ?? Request.Scheme}://{config.EXTERNAL_HOST ?? Request.Host.Value}{Request.PathBase}/auth/callback";
         var authUrl = $"{authorizationEndpoint}" +
             $"?response_type=code" +
             $"&client_id={Uri.EscapeDataString(config.OIDC_CLIENT_ID)}" +
@@ -111,7 +109,6 @@ public class AuthController() : ControllerBase
             $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
             $"&code_challenge_method=S256";
 
-        // codeql[cs/web/unvalidated-url-redirection] -- intentional redirect to the configured OIDC authority discovered at runtime.
         return Redirect(authUrl);
     }
 
@@ -160,9 +157,7 @@ public class AuthController() : ControllerBase
         var tokenEndpoint = discoveryDoc.GetProperty("token_endpoint").GetString();
 
         // exchange code for tokens
-        // use X-Forwarded-Proto header if present (when behind a reverse proxy like Azure Container Apps)
-        var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
-        var redirectUri = $"{scheme}://{Request.Host}/auth/callback";
+        var redirectUri = $"{config.EXTERNAL_SCHEME ?? Request.Scheme}://{config.EXTERNAL_HOST ?? Request.Host.Value}{Request.PathBase}/auth/callback";
         var tokenRequest = new Dictionary<string, string>
         {
             ["grant_type"] = "authorization_code",

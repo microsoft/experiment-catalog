@@ -28,7 +28,7 @@ public class AnalysisService(IStorageService storageService)
             cancellationToken: cancellationToken);
 
         var baseline = request.CompareTo == MeaningfulTagsComparisonMode.Baseline
-            ? await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
+            ? experiment // await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
             : null;
 
         var listOfTags = await storageService.ListTagsAsync(request.Project, cancellationToken);
@@ -58,7 +58,7 @@ public class AnalysisService(IStorageService storageService)
             if (baseline is not null)
             {
                 var baselineResults = baseline.Filter([tag], excludeTags);
-                var baselineResult = baseline.AggregateSet(baseline.BaselineSet ?? baseline.LastSet, baselineResults);
+                var baselineResult = baseline.AggregateSet(baseline.BaselineSet ?? baseline.FirstSet, baselineResults);
                 Metric? baselineTagMetric = null;
                 baselineResult?.Metrics?.TryGetValue(request.Metric, out baselineTagMetric);
                 compareTo = baselineTagMetric?.Value;

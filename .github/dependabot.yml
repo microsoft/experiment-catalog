@@ -10,6 +10,16 @@ updates:
         patterns:
           - "*"
 
+  # NuGet dependencies for evaluator service
+  - package-ecosystem: "nuget"
+    directory: "/evaluator"
+    schedule:
+      interval: "weekly"
+    groups:
+      nuget-evaluator:
+        patterns:
+          - "*"
+
   # npm dependencies for UI
   - package-ecosystem: "npm"
     directory: "/ui"
@@ -17,6 +27,16 @@ updates:
       interval: "weekly"
     groups:
       npm-ui:
+        patterns:
+          - "*"
+
+  # pip dependencies for evaluation
+  - package-ecosystem: "pip"
+    directory: "/evaluation"
+    schedule:
+      interval: "weekly"
+    groups:
+      pip-evaluation:
         patterns:
           - "*"
 

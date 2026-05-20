@@ -177,12 +177,11 @@
     );
     if (response.ok) {
       fetchComparison();
-      confirmBaseline = false;
     }
   };
 
-  var confirmBaseline = $state(false);
   let initialized = $state(false);
+
 
   // Called when metrics filter changes
   const onMetricsChange = () => {
@@ -205,33 +204,20 @@
   });
 </script>
 
-<button class="link" onclick={unselectSet}>back</button>
+<button class="btn" onclick={unselectSet}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
-<div>
-  <span>
-    <label style="display:inline-flex; align-items:center; gap:0.5rem;">
-      <input
-        type="checkbox"
-        bind:checked={confirmBaseline}
-        aria-label="Confirm set as project baseline"
-      />
-      <button
-        class="link"
-        onclick={setAsExperimentBaseline}
-        disabled={!confirmBaseline}
-      >
-        set this permutation as the experiment baseline
-      </button>
-    </label>
-  </span>
+<div class="btn-group">
+  <button class="btn" onclick={setAsExperimentBaseline}>
+    set this permutation as the experiment baseline
+  </button>
 </div>
-<div>
-  <span class="label">Hypothesis:</span>
+<div class="meta-row">
+  <span class="meta-label">Hypothesis</span>
   <span>{experiment.hypothesis}</span>
 </div>
-<div>
-  <span class="label">Created:</span>
+<div class="meta-row">
+  <span class="meta-label">Created</span>
   <span>
     {new Intl.DateTimeFormat("en-US", {
       year: "numeric",
@@ -245,10 +231,8 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="link" onclick={fetchDetails}>(toggle set iterations)</button>
-  <button class="link" onclick={fetchBaselineDetails}
-    >(toggle baseline iterations)</button
-  >
+  <button class="btn" onclick={fetchDetails} disabled={loadingState === "loading"}>toggle set iterations</button>
+  <button class="btn" onclick={fetchBaselineDetails} disabled={loadingState === "loading"}>toggle baseline iterations</button>
 </h3>
 
 {#if comparison}
@@ -441,12 +425,27 @@
 {/if}
 
 <style>
-  .label {
-    text-align: right;
-    font-weight: bold;
-    width: 100px;
-    display: inline-block;
-    margin-right: 0.2rem;
+  h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .meta-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.4rem;
+  }
+
+  .meta-label {
+    font-weight: 600;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #999;
+    min-width: 90px;
+    flex-shrink: 0;
   }
 
   table {

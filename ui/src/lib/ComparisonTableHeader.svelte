@@ -70,7 +70,7 @@
 <div class="title">{title}</div>
 <div class="set">
   {#if clickable}
-    <button class="link" onclick={drilldown}>set:</button>
+    <button class="btn" onclick={drilldown}>set:</button>
   {:else}
     <span>set: {entity?.set ?? "-"}</span>
   {/if}

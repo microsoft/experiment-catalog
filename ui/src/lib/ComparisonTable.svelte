@@ -7,6 +7,7 @@
   import {
     extractSortedMetrics,
     buildSelectedEntities,
+    filterImportantMetrics,
   } from "./comparisonData";
 
   interface Props {
@@ -19,10 +20,12 @@
     showStdDev?: boolean;
     showCount?: boolean;
     showStatistics?: boolean;
+    showImportantOnly?: boolean;
     ondrilldown?: (set: string) => void;
     onchangeSetList?: (setList: string) => void;
     onchangeChecked?: (checked: string) => void;
     onchangeTags?: (tags: string) => void;
+    onimportantMetricsDetected?: (hasImportant: boolean) => void;
   }
 
   let {
@@ -35,10 +38,12 @@
     showStdDev = true,
     showCount = true,
     showStatistics = true,
+    showImportantOnly = false,
     ondrilldown,
     onchangeSetList,
     onchangeChecked,
     onchangeTags,
+    onimportantMetricsDetected,
   }: Props = $props();
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
@@ -114,6 +119,17 @@
   let tagFilters: string = $state("");
   let initialized = $state(false);
 
+  // Filter metrics based on importance
+  let visibleMetrics = $derived.by(() => {
+    if (!comparison) return metrics;
+    const { filtered } = filterImportantMetrics(
+      metrics,
+      comparison.metric_definitions,
+      showImportantOnly,
+    );
+    return filtered;
+  });
+
   // Emit tag changes only when user changes tags (not on initialization)
   const emitTagChange = (newTags: string) => {
     if (initialized) {
@@ -134,6 +150,14 @@
 
       // get a list of metrics
       metrics = extractSortedMetrics(comparison);
+
+      // notify parent whether any metrics are marked important
+      const { hasImportantMetrics } = filterImportantMetrics(
+        metrics,
+        comparison.metric_definitions,
+        true,
+      );
+      onimportantMetricsDetected?.(hasImportantMetrics);
 
       // apply the set list
       applySetList();
@@ -170,12 +194,14 @@
 </script>
 
 {#if comparison}
-  <div class="selection">
+  <div class="filter-row">
     <TagsFilter
       {project}
       bind:querystring={tagFilters}
       onapply={onTagFiltersApply}
     />
+  </div>
+  <div class="permutation-row">
     <span>show at least</span>
     <select bind:value={compareCount} onchange={applySetList}>
       <option value={1}>1</option>
@@ -193,7 +219,7 @@
       <option value={100}>100</option>
     </select>
     <span>of {comparison.sets?.length} permutations</span>
-    <button class="link" onclick={selectLastSets}>(show last)</button>
+    <button class="btn" onclick={selectLastSets}>show last</button>
   </div>
 {/if}
 
@@ -242,7 +268,7 @@
       </tr>
     </thead>
     <tbody>
-      {#each metrics as metric}
+      {#each visibleMetrics as metric}
         <tr class:highlighted={metricsHighlighted?.has(metric)}>
           <td class="checkbox-column">
             <input
@@ -333,8 +359,17 @@
     cursor: pointer;
   }
 
-  .selection {
+  .filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .permutation-row {
     width: 80rem;
     text-align: right;
+    margin-bottom: 0.75rem;
   }
 </style>

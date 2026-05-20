@@ -65,7 +65,7 @@
 
 <h1>Projects</h1>
 <div class="actions">
-  <button class="link" onclick={openCreateModal}>+ create project</button>
+  <button class="btn" onclick={openCreateModal}>+ create project</button>
 </div>
 
 {#if loadingState === "loading"}

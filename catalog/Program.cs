@@ -33,6 +33,9 @@ builder.Services.AddConfig<IConfig, Config>();
 // configure Kestrel using IConfigFactory
 builder.Services.AddSingleton<IConfigureOptions<KestrelServerOptions>, KestrelConfigurator>();
 
+// configure PathBase for reverse proxy deployment
+builder.Services.AddSingleton<IStartupFilter, PathBaseConfigurator>();
+
 // add logging
 builder.Logging.ClearProviders();
 builder.Services.AddSingleLineConsoleLogger();
@@ -121,6 +124,8 @@ builder.Services.AddCors(options =>
 
 // build with swagger
 var app = builder.Build();
+
+// configure swagger
 app.UseSwagger();
 app.UseSwaggerUI();
 

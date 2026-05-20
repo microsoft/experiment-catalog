@@ -3,8 +3,8 @@
 ## Project Overview
 
 - Project: `experiment-catalog`
-- Primary runtime(s): .NET 10 (C#), Node/Svelte (TypeScript)
-- Main entrypoint(s): `catalog/Program.cs` (API), `ui/` (Svelte SPA)
+- Primary runtime(s): .NET 10 (C#), Node/Svelte (TypeScript), Python
+- Main entrypoint(s): `catalog/Program.cs` (API), `evaluator/Program.cs` (evaluator), `ui/` (Svelte SPA)
 - Solution file: `experiment-catalog.sln`
 
 ## Harness Commands
@@ -36,6 +36,8 @@ Run from repository root:
 | -------------------- | ------------------------------------------------------------------------------------------------ |
 | `catalog/`           | ASP.NET Core API service (exp-catalog) with MCP server, REST controllers, and Azure Blob storage |
 | `catalog.tests/`     | xUnit test project for catalog                                                                   |
+| `evaluator/`         | ASP.NET Core evaluator service                                                                   |
+| `evaluation/`        | Python-based evaluation scripts                                                                  |
 | `ui/`                | Svelte 5 SPA with Vite                                                                           |
 | `catalog.Dockerfile` | Container image for catalog + UI                                                                 |
 
@@ -48,7 +50,7 @@ Run from repository root:
 
 ## Observability Expectations
 
-- OpenTelemetry is already instrumented in catalog via Azure Monitor exporter.
+- OpenTelemetry is already instrumented in catalog and evaluator via Azure Monitor exporter.
 - Include `trace_id` and `run_id` in long-running workflow logs.
 - Emit structured event names for major transitions (start, step, success, failure).
 - Keep event fields stable for querying and alerting.

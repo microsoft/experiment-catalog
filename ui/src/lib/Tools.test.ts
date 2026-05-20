@@ -30,6 +30,20 @@ describe("encodeConfig", () => {
         expect(decoded.show_std).toBe(true);
     });
 
+    it("encodes show_important_only true", () => {
+        const cfg: ViewConfig = { show_important_only: true };
+        const encoded = encodeConfig(cfg);
+        const decoded = decodeConfig(encoded!);
+        expect(decoded.show_important_only).toBe(true);
+    });
+
+    it("encodes show_important_only false", () => {
+        const cfg: ViewConfig = { show_important_only: false };
+        const encoded = encodeConfig(cfg);
+        const decoded = decodeConfig(encoded!);
+        expect(decoded.show_important_only).toBe(false);
+    });
+
     it("preserves metrics array", () => {
         const cfg: ViewConfig = { metrics: ["a", "b", "c"] };
         const encoded = encodeConfig(cfg);

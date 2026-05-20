@@ -94,7 +94,6 @@ public class AzureBlobSupportDocsService(
         {
             throw new HttpException(400, blobError!);
         }
-        // codeql[cs/log-forging] -- container and blob names are validated against Azure naming rules above.
         logger.LogDebug("attempting to download blob {b} from container {c}...", blobName, containerName);
 
         // download the blob
@@ -104,7 +103,6 @@ public class AzureBlobSupportDocsService(
         using var memoryStream = new MemoryStream();
         await response.Value.Content.CopyToAsync(memoryStream);
         var result = memoryStream.ToArray();
-        // codeql[cs/log-forging] -- container and blob names are validated against Azure naming rules above.
         logger.LogDebug("successfully downloaded blob {b} from container {c}.", blobName, containerName);
         return result;
     }
