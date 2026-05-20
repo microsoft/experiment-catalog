@@ -86,25 +86,13 @@ test.describe('SetPage drill-down', () => {
     await expect(page.getByText('Baseline / baseline', { exact: true })).not.toBeVisible();
   });
 
-  test('confirm baseline checkbox gates the baseline button', async ({ mockedPage: page }) => {
+  test('baseline button is enabled', async ({ mockedPage: page }) => {
     await page.goto(base);
-    const confirmCheckbox = page.getByRole('checkbox', {
-      name: /Confirm set as project baseline/,
-    });
     const baselineBtn = page.getByRole('button', {
       name: /set this permutation as the experiment baseline/,
     });
 
-    // Button should be disabled initially
-    await expect(baselineBtn).toBeDisabled();
-
-    // Check the confirm checkbox
-    await confirmCheckbox.check();
     await expect(baselineBtn).toBeEnabled();
-
-    // Uncheck reverts
-    await confirmCheckbox.uncheck();
-    await expect(baselineBtn).toBeDisabled();
   });
 
   test('inference and evaluation links in iteration rows', async ({ mockedPage: page }) => {

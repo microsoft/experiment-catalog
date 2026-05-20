@@ -37,21 +37,28 @@
 <div class="top">
   <label for={buttonId}>filter:</label>
   <textarea id={buttonId} bind:value={filter}></textarea>
-  <button onclick={apply}>Apply</button>
-  <button onclick={clear}>Clear</button>
+  <button class="btn" onclick={apply}>Apply</button>
+  <button class="btn" onclick={clear}>Clear</button>
   <span class="count">{filteredCount} of {totalCount}</span>
 </div>
 
 <style>
-  .top > * {
-    vertical-align: top;
+  .top {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .top label {
+    padding-top: 0.4rem;
   }
   textarea {
     width: 60em;
     height: 5em;
   }
   .count {
-    margin-left: 1rem;
+    font-size: 0.85rem;
     font-style: italic;
+    white-space: nowrap;
+    padding-top: 0.4rem;
   }
 </style>

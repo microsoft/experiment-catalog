@@ -93,10 +93,17 @@
   .dropdown-header {
     width: 100%;
     text-align: left;
-    border: 1px solid #ccc;
-    border-radius: 0.15rem;
+    border: 1px solid #555;
+    border-radius: 0.25rem;
     font-size: 1rem;
     cursor: pointer;
+    padding: 0.25rem 1.75rem 0.25rem 0.4rem;
+    background-color: white;
+    color: black;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
   }
 
   .dropdown-menu {
@@ -106,12 +113,22 @@
     z-index: 1000;
     max-height: 14rem;
     overflow-y: auto;
+    background-color: white;
+    border: 1px solid #555;
+    border-radius: 0.25rem;
   }
 
   .dropdown-button {
     width: 100%;
     text-align: left;
-    background-color: #ccc;
+    background-color: white;
+    color: black;
+    border: none;
+    padding: 0.3rem 0.5rem;
+  }
+
+  .dropdown-button:hover {
+    background-color: #e0e0e0;
   }
 
   .dropdown-button.selected {
@@ -120,7 +137,7 @@
 
   .dropdown-item {
     text-align: left;
-    color: black;
+    color: inherit;
     cursor: pointer;
   }
 

@@ -3,19 +3,16 @@
 # policy, and support documentation.
 
 name: Scorecard supply-chain security
-
-# NOTE: OpenSSF Scorecard requires a **public** repository.
-# While the repo is private, only manual dispatch is enabled to avoid
-# guaranteed failures on every push.  Once the repo is public, restore
-# the push / schedule / branch_protection_rule triggers below.
 on:
-  workflow_dispatch: # manual-only while repo is private
-  # --- re-enable these triggers once the repository is public ---
-  # branch_protection_rule:
-  # schedule:
-  #   - cron: "26 23 * * 6"
-  # push:
-  #   branches: ["main"]
+  # For Branch-Protection check. Only the default branch is supported. See
+  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#branch-protection
+  branch_protection_rule:
+  # To guarantee Maintained check is occasionally updated. See
+  # https://github.com/ossf/scorecard/blob/main/docs/checks.md#maintained
+  schedule:
+    - cron: "26 23 * * 6"
+  push:
+    branches: ["main"]
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -31,9 +28,9 @@ jobs:
       security-events: write
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
-      # Required for private repositories.
-      contents: read
-      actions: read
+      # Uncomment the permissions below if installing in a private repository.
+      # contents: read
+      # actions: read
 
     steps:
       - name: "Checkout code"
@@ -76,6 +73,6 @@ jobs:
       # Upload the results to GitHub's code scanning dashboard (optional).
       # Commenting out will disable upload of results to your repo's Code Scanning dashboard
       - name: "Upload to code-scanning"
-        uses: github/codeql-action/upload-sarif@e46ed2cbd01164d986452f91f178727624ae40d7 # v4
+        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4
         with:
           sarif_file: results.sarif

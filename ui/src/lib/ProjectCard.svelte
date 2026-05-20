@@ -11,19 +11,30 @@
   };
 </script>
 
-<div class="card">
+<button class="card" onclick={select}>
   <div class="title">
-    <button class="link" onclick={select}>{project.name}</button>
+    {project.name}
   </div>
-</div>
+</button>
 
 <style>
   .card {
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 1rem;
     margin: 1rem;
-    max-width: 20rem;
+    min-width: 12rem;
+    background: inherit;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .card:hover {
+    background: #444;
+    border-color: #666;
+    color: #fff;
   }
 
   .title {

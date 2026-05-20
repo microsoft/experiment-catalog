@@ -165,7 +165,7 @@
       </select>
     </label>
     <button
-      class="compute"
+      class="btn"
       onclick={openResults}
       disabled={!selectedSet || !selectedMetric}
     >
@@ -193,7 +193,7 @@
     >
       <div class="modal-header">
         <h3>Meaningful tags</h3>
-        <button class="link" onclick={closeResults}>close</button>
+        <button class="btn" onclick={closeResults}>close</button>
       </div>
       <div class="modal-body">
         {#if resultsLoading}
@@ -231,7 +231,6 @@
 
 <style>
   .meaningful-tags-row {
-    margin-top: 0.5rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
@@ -248,11 +247,6 @@
     font-size: 1rem;
     line-height: 1.2;
     margin-left: 0.35rem;
-  }
-
-  button.compute {
-    margin-left: 0.5rem;
-    cursor: pointer;
   }
 
   .modal-backdrop {

@@ -2,6 +2,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.5.2.0
 MinimumVisualStudioVersion = 10.0.40219.1
+EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "catalog", "catalog", "{50761A8C-3A0B-6B1B-86AD-17AC9E1B806D}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "catalog.tests", "catalog.tests\catalog.tests.csproj", "{A020D1E6-9918-0ED7-E6B2-997106C5CBBD}"
@@ -14,6 +15,10 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B2572211-7D8F-C61E-346E-80EA2FC7FDD7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2572211-7D8F-C61E-346E-80EA2FC7FDD7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2572211-7D8F-C61E-346E-80EA2FC7FDD7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2572211-7D8F-C61E-346E-80EA2FC7FDD7}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A020D1E6-9918-0ED7-E6B2-997106C5CBBD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A020D1E6-9918-0ED7-E6B2-997106C5CBBD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A020D1E6-9918-0ED7-E6B2-997106C5CBBD}.Release|Any CPU.ActiveCfg = Release|Any CPU

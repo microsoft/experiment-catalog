@@ -1,9 +1,10 @@
 <script lang="ts">
   import { updateURL, decodeConfig, type ViewConfig } from "./lib/Tools";
-  import { getAuthStatus, getLoginUrl, getExperiment } from "./lib/api";
+  import { getAuthStatus, getLoginUrl, getExperiment, getUiSettings } from "./lib/api";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
+  import ChartPage from "./lib/ChartPage.svelte";
   import ProjectsList from "./lib/ProjectsList.svelte";
   import { onMount } from "svelte";
 
@@ -14,7 +15,9 @@
   let experiment: Experiment | undefined = $state();
   let setList: string | undefined = $state();
   let setName: string | undefined = $state();
+  let viewMode: "table" | "chart" = $state("table");
   let config: ViewConfig = $state({});
+  let uiSettings: UiSettings = $state({});
 
   function getCookie(name: string): string | null {
     const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
@@ -55,7 +58,8 @@
   }
 
   function login(): void {
-    window.location.href = getLoginUrl(window.location.href);
+    const returnUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    window.location.href = getLoginUrl(returnUrl);
   }
 
   const selectProject = (selectedProject: Project) => {
@@ -82,17 +86,29 @@
 
   const selectSet = (selectedSet: string) => {
     setName = selectedSet;
+    viewMode = "table";
     updateURL(project!.name, experiment!.name, `set:${setName}`, config);
   };
 
   const unselectSet = () => {
     setName = undefined;
+    viewMode = "table";
     updateURL(
       project!.name,
       experiment!.name,
       setList ? `sets:${setList}` : null,
       config,
     );
+  };
+
+  const showChart = () => {
+    viewMode = "chart";
+    updateURL(project!.name, experiment!.name, "chart", config);
+  };
+
+  const showTable = () => {
+    viewMode = "table";
+    updateURL(project!.name, experiment!.name, null, config);
   };
 
   const changeSetList = (newSetList: string) => {
@@ -119,6 +135,9 @@
       return;
     }
 
+    // Fetch UI settings from server
+    uiSettings = await getUiSettings();
+
     try {
       const params = new URLSearchParams(window.location.search);
       const qproject = params.get("project");
@@ -138,6 +157,11 @@
 
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {
         setName = qpage.slice(4);
+        viewMode = "table";
+        experiment = await getExperiment(qproject, qexperiment);
+        project = { name: qproject };
+      } else if (qproject && qexperiment && qpage && qpage === "chart") {
+        viewMode = "chart";
         experiment = await getExperiment(qproject, qexperiment);
         project = { name: qproject };
       } else if (
@@ -170,7 +194,7 @@
 
 {#if username}
   <div class="user-bar">
-    <a href="/.auth/logout" class="user-link">{username} (logout)</a>
+    <button class="user-link" onclick={() => window.location.href = "/.auth/logout"}>{username} (logout)</button>
   </div>
 {/if}
 
@@ -194,16 +218,24 @@
       {setName}
       {config}
     />
+  {:else if project && experiment && viewMode === "chart"}
+    <ChartPage
+      onback={showTable}
+      {project}
+      {experiment}
+    />
   {:else if project && experiment}
     <ExperimentPage
       onunselectExperiment={unselectExperiment}
       onselectSet={selectSet}
+      onshowChart={showChart}
       onchangeSetList={changeSetList}
       onchangeConfig={changeConfig}
       {project}
       {experiment}
       {setList}
       {config}
+      {uiSettings}
     />
   {:else if project}
     <ExperimentsList

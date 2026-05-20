@@ -25,23 +25,34 @@
 </script>
 
 <div class="title" bind:this={titleRef}>
-  <button class="link" onclick={select}>{experiment.name}</button>
+  {experiment.name}
 </div>
 
-<div class="card" bind:this={cardRef}>
+<button class="card" bind:this={cardRef} onclick={select}>
   <div class="title">
-    <button class="link" onclick={select}>{experiment.name}</button>
+    {experiment.name}
   </div>
   <div class="hypothesis"><b>Hypothesis:</b> {experiment.hypothesis}</div>
-</div>
+</button>
 
 <style>
   .card {
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 6px;
     padding: 1rem;
     margin: 1rem;
     min-width: 20rem;
+    background: inherit;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .card:hover {
+    background: #444;
+    border-color: #666;
+    color: #fff;
   }
 
   .title {

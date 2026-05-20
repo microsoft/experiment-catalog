@@ -24,6 +24,9 @@ public class MetricDefinition
     [JsonProperty("order", NullValueHandling = NullValueHandling.Ignore)]
     public int? Order { get; set; }
 
+    [JsonProperty("is_important")]
+    public bool IsImportant { get; set; } = false;
+
     [JsonProperty("tags", NullValueHandling = NullValueHandling.Ignore)]
     [ValidNames]
     public IList<string>? Tags { get; set; }

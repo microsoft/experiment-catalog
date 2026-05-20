@@ -172,6 +172,22 @@ public class ExperimentsController : ControllerBase
         return Ok(results);
     }
 
+    [HttpGet("{experimentName}/download")]
+    public async Task<IActionResult> Download(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
+        {
+            return BadRequest("a project name and experiment name are required.");
+        }
+
+        var stream = await storageService.DownloadExperimentAsync(projectName, experimentName, cancellationToken);
+        return File(stream, "application/x-ndjson", $"{experimentName}.jsonl");
+    }
+
     [HttpPut("{experimentName}/optimize")]
     public async Task<IActionResult> Optimize(
         [FromServices] IStorageService storageService,

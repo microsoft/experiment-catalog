@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractSortedMetrics, buildSelectedEntities } from "./comparisonData";
+import { extractSortedMetrics, buildSelectedEntities, filterImportantMetrics } from "./comparisonData";
 
 // Minimal stubs matching the global Comparison / ComparisonEntity types
 function makeComparison(overrides: Partial<Comparison> = {}): Comparison {
@@ -92,5 +92,50 @@ describe("buildSelectedEntities", () => {
         expect(selected).toHaveLength(3);
         expect(selected[0]?.set).toBe("a");
         expect(selected[1]).toBeNull();
+    });
+});
+
+// ── filterImportantMetrics ──────────────────────────────────────────────────
+
+describe("filterImportantMetrics", () => {
+    it("returns all metrics when showImportantOnly is false", () => {
+        const metrics = ["accuracy", "latency", "cost"];
+        const definitions: Record<string, MetricDefinition> = {
+            accuracy: { is_important: true } as MetricDefinition,
+            latency: { is_important: false } as MetricDefinition,
+            cost: {} as MetricDefinition,
+        };
+        const { filtered, hasImportantMetrics } = filterImportantMetrics(metrics, definitions, false);
+        expect(filtered).toEqual(metrics);
+        expect(hasImportantMetrics).toBe(true);
+    });
+
+    it("returns only important metrics when showImportantOnly is true", () => {
+        const metrics = ["accuracy", "latency", "cost"];
+        const definitions: Record<string, MetricDefinition> = {
+            accuracy: { is_important: true } as MetricDefinition,
+            latency: { is_important: false } as MetricDefinition,
+            cost: { is_important: true } as MetricDefinition,
+        };
+        const { filtered, hasImportantMetrics } = filterImportantMetrics(metrics, definitions, true);
+        expect(filtered).toEqual(["accuracy", "cost"]);
+        expect(hasImportantMetrics).toBe(true);
+    });
+
+    it("returns all metrics when showImportantOnly is true but no metrics are important", () => {
+        const metrics = ["accuracy", "latency"];
+        const definitions: Record<string, MetricDefinition> = {
+            accuracy: { is_important: false } as MetricDefinition,
+            latency: {} as MetricDefinition,
+        };
+        const { filtered, hasImportantMetrics } = filterImportantMetrics(metrics, definitions, true);
+        expect(filtered).toEqual(metrics);
+        expect(hasImportantMetrics).toBe(false);
+    });
+
+    it("handles empty metrics array", () => {
+        const { filtered, hasImportantMetrics } = filterImportantMetrics([], {}, true);
+        expect(filtered).toEqual([]);
+        expect(hasImportantMetrics).toBe(false);
     });
 });

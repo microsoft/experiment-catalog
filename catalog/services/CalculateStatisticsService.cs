@@ -29,7 +29,6 @@ public class CalculateStatisticsService(
     public void Enqueue(CalculateStatisticsRequest request)
     {
         requestQueue.Enqueue(request);
-        // codeql[cs/log-forging] -- project and experiment names are validated identifiers in this service boundary.
         logger.LogInformation(
             "enqueued p-value calculation request for '{Project}/{Experiment}'.",
             request.Project, request.Experiment);

@@ -72,10 +72,10 @@
   };
 </script>
 
-<button class="link" onclick={unselectProject}>back</button>
+<button class="btn" onclick={unselectProject}>&larr; back</button>
 <h1>Experiments in {project.name}</h1>
 <div class="actions">
-  <button class="link" onclick={openCreateModal}>+ create experiment</button>
+  <button class="btn" onclick={openCreateModal}>+ create experiment</button>
 </div>
 
 {#if loadingState === "loading"}

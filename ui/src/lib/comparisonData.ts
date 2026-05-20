@@ -26,6 +26,28 @@ export function extractSortedMetrics(
 }
 
 /**
+ * Filter metrics to only those marked as important.
+ * Returns all metrics if showImportantOnly is false, or if no metrics
+ * are marked as important (to avoid showing an empty table).
+ */
+export function filterImportantMetrics(
+    metrics: string[],
+    metricDefinitions: Record<string, MetricDefinition>,
+    showImportantOnly: boolean,
+): { filtered: string[]; hasImportantMetrics: boolean } {
+    const importantMetrics = metrics.filter(
+        (m) => metricDefinitions[m]?.is_important === true,
+    );
+    const hasImportantMetrics = importantMetrics.length > 0;
+
+    if (!showImportantOnly || !hasImportantMetrics) {
+        return { filtered: metrics, hasImportantMetrics };
+    }
+
+    return { filtered: importantMetrics, hasImportantMetrics };
+}
+
+/**
  * Build the `selected` entities array from the current set-list string
  * and the full comparison.
  *

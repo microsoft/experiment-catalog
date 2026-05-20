@@ -36,5 +36,9 @@ public interface IConfig
     string? OIDC_VALIDATE_HEADER { get; set; }
     string? OIDC_VALIDATE_COOKIE { get; set; }
     string[]? OIDC_ACCEPTABLE_ROLES { get; set; }
+    string? EXTERNAL_SCHEME { get; set; }
+    string? EXTERNAL_HOST { get; set; }
+    string? PATH_BASE { get; set; }
+    bool SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT { get; set; }
     bool IsAuthenticationEnabled { get; }
 }

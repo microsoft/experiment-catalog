@@ -19,8 +19,6 @@ The workflow for running experiments is as follows:
 
    1. Determine the best permutation
 
-   1. Run a Final Experiment Baseline
-
    1. Write a summary
 
    1. Review with your team
@@ -41,13 +39,9 @@ A baseline is a measurement of the current state of the solution. It is importan
 
 When working with non-deterministic inference or evaluation systems, it is important to run the baseline multiple times to get a good average. For our engagement, we ran all baselines with 5 iterations.
 
-Ground truths are commonly split into "validation" and "test" sets. Baselines are run with both sets. Experimentation is often only run with "validation". This separation ensures that tuning is done on only part of the data so as not to overfit.
-
 - **Project Baseline**: Run this before doing experimentation so there is something to compare the experiment results against.
 
 - **Experiment Baseline**: Run this before running the experiment permutations so there is something to compare those against. If the system has not been changed since the project was started, you could opt just to make the Project Baseline the Experiment Baseline.
-
-- **Final Experiment Baseline**: Run this after running the experiment permutations with the configuration that was the best. This will give you results for both "validation" and "test" sets with the best configuration. You can then make sure the best configuration is not overfit.
 
 - **Final Project Baseline**: Run this after running all experiments in the project. This will give you a way to compare the start of the project with the end of the project (after merging all changes from the experiments).
 
@@ -59,7 +53,7 @@ Determining which permutation of the experiment is the best is not always easy t
 
 - **Prioritize Metrics**: We had about 20 metrics and between permutations some might be better and some might be worse. We prioritized the metrics and then looked at the best permutation based on the highest priority metrics.
 
-- **Statistical Significance**: We did not use this, but one idea to improve the comparison further would be to determine when a metric change is significant and potentially even how significant it is.
+- **Statistical Significance**: Use the catalog's built-in bootstrap p-value calculation to determine whether differences between permutations are statistically significant rather than relying on raw metric deltas alone. The catalog supports this via a configurable sample size, confidence level, and minimum-iterations threshold, and can compute p-values automatically on a schedule. This is the recommended way to compare permutations.
 
 ## Summary / Review
 
@@ -77,7 +71,7 @@ From our experience, we had the following thoughts on our evaluation system:
 
 - **Resume**: This feature was helpful before we moved to global deployments for models which had much greater token limits.
 
-- **Hyperparameterization**: This was missing from our system. It would have been helpful to have a way to run multiple permutations of the same experiment either in serial or parallel.
+- **Hyperparameterization**: We solved this by introducing an Experimentation Agent that understands how to use the evaluation framework and tools to execute experiments. A user describes what they want in natural language, and the agent builds the necessary configurations and launches the runs.
 
 - **Retry**: This capability didn't solve the 429 issues we were having, but it was easy to implement.
 
@@ -89,7 +83,7 @@ From our experience, we had the following thoughts on our evaluation system:
 
 - **Transformation**: The ability to transform data formats on input and output was helpful only very early in the engagement until we standardized on a format for all files (ground truth, inference, and evaluation).
 
-These capabilities were useful during the original engagement, but they are not implemented in this repository.
+All these features are supported by the [Evaluator](./evaluator) project.
 
 ## Other Thoughts
 

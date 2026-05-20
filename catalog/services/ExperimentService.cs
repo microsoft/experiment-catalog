@@ -90,7 +90,6 @@ public class ExperimentService(
         }
         catch (Exception e)
         {
-            // codeql[cs/log-forging] -- project names are validated identifiers before storage access.
             logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
@@ -196,7 +195,6 @@ public class ExperimentService(
         }
         catch (Exception e)
         {
-            // codeql[cs/log-forging] -- project names are validated identifiers before storage access.
             logger.LogWarning(e, "Failed to get baseline experiment for project {projectName}.", projectName);
         }
 
