@@ -230,3 +230,20 @@ The evaluator is a .NET console application that can run inference and evaluatio
 ## Evaluation Example
 
 You can find an example evaluation script in the [evaluation](./evaluation) directory.
+
+## Synthetic and Sample Data Provenance
+
+This repository includes sample data intended only for local demos, testing, and validation workflows.
+
+Data provenance policy:
+
+- Sample files are non-production artifacts and must not contain customer or regulated data.
+- Any generated or synthetic examples should be clearly labeled in-file and in documentation.
+- Contributors must document data origin, generation method, and intended usage when adding new sample datasets.
+
+The catalog service sample files are documented in [catalog/README.md](./catalog/README.md#sample-data).
+
+## Community Triage and Ownership
+
+- Issue intake and triage workflow: [docs/TRIAGE.md](./docs/TRIAGE.md)
+- Maintainer role model and escalation paths: [MAINTAINERS.md](./MAINTAINERS.md)

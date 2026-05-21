@@ -102,3 +102,8 @@ Main branch protections are part of the repository governance model.
 - Be responsive to review feedback and keep the pull request conversation in one place.
 - If requirements or behavior changed while the pull request was open, re-run the relevant checks before asking for another review.
 - If you are unsure whether a change belongs here, open an issue first and align on scope before coding.
+
+## Triage and ownership
+
+- Follow the issue intake and prioritization workflow in [docs/TRIAGE.md](./docs/TRIAGE.md).
+- Use [MAINTAINERS.md](./MAINTAINERS.md) to identify ownership, review routing, and escalation contacts.

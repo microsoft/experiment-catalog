@@ -1,4 +1,4 @@
-.PHONY: setup smoke test lint typecheck check security ci
+.PHONY: setup smoke test lint typecheck check security ci dependency-inventory branch-protection-sync
 
 setup:
 	@./scripts/harness/setup.sh
@@ -21,3 +21,9 @@ typecheck:
 check: lint typecheck
 
 ci: smoke check test
+
+dependency-inventory:
+	@./scripts/compliance/export_dependency_inventory.sh
+
+branch-protection-sync:
+	@./scripts/governance/apply_branch_protection.sh
