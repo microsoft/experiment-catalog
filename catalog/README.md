@@ -90,7 +90,7 @@ When hosting the catalog behind a reverse proxy at a sub-path (virtual directory
 
 - **PATH_BASE** [OPTIONAL]: The path prefix under which the catalog is served (e.g., `/catalog`). Sets `Request.PathBase` via `UsePathBase()` middleware so that routing, redirect URIs, and links work correctly from the sub-path.
 
-- **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used by external clients to reach the catalog. Overrides `Request.Scheme` when constructing OIDC redirect URIs. Falls back to `Request.Scheme` if unset.
+- **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used by external clients to reach the catalog. Overrides `Request.Scheme` when constructing OIDC redirect URIs. If unset, the app falls back to the `X-Forwarded-Proto` header and then `Request.Scheme`. **Required for Azure Container Apps** — the Container App Environment performs SSL/TLS termination at the Envoy ingress, so the app only ever sees `http` in `Request.Scheme` even though external clients connect over HTTPS. Set `EXTERNAL_SCHEME=https` to ensure OIDC redirect URIs use the correct protocol.
 
 - **EXTERNAL_HOST** [OPTIONAL]: The public hostname (e.g., `apps.example.com`) used by external clients. Overrides `Request.Host` when constructing OIDC redirect URIs. Falls back to `Request.Host` if unset. Use this when the reverse proxy forwards requests using an internal hostname that differs from the public domain.
 
