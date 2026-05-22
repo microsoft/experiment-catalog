@@ -186,7 +186,8 @@ Content-Type: application/json
 		"min": 0.0,
 		"max": 1.0,
 		"aggregate_function": "Average",
-		"order": 120
+		"order": 120,
+		"is_important": true
 	},
 	{
 		"name": "retrieval_dcg",
@@ -214,7 +215,8 @@ Content-Type: application/json
 		"min": 0.0,
 		"max": 1.0,
 		"aggregate_function": "Average",
-		"order": 300
+		"order": 300,
+		"is_important": true
 	},
 	{
 		"name": "generation_faithfulness",
