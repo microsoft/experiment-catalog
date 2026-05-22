@@ -1,0 +1,26 @@
+name: PR Title Validation
+
+on:
+  pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
+      - ready_for_review
+
+permissions:
+  contents: read
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate pull request title
+        shell: bash
+        run: |
+          title='${{ github.event.pull_request.title }}'
+          if [[ -z "$title" || "$title" =~ ^[[:space:]]+$ ]]; then
+            echo "Pull request title must not be empty."
+            exit 1
+          fi
