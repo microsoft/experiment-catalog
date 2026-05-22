@@ -236,8 +236,30 @@ curl -i http://localhost:6010/api/projects/project-example/metrics
 Add metric definitions to a project:
 
 ```bash
-curl -i -X PUT -d '[{ "name": "gpt-coherence", "higherIsBetter": true }]' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/metrics
+curl -i -X PUT -d '[
+  {
+    "name": "gpt-coherence",
+    "min": 0,
+    "max": 5,
+    "aggregate_function": "Average",
+    "order": 1,
+    "is_important": true,
+    "tags": []
+  }
+]' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/metrics
 ```
+
+Metric definition fields:
+
+| Field                | Type       | Required | Description                                                                                                |
+| -------------------- | ---------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `name`               | string     | yes      | Metric name (must be a valid identifier).                                                                  |
+| `min`                | number     | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                         |
+| `max`                | number     | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                         |
+| `aggregate_function` | string     | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`.   |
+| `order`              | integer    | no       | Display order in the UI (lower numbers appear first).                                                      |
+| `is_important`       | boolean    | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                     |
+| `tags`               | string[]   | no       | Tags for categorization (e.g., `lower-is-better`).                                                         |
 
 ### Compare by Ref
 

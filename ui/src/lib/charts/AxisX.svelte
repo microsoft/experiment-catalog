@@ -3,9 +3,10 @@
 
   interface Props {
     labels: string[];
+    annotations?: Annotation[][];
   }
 
-  let { labels }: Props = $props();
+  let { labels, annotations = [] }: Props = $props();
 
   const { width, height } = getContext("LayerCake") as any;
 
@@ -28,6 +29,7 @@
   {@const bw = bandWidth()}
   {@const x = i * bw + bw / 2}
   {@const parts = String(label).includes(": ") ? String(label).split(": ") : [String(label)]}
+  {@const groupAnnotations = annotations[i] ?? []}
   <text
     {x}
     y={$height + 22}
@@ -40,8 +42,11 @@
       <tspan {x} dy="0">{parts[0]}:</tspan>
       <tspan {x} dy="1.3em">{parts[1].length > 20 ? parts[1].slice(0, 18) + "…" : parts[1]}</tspan>
     {:else}
-      {label.length > 20 ? label.slice(0, 18) + "…" : label}
+      <tspan {x} dy="0">{label.length > 20 ? label.slice(0, 18) + "…" : label}</tspan>
     {/if}
+    {#each groupAnnotations as annotation}
+      <tspan {x} dy="1.3em" fill="#8899aa" font-size="11" font-weight="400">{annotation.text}</tspan>
+    {/each}
   </text>
 {/each}
 
