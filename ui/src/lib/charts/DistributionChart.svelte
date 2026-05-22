@@ -9,6 +9,7 @@
   interface SetGroup {
     label: string;
     values: number[];
+    annotations: Annotation[];
   }
 
   interface Props {
@@ -30,6 +31,7 @@
     "#fb7185", // rose
   ];
 
+  let annotations: Annotation[][] = $derived(groups.map((g) => g.annotations));
   let labels: string[] = $derived(groups.map((g) => g.label));
 
   let boxStats: BoxStats[] = $derived(
@@ -82,7 +84,7 @@
           >
             <Svg>
               <AxisY />
-              <AxisX {labels} />
+              <AxisX {labels} {annotations} />
               <BoxPlotLayer {boxStats} {colorForGroup} {labels} />
               <BeeswarmLayer {groups} {colorForGroup} />
             </Svg>
