@@ -19,6 +19,7 @@
   interface SetGroup {
     label: string;
     values: number[];
+    annotations: Annotation[];
   }
 
   let groups: SetGroup[] = $state([]);
@@ -146,7 +147,25 @@
     groups = setOrder.map((setName) => ({
       label: setName,
       values: extractMetricValues(resultsBySet.get(setName) ?? [], selectedMetric),
+      annotations: extractAnnotations(resultsBySet.get(setName) ?? []),
     }));
+  }
+
+  function extractAnnotations(results: Result[]): Annotation[] {
+    const seen = new Set<string>();
+    const annotations: Annotation[] = [];
+    for (const r of results) {
+      if (r.annotations) {
+        for (const a of r.annotations) {
+          const key = `${a.text ?? ""}|${a.uri ?? ""}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            annotations.push(a);
+          }
+        }
+      }
+    }
+    return annotations;
   }
 
   function extractMetricValues(results: Result[], metric: string): number[] {
