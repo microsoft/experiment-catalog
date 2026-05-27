@@ -309,12 +309,12 @@ Download a support document (requires `ENABLE_DOWNLOAD=true`):
 curl -i "http://localhost:6010/api/download?url=container/path/to/file.json"
 ```
 
-### Swagger Documentation
+### OpenAPI Documentation
 
-The API includes Swagger documentation available at:
+The API includes Scalar documentation available at:
 
 ```text
-http://localhost:6010/swagger
+http://localhost:6010/scalar/v1
 ```
 
 ## Sample Data
