@@ -22,9 +22,14 @@ public static class McpValidationHelper
             throw new HttpException(400, $"The {parameterName} field is required.");
         }
 
+        if (value.Length > Ext.MaxNameLength)
+        {
+            throw new HttpException(400, $"The {parameterName} field must be {Ext.MaxNameLength} characters or fewer.");
+        }
+
         if (!value.IsValidName())
         {
-            throw new HttpException(400, $"The {parameterName} field must contain only letters, digits, hyphens, underscores, periods, or colons (3-50 characters).");
+            throw new HttpException(400, $"The {parameterName} field must contain only letters, digits, hyphens, underscores, periods, or colons.");
         }
     }
 
@@ -75,9 +80,14 @@ public static class McpValidationHelper
 
         foreach (var value in values)
         {
+            if (value is not null && value.Length > Ext.MaxNameLength)
+            {
+                throw new HttpException(400, $"The {parameterName} field contains a name that exceeds the maximum length of {Ext.MaxNameLength} characters.");
+            }
+
             if (!value.IsValidName())
             {
-                throw new HttpException(400, $"The {parameterName} field contains an invalid name '{value}'. Names must contain only letters, digits, hyphens, underscores, periods, or colons (3-50 characters).");
+                throw new HttpException(400, $"The {parameterName} field contains an invalid name '{value}'. Names must contain only letters, digits, hyphens, underscores, periods, or colons.");
             }
         }
     }

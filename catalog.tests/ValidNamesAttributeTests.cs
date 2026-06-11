@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 using Catalog;
 using Xunit;
 
@@ -45,7 +46,7 @@ public class ValidNamesAttributeTests
     {
         new Dictionary<string, object>(), // empty
         new Dictionary<string, object> { { "valid-key", "value1" }, { "invalid key", "value2" } }, // space in key
-        new Dictionary<string, object> { { new string('a', 51), "value" } }, // too long
+        new Dictionary<string, object> { { new string('a', 101), "value" } }, // too long
         new Dictionary<string, object> { { "invalid@key", "value" } } // special char
     };
 
@@ -80,7 +81,7 @@ public class ValidNamesAttributeTests
     {
         new List<string>(), // empty list
         new List<string> { "valid-name", "invalid name" }, // space
-        new List<string> { "valid-name", new string('a', 51) }, // too long
+        new List<string> { "valid-name", new string('a', 101) }, // too long
         new List<string?> { "valid-name", null }, // null element
         new List<string> { "valid-name", "" }, // empty element
         new List<string> { "valid-name", "   " }, // whitespace element
@@ -109,4 +110,16 @@ public class ValidNamesAttributeTests
     };
 
     #endregion
+
+    [Fact]
+    public void GetValidationResult_MetricKeyExceedsMaximumLength_ReturnsLengthError()
+    {
+        var context = new ValidationContext(new AddResultRequest()) { MemberName = nameof(AddResultRequest.Metrics) };
+        var result = _attribute.GetValidationResult(
+            new Dictionary<string, object> { { new string('a', 101), "value" } },
+            context);
+
+        Assert.NotNull(result);
+        Assert.Equal("The Metrics field contains a name that exceeds the maximum length of 100 characters.", result.ErrorMessage);
+    }
 }
