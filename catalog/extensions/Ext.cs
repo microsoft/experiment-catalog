@@ -12,6 +12,8 @@ namespace Catalog;
 
 public static class Ext
 {
+    public const int MaxNameLength = 100;
+
     public static void AddOpenTelemetry(
         this ILoggingBuilder builder,
         string openTelemetryConnectionString)
@@ -73,7 +75,7 @@ public static class Ext
 
     /// <summary>
     /// Validates that a name contains only letters, digits, hyphens, underscores, periods, and colons,
-    /// and is between 3 and 50 characters.
+    /// and is at most 100 characters.
     /// </summary>
     public static bool IsValidName(this string? name)
     {
@@ -82,7 +84,7 @@ public static class Ext
             return false;
         }
 
-        if (name.Length > 50)
+        if (name.Length > MaxNameLength)
         {
             return false;
         }
