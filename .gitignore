@@ -1,1 +1,28 @@
+# Environment and secrets
+.env
+.env.*
+*.env
+*.secrets.json
+*.pfx
+*.pem
+*.key
+
+# Build outputs
+**/bin/
+**/obj/
+
+# Node artifacts
+**/node_modules/
+ui/playwright-report/
+ui/test-results/
+
+# Python artifacts
+**/__pycache__/
+**/*.pyc
+
+# OS/editor artifacts
+.DS_Store
+.vscode/
+
+# Copilot
 .copilot-tracking

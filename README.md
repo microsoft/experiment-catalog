@@ -1,4 +1,11 @@
-# Experiment Catalog
+---
+title: Experiment Catalog
+description: Catalog, compare, and analyze experiment runs with a .NET API, Svelte UI, and deterministic development harness.
+ms.date: 2026-05-20
+ms.topic: overview
+---
+
+## Experiment Catalog
 
 A comprehensive tool for cataloging, comparing, and analyzing experiment results. The Experiment Catalog enables teams to track evaluation runs across projects, compare metrics against baselines, and identify performance regressions or improvements in AI/ML experimentation workflows.
 
@@ -179,6 +186,39 @@ A `make`-based harness provides deterministic commands for local development and
 
 Start with `make setup` after cloning, then use `make ci` before pushing changes to verify everything passes locally.
 
+## Governance and branch policy
+
+This repository uses branch protection and CI checks as quality gates for `main`.
+
+Required merge policy:
+
+- Pull requests are required for all changes to `main`.
+- At least 1 approval is required before merge.
+- Code owner review is required for protected areas.
+- Required checks must pass before merge:
+  - `Harness CI`
+  - `CodeQL / Analyze (csharp)`
+  - `CodeQL / Analyze (javascript)`
+  - `CodeQL / Analyze (python)`
+  - `PR Title Validation / validate-title`
+- Force pushes and branch deletion are blocked on `main`.
+
+These checks are defined in repository workflows and should be set as required status checks in GitHub branch rules.
+
+## Community and roadmap
+
+Current focus areas:
+
+- Expand evaluator and evaluation sample coverage.
+- Improve analytics and baseline-comparison usability in the UI.
+- Harden operational readiness with clearer SLO reporting.
+
+Contribution and triage cadence:
+
+- New issues are triaged weekly.
+- Pull requests are reviewed based on priority and reviewer availability.
+- Security reports follow the process in [SECURITY.md](./SECURITY.md).
+
 ## API Usage
 
 All examples for using the API can be found in [catalog.http](./catalog/catalog.http).
@@ -190,3 +230,20 @@ The evaluator is a .NET console application that can run inference and evaluatio
 ## Evaluation Example
 
 You can find an example evaluation script in the [evaluation](./evaluation) directory.
+
+## Synthetic and Sample Data Provenance
+
+This repository includes sample data intended only for local demos, testing, and validation workflows.
+
+Data provenance policy:
+
+- Sample files are non-production artifacts and must not contain customer or regulated data.
+- Any generated or synthetic examples should be clearly labeled in-file and in documentation.
+- Contributors must document data origin, generation method, and intended usage when adding new sample datasets.
+
+The catalog service sample files are documented in [catalog/README.md](./catalog/README.md#sample-data).
+
+## Community Triage and Ownership
+
+- Issue intake and triage workflow: [docs/TRIAGE.md](./docs/TRIAGE.md)
+- Maintainer role model and escalation paths: [MAINTAINERS.md](./MAINTAINERS.md)

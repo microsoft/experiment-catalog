@@ -1,0 +1,30 @@
+{
+    "name": "experiment-catalog",
+    "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+    "features": {
+        "ghcr.io/devcontainers/features/dotnet:2": {
+            "version": "10.0"
+        },
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "20"
+        },
+        "ghcr.io/devcontainers/features/python:1": {
+            "version": "3.11"
+        }
+    },
+    "forwardPorts": [
+        6010,
+        6020
+    ],
+    "postCreateCommand": "make setup",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-dotnettools.csdevkit",
+                "ms-python.python",
+                "svelte.svelte-vscode",
+                "dbaeumer.vscode-eslint"
+            ]
+        }
+    }
+}

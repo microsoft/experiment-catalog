@@ -1,0 +1,4 @@
+interface:
+  display_name: "Experiment Catalog Operator"
+  short_description: "Operate and analyze Experiment Catalog projects, experiments, results, and metrics"
+  default_prompt: "Use the Experiment Catalog Operator skill to inspect the target catalog, compare experiments, analyze regressions and improvements, and perform any requested catalog operations safely."

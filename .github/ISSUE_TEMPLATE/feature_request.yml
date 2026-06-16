@@ -1,0 +1,42 @@
+name: Feature request
+description: Propose a new capability or enhancement
+labels:
+  - kind:feature
+  - status:needs-triage
+body:
+  - type: input
+    id: summary
+    attributes:
+      label: Summary
+      description: One-line proposal
+      placeholder: Add export endpoint for experiment comparison data
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What user problem does this solve
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: Proposed approach
+      description: Preferred implementation direction
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: contributor_friendly
+    attributes:
+      label: Could this be a good first issue
+      options:
+        - yes
+        - no
+        - unsure
+    validations:
+      required: true
