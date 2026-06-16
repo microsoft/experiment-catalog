@@ -169,6 +169,35 @@ docker run -p 6010:6010 \
   exp-catalog:latest
 ```
 
+## ISE OSS Usage Attribution Disclosure
+
+Experiment Catalog deployment automation may include Microsoft ISE OSS usage
+attribution for Azure Resource Manager (ARM) control-plane operations. This is
+not Experiment Catalog application telemetry. When enabled, deployment tools
+append Asset ID `acce1e78-0cec-4c66-9e3b-900c69b1c199` to the ARM `User-Agent`
+so Microsoft ISE can measure adoption of this open source tool. The catalog
+application runtime does not add this ID to normal Blob Storage data-plane
+operations such as creating project containers or writing experiment results.
+
+For ARM control-plane requests that include this Asset ID, Microsoft collects
+aggregated request telemetry such as `tenantId`, `subscriptionId`, `userAgent`,
+`action`, and `statusCode`. This reporting is intended for aggregate OSS usage
+measurement and does not collect catalog project names, experiment names,
+results, prompts, customer data, or Blob Storage contents.
+
+Users are free to opt out. Opting out does not affect Experiment Catalog
+functionality. Users can opt out by removing the Asset ID from generated
+deployment artifacts or disabling the attribution flag exposed by those
+artifacts. For command-based deployment, opt out by not setting
+`AZURE_HTTP_USER_AGENT` to include this Asset ID. Underlying tools also have
+their own telemetry controls:
+
+- Azure CLI telemetry opt-out: <https://learn.microsoft.com/cli/azure/azure-cli-configuration#cli-configuration-values>
+- Terraform AzureRM provider telemetry opt-out: <https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs#disable_terraform_partner_id-1>
+
+Microsoft open source telemetry guidance is available at
+<https://docs.opensource.microsoft.com/releasing/general-guidance/telemetry/>.
+
 ## Development Harness
 
 A `make`-based harness provides deterministic commands for local development and CI. Run all commands from the repository root:
