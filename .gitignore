@@ -23,3 +23,6 @@ ui/test-results/
 # OS/editor artifacts
 .DS_Store
 .vscode/
+
+# Copilot
+.copilot-tracking

@@ -35,6 +35,53 @@ test.describe('SetPage drill-down', () => {
     await expect(page.locator('th', { hasText: 'Ref' })).toBeVisible();
   });
 
+  test('ref column grows to accommodate a long ref without overlap', async ({ mockedPage: page }) => {
+    const longRef = `conv_${'a'.repeat(95)}`;
+    const comparisonByLongRef = {
+      ...data.comparisonByRef,
+      project_baseline: {
+        ...data.comparisonByRef.project_baseline,
+        results: { [longRef]: { ...data.baselineResult, ref: longRef } },
+      },
+      experiment_baseline: {
+        ...data.comparisonByRef.experiment_baseline,
+        results: { [longRef]: { ...data.baselineResult, ref: longRef } },
+      },
+      experiment_set: {
+        ...data.comparisonByRef.experiment_set,
+        results: { [longRef]: { ...data.setAResult, ref: longRef } },
+      },
+    };
+
+    await page.route('**/api/projects/*/experiments/*/sets/*/compare-by-ref**', (route) =>
+      route.fulfill({ json: comparisonByLongRef }),
+    );
+
+    await page.goto(base);
+    await expect(page.getByText(longRef).first()).toBeVisible();
+
+    const layout = await page.locator('tr.set-aggregate').evaluate((row) => {
+      const refCell = row.children[1];
+      const firstMetricCell = row.children[2];
+      const refText = refCell.firstChild;
+      if (!refText || !firstMetricCell) {
+        throw new Error('Expected ref and metric cells to render.');
+      }
+
+      const range = document.createRange();
+      range.selectNodeContents(refText);
+      const refTextRect = range.getBoundingClientRect();
+      const metricRect = firstMetricCell.getBoundingClientRect();
+
+      return {
+        refTextRight: refTextRect.right,
+        metricLeft: metricRect.left,
+      };
+    });
+
+    expect(layout.refTextRight).toBeLessThanOrEqual(layout.metricLeft);
+  });
+
   test('metric columns appear in table header', async ({ mockedPage: page }) => {
     await page.goto(base);
     for (const metricName of Object.keys(data.metricDefinitions)) {

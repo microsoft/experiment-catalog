@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Catalog;
@@ -13,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 using ModelContextProtocol;
 using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.AspNetCore.Authentication;
@@ -70,28 +72,32 @@ builder.Services
     .WithToolsFromAssembly()
     .WithRequestFilters(filters => filters.AddCallToolFilter(McpToolExceptionFilter.Create()));
 
-// add controllers with swagger
+// add controllers with OpenAPI
 builder.Services.AddControllers().AddNewtonsoftJson();
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options =>
+builder.Services.AddOpenApi(options =>
 {
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddDocumentTransformer(async (document, context, cancellationToken) =>
     {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Enter your JWT token"
-    });
-    options.AddSecurityRequirement(doc => new OpenApiSecurityRequirement
-    {
+        var configFactory = context.ApplicationServices.GetRequiredService<IConfigFactory<IConfig>>();
+        var config = await configFactory.GetAsync(cancellationToken);
+        if (!config.IsAuthenticationEnabled) return;
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
+        document.Components.SecuritySchemes["Bearer"] = new OpenApiSecurityScheme
         {
-            new OpenApiSecuritySchemeReference("Bearer", doc),
-            new System.Collections.Generic.List<string>()
-        }
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Enter your JWT token"
+        };
+        document.Security ??= new List<OpenApiSecurityRequirement>();
+        var requirement = new OpenApiSecurityRequirement();
+        requirement[new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>();
+        document.Security.Add(requirement);
+        return;
     });
-}).AddSwaggerGenNewtonsoftSupport();
+});
 
 // add authentication with deferred configuration
 builder.Services.AddSingleton<IConfigureOptions<JwtBearerOptions>, JwtBearerConfigurator>();
@@ -122,12 +128,12 @@ builder.Services.AddCors(options =>
     });
 });
 
-// build with swagger
+// build the app
 var app = builder.Build();
 
-// configure swagger
-app.UseSwagger();
-app.UseSwaggerUI();
+// configure OpenAPI and Scalar UI
+app.MapOpenApi();
+app.MapScalarApiReference();
 
 // use CORS
 app.UseCors("default-policy");

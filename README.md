@@ -129,7 +129,7 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
    dotnet run
    ```
 
-The API will be available at `http://localhost:6010` with Swagger documentation at `/swagger`.
+The API will be available at `http://localhost:6010` with API documentation at `/scalar/v1`.
 
 #### Frontend UI
 

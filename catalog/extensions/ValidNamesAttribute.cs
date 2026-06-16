@@ -17,6 +17,60 @@ public class ValidNamesAttribute : ValidationAttribute
     {
     }
 
+    protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+    {
+        if (value is null)
+        {
+            return ValidationResult.Success;
+        }
+
+        // Handle IDictionary<string, object> - validate keys only
+        if (value is IDictionary<string, object> dictionary)
+        {
+            if (dictionary.Count == 0)
+            {
+                return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+            }
+            foreach (var key in dictionary.Keys)
+            {
+                if (key.Length > Ext.MaxNameLength)
+                {
+                    return new ValidationResult($"The {validationContext.DisplayName} field contains a name that exceeds the maximum length of {Ext.MaxNameLength} characters.");
+                }
+
+                if (!key.IsValidName())
+                {
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+                }
+            }
+            return ValidationResult.Success;
+        }
+
+        // Handle IEnumerable<string>
+        if (value is IEnumerable<string> strings)
+        {
+            bool hasItems = false;
+            foreach (var str in strings)
+            {
+                hasItems = true;
+                if (str is not null && str.Length > Ext.MaxNameLength)
+                {
+                    return new ValidationResult($"The {validationContext.DisplayName} field contains a name that exceeds the maximum length of {Ext.MaxNameLength} characters.");
+                }
+
+                if (!str.IsValidName())
+                {
+                    return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+                }
+            }
+            return hasItems
+                ? ValidationResult.Success
+                : new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+        }
+
+        return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+    }
+
     public override bool IsValid(object? value)
     {
         if (value is null)

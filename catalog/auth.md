@@ -79,17 +79,26 @@ In addition to the above configuration values, you may also want to set:
 
 ### Reverse Proxy Deployment
 
-When the catalog runs behind a reverse proxy (e.g., Application Gateway, NGINX), the login flow must construct redirect URIs using the external-facing URL rather than the internal hostname. The following configuration supports this:
+When the catalog uses OIDC authentication behind a reverse proxy (e.g., Application Gateway, NGINX, Azure Container Apps), the login flow must construct redirect URIs using the external-facing URL rather than the internal hostname. The following settings **only affect OIDC redirect URI construction** — they do not alter scheme or host handling for any other requests:
 
-| Variable | Purpose |
-|----------|---------|
-| `PATH_BASE` | Sets `Request.PathBase` via `UsePathBase()`. The path base is included in the OIDC redirect URI (e.g., `/catalog/auth/callback`). |
-| `EXTERNAL_SCHEME` | Overrides `Request.Scheme` in the redirect URI. Use when the external scheme differs from what the app sees internally (e.g., clients connect over HTTPS but the app receives HTTP from the proxy). Falls back to `Request.Scheme` if unset. |
-| `EXTERNAL_HOST` | Overrides `Request.Host` in the redirect URI. Use when the proxy forwards requests using an internal hostname (e.g., a Container App FQDN) rather than the public domain. Falls back to `Request.Host` if unset. |
+| Variable          | Purpose                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PATH_BASE`       | Sets `Request.PathBase` via `UsePathBase()`. The path base is included in the OIDC redirect URI (e.g., `/catalog/auth/callback`).                                                                                                                                                                                                                                                                       |
+| `EXTERNAL_SCHEME` | Overrides `Request.Scheme` in the redirect URI. If unset, falls back to the `X-Forwarded-Proto` header and then `Request.Scheme`. **Required on Azure Container Apps** because the Container App Environment terminates TLS at its Envoy ingress — the app always sees `http` internally even when clients connect over HTTPS. Set to `https` to ensure OIDC redirect URIs match the external protocol. |
+| `EXTERNAL_HOST`   | Overrides `Request.Host` in the redirect URI. Use when the proxy forwards requests using an internal hostname (e.g., a Container App FQDN) rather than the public domain. Falls back to `Request.Host` if unset.                                                                                                                                                                                        |
 
-This approach is purely config-driven and does not rely on forwarded headers (`X-Forwarded-Host`, `X-Forwarded-Proto`). This avoids issues with proxies that strip or overwrite these headers (e.g., Azure Container Apps Envoy, or Application Gateway with `pickHostNameFromBackendAddress`).
+The scheme resolution order for the OIDC redirect URI is: `EXTERNAL_SCHEME` → `X-Forwarded-Proto` header → `Request.Scheme`. Setting `EXTERNAL_SCHEME` explicitly is the most reliable approach — it avoids dependence on forwarded headers that proxies may strip, overwrite, or that malicious clients could spoof.
 
-**Example**: For a catalog deployed at `https://apps.example.com/catalog/` behind an Application Gateway:
+> **Why this matters on Azure Container Apps:** The Container App Environment terminates TLS at the Envoy ingress before forwarding traffic to your container over plain HTTP. As a result, `Request.Scheme` is always `http` regardless of how the client connected. Without `EXTERNAL_SCHEME=https`, the OIDC redirect URI will be `http://...`, which will fail because identity providers reject redirect URIs that don't match the registered (HTTPS) URI. This only affects the OIDC login/callback flow — all other endpoints are unaffected.
+
+**Example — Azure Container Apps:**
+
+- Set `EXTERNAL_SCHEME=https`
+- Set `EXTERNAL_HOST=my-catalog.niceocean-abc123.eastus.azurecontainerapps.io` (or your custom domain)
+- Register `https://<host>/auth/callback` as the redirect URI in the app registration
+
+**Example — Application Gateway at a sub-path:**
+
 - Set `PATH_BASE=/catalog`
 - Set `EXTERNAL_SCHEME=https`
 - Set `EXTERNAL_HOST=apps.example.com`

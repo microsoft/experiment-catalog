@@ -15,6 +15,31 @@ public class ValidNameAttribute : ValidationAttribute
     {
     }
 
+    protected override ValidationResult? IsValid(object? value, ValidationContext validationContext)
+    {
+        if (value is null)
+        {
+            return ValidationResult.Success;
+        }
+
+        if (value is not string name)
+        {
+            return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+        }
+
+        if (name.Length > Ext.MaxNameLength)
+        {
+            return new ValidationResult($"The {validationContext.DisplayName} field must be {Ext.MaxNameLength} characters or fewer.");
+        }
+
+        if (!name.IsValidName())
+        {
+            return new ValidationResult(FormatErrorMessage(validationContext.DisplayName));
+        }
+
+        return ValidationResult.Success;
+    }
+
     public override bool IsValid(object? value)
     {
         if (value is null)
@@ -22,11 +47,6 @@ public class ValidNameAttribute : ValidationAttribute
             return true;
         }
 
-        if (value is not string name)
-        {
-            return false;
-        }
-
-        return name.IsValidName();
+        return value is string name && name.IsValidName();
     }
 }

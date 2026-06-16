@@ -1,4 +1,5 @@
 using Catalog;
+using System.ComponentModel.DataAnnotations;
 using Xunit;
 
 namespace Catalog.Tests;
@@ -46,8 +47,9 @@ public class ValidNameAttributeTests
     public static TheoryData<string, bool> BoundaryLengthTestData => new()
     {
         { new string('a', 50), true }, // exactly maximum
-        { "a1-b_c.d:e" + new string('x', 40), true }, // exactly 50 chars
-        { new string('a', 51), false } // exceeds maximum
+        { "a1-b_c.d:e" + new string('x', 90), true }, // exactly 100 chars
+        { new string('a', 100), true }, // exactly maximum
+        { new string('a', 101), false } // exceeds maximum
     };
 
     [Fact]
@@ -55,5 +57,38 @@ public class ValidNameAttributeTests
     {
         Assert.False(_attribute.IsValid(123));
         Assert.False(_attribute.IsValid(new object()));
+    }
+
+    [Fact]
+    public void GetValidationResult_ReportedRefUnderMaximumLength_ReturnsSuccess()
+    {
+        var context = new ValidationContext(new AddResultRequest()) { MemberName = nameof(AddResultRequest.Ref) };
+        var result = _attribute.GetValidationResult(
+            "conv_ae8dab69b18a06f100ZzSeiXIcJq0impw7szyUJRIQQbya1Pgq_01",
+            context);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public void GetValidationResult_RefExceedsMaximumLength_ReturnsLengthError()
+    {
+        var context = new ValidationContext(new AddResultRequest()) { MemberName = nameof(AddResultRequest.Ref) };
+        var result = _attribute.GetValidationResult(new string('a', 101), context);
+
+        Assert.NotNull(result);
+        Assert.Equal("The Ref field must be 100 characters or fewer.", result.ErrorMessage);
+    }
+
+    [Fact]
+    public void GetValidationResult_RefContainsInvalidCharacter_ReturnsCharacterError()
+    {
+        var context = new ValidationContext(new AddResultRequest()) { MemberName = nameof(AddResultRequest.Ref) };
+        var result = _attribute.GetValidationResult("invalid/name", context);
+
+        Assert.NotNull(result);
+        Assert.Equal(
+            "The Ref field must contain only letters, digits, hyphens, underscores, periods, or colons.",
+            result.ErrorMessage);
     }
 }

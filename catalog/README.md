@@ -86,11 +86,11 @@ The catalog supports optional JWT authentication using any OIDC-compliant identi
 
 ### Reverse Proxy / Virtual Directory
 
-When hosting the catalog behind a reverse proxy at a sub-path (virtual directory), use the following settings to ensure correct redirect URI construction and asset serving:
+When using OIDC authentication behind a reverse proxy (or at a sub-path), use the following settings to ensure the OIDC redirect URI is constructed correctly:
 
 - **PATH_BASE** [OPTIONAL]: The path prefix under which the catalog is served (e.g., `/catalog`). Sets `Request.PathBase` via `UsePathBase()` middleware so that routing, redirect URIs, and links work correctly from the sub-path.
 
-- **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used by external clients to reach the catalog. Overrides `Request.Scheme` when constructing OIDC redirect URIs. Falls back to `Request.Scheme` if unset.
+- **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used when constructing the OIDC redirect URI (`/auth/callback`). This setting is **only** used for OIDC authentication flows — it does not affect other request handling. If unset, the app falls back to the `X-Forwarded-Proto` header and then `Request.Scheme`. **Required for Azure Container Apps with OIDC** — the Container App Environment performs TLS termination at the Envoy ingress, so the app always sees `http` in `Request.Scheme` even though external clients connect over HTTPS. Set `EXTERNAL_SCHEME=https` to ensure the OIDC redirect URI uses the correct protocol.
 
 - **EXTERNAL_HOST** [OPTIONAL]: The public hostname (e.g., `apps.example.com`) used by external clients. Overrides `Request.Host` when constructing OIDC redirect URIs. Falls back to `Request.Host` if unset. Use this when the reverse proxy forwards requests using an internal hostname that differs from the public domain.
 
@@ -236,8 +236,30 @@ curl -i http://localhost:6010/api/projects/project-example/metrics
 Add metric definitions to a project:
 
 ```bash
-curl -i -X PUT -d '[{ "name": "gpt-coherence", "higherIsBetter": true }]' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/metrics
+curl -i -X PUT -d '[
+  {
+    "name": "gpt-coherence",
+    "min": 0,
+    "max": 5,
+    "aggregate_function": "Average",
+    "order": 1,
+    "is_important": true,
+    "tags": []
+  }
+]' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/metrics
 ```
+
+Metric definition fields:
+
+| Field                | Type       | Required | Description                                                                                                |
+| -------------------- | ---------- | -------- | ---------------------------------------------------------------------------------------------------------- |
+| `name`               | string     | yes      | Metric name (must be a valid identifier).                                                                  |
+| `min`                | number     | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                         |
+| `max`                | number     | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                         |
+| `aggregate_function` | string     | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`.   |
+| `order`              | integer    | no       | Display order in the UI (lower numbers appear first).                                                      |
+| `is_important`       | boolean    | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                     |
+| `tags`               | string[]   | no       | Tags for categorization (e.g., `lower-is-better`).                                                         |
 
 ### Compare by Ref
 
@@ -287,12 +309,12 @@ Download a support document (requires `ENABLE_DOWNLOAD=true`):
 curl -i "http://localhost:6010/api/download?url=container/path/to/file.json"
 ```
 
-### Swagger Documentation
+### OpenAPI Documentation
 
-The API includes Swagger documentation available at:
+The API includes Scalar documentation available at:
 
 ```text
-http://localhost:6010/swagger
+http://localhost:6010/scalar/v1
 ```
 
 ## Sample Data
