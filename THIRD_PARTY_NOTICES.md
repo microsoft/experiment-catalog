@@ -22,7 +22,28 @@ This file tracks notice obligations for third-party dependencies used by this re
 
 ## Notice records
 
-No additional notice text has been recorded yet.
+### Experiment Catalog agent skills
+
+- Source: <https://github.com/plasne/agent-skills>
+- Paths:
+  - `.agents/skills/experiment-catalog-install`
+  - `.agents/skills/experiment-catalog-demo-data`
+- Notice: Repository-local agent skills are adapted from the upstream
+  `plasne/agent-skills` Experiment Catalog skill content for use with this
+  repository.
+
+### ISE OSS usage attribution notice
+
+- Asset ID: `acce1e78-0cec-4c66-9e3b-900c69b1c199`
+- Scope: Azure Resource Manager control-plane deployment operations generated
+  or executed by deployment automation.
+- Notice: Deployment automation may append this Asset ID to ARM `User-Agent`
+  values so Microsoft ISE can measure adoption of this open source tool. This is
+  not Experiment Catalog application telemetry. Runtime catalog data-plane
+  operations do not use this ID. ARM telemetry reports aggregate fields such as
+  `tenantId`, `subscriptionId`, `userAgent`, `action`, and `statusCode`; it does
+  not collect catalog data or Blob Storage contents. Users are free to opt out;
+  see the README disclosure for instructions.
 
 When new notice obligations are identified, append a section with:
 
