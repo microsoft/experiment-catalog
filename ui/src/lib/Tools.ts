@@ -39,6 +39,40 @@ export function decodeConfig(encoded: string): ViewConfig {
     }
 }
 
+export function sanitizeTagQuerystring(
+    querystring: string | undefined,
+    availableTags: string[],
+): string {
+    if (!querystring) return "";
+
+    const available = new Set(availableTags);
+    const params = new URLSearchParams(querystring);
+    const includeTags = filterQueryTags(params.get("include-tags"), available);
+    const excludeTags = filterQueryTags(params.get("exclude-tags"), available);
+
+    return [
+        includeTags.length > 0 ? `include-tags=${includeTags.join(",")}` : "",
+        excludeTags.length > 0 ? `exclude-tags=${excludeTags.join(",")}` : "",
+    ]
+        .filter((s) => s)
+        .join("&");
+}
+
+export async function sanitizeProjectTagQuerystring(
+    projectName: string,
+    querystring: string | undefined,
+    listTagsForProject: (projectName: string) => Promise<string[]>,
+): Promise<string> {
+    if (!querystring) return "";
+    const tags = await listTagsForProject(projectName);
+    return sanitizeTagQuerystring(querystring, tags);
+}
+
+function filterQueryTags(value: string | null, availableTags: Set<string>): string[] {
+    if (!value) return [];
+    return value.split(",").filter((tag) => tag && availableTags.has(tag));
+}
+
 export function updateURL(project?: string | null, experiment?: string | null, page?: string | null, config?: ViewConfig | null) {
     let url = `${window.location.pathname}`;
     var parts: string[] = [];

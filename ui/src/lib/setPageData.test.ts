@@ -100,6 +100,13 @@ describe("resolveSelectedMetrics", () => {
         ).toEqual(["a"]);
     });
 
+    it("falls back to default selection when all config metrics are unavailable", () => {
+        expect(resolveSelectedMetrics(["missing"], ["a", "b"], 2)).toEqual([
+            "a",
+            "b",
+        ]);
+    });
+
     it("selects all when ≤10 definitions and no config", () => {
         expect(resolveSelectedMetrics(undefined, ["a", "b"], 2)).toEqual([
             "a",

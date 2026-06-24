@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { extractSortedMetrics, buildSelectedEntities, filterImportantMetrics } from "./comparisonData";
+import {
+    extractSortedMetrics,
+    buildSelectedEntities,
+    filterImportantMetrics,
+    sanitizeCheckedMetrics,
+} from "./comparisonData";
 
 // Minimal stubs matching the global Comparison / ComparisonEntity types
 function makeComparison(overrides: Partial<Comparison> = {}): Comparison {
@@ -137,5 +142,17 @@ describe("filterImportantMetrics", () => {
         const { filtered, hasImportantMetrics } = filterImportantMetrics([], {}, true);
         expect(filtered).toEqual([]);
         expect(hasImportantMetrics).toBe(false);
+    });
+});
+
+describe("sanitizeCheckedMetrics", () => {
+    it("removes highlighted metrics that are not available", () => {
+        expect(sanitizeCheckedMetrics("accuracy,stale,f1", ["accuracy", "f1"])).toBe(
+            "accuracy,f1",
+        );
+    });
+
+    it("returns empty string when all highlighted metrics are stale", () => {
+        expect(sanitizeCheckedMetrics("stale", ["accuracy"])).toBe("");
     });
 });

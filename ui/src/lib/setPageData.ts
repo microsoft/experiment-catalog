@@ -85,7 +85,8 @@ export function resolveSelectedMetrics(
     definitionCount: number,
 ): string[] {
     if (configMetrics?.length) {
-        return configMetrics.filter((m) => allMetrics.includes(m));
+        const selectedMetrics = configMetrics.filter((m) => allMetrics.includes(m));
+        if (selectedMetrics.length > 0) return selectedMetrics;
     }
     if (definitionCount <= 10) {
         return allMetrics;
