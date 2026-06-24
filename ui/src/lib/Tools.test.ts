@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { encodeConfig, decodeConfig, sortMetrics, type ViewConfig } from "./Tools";
+import {
+    encodeConfig,
+    decodeConfig,
+    sanitizeProjectTagQuerystring,
+    sanitizeTagQuerystring,
+    sortMetrics,
+    type ViewConfig,
+} from "./Tools";
 
 // ── encodeConfig / decodeConfig round-trip ──────────────────────────────────
 
@@ -58,6 +65,53 @@ describe("decodeConfig", () => {
 
     it("returns empty object for garbage input", () => {
         expect(decodeConfig("not-base64!!!")).toEqual({});
+    });
+});
+
+describe("sanitizeTagQuerystring", () => {
+    it("removes include and exclude tags that are not available", () => {
+        expect(
+            sanitizeTagQuerystring(
+                "include-tags=known,missing&exclude-tags=other,stale",
+                ["known", "other"],
+            ),
+        ).toBe("include-tags=known&exclude-tags=other");
+    });
+
+    it("returns empty string when no selected tags exist in the project", () => {
+        expect(sanitizeTagQuerystring("include-tags=stale", [])).toBe("");
+    });
+});
+
+describe("sanitizeProjectTagQuerystring", () => {
+    it("loads tags for the current project before sanitizing", async () => {
+        const calls: string[] = [];
+        const sanitized = await sanitizeProjectTagQuerystring(
+            "project-a",
+            "include-tags=known,stale",
+            async (projectName) => {
+                calls.push(projectName);
+                return ["known"];
+            },
+        );
+
+        expect(calls).toEqual(["project-a"]);
+        expect(sanitized).toBe("include-tags=known");
+    });
+
+    it("does not load tags when there is no tag querystring", async () => {
+        let called = false;
+        const sanitized = await sanitizeProjectTagQuerystring(
+            "project-a",
+            "",
+            async () => {
+                called = true;
+                return [];
+            },
+        );
+
+        expect(called).toBe(false);
+        expect(sanitized).toBe("");
     });
 });
 

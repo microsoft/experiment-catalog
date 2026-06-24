@@ -3,11 +3,17 @@
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
-  import { getComparison, addAnnotation as apiAddAnnotation } from "./api";
+  import {
+    getComparison,
+    addAnnotation as apiAddAnnotation,
+    listTags,
+  } from "./api";
+  import { sanitizeProjectTagQuerystring } from "./Tools";
   import {
     extractSortedMetrics,
     buildSelectedEntities,
     filterImportantMetrics,
+    sanitizeCheckedMetrics,
   } from "./comparisonData";
 
   interface Props {
@@ -137,9 +143,27 @@
     }
   };
 
+  const reconcileTagFilters = async () => {
+    if (!tagFilters) return;
+    try {
+      const sanitizedTagFilters = await sanitizeProjectTagQuerystring(
+        project.name,
+        tagFilters,
+        listTags,
+      );
+      if (sanitizedTagFilters !== tagFilters) {
+        tagFilters = sanitizedTagFilters;
+        onchangeTags?.(sanitizedTagFilters);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const fetchComparison = async () => {
     try {
       loadingState = "loading";
+      await reconcileTagFilters();
 
       // fetch comparison
       comparison = await getComparison(
@@ -163,8 +187,12 @@
       applySetList();
 
       // apply the checked metrics
-      if (checked) {
-        metricsHighlighted = new Set(checked.split(","));
+      const sanitizedChecked = sanitizeCheckedMetrics(checked, metrics);
+      metricsHighlighted = sanitizedChecked
+        ? new Set(sanitizedChecked.split(","))
+        : new Set();
+      if (sanitizedChecked !== checked) {
+        onchangeChecked?.(sanitizedChecked);
       }
 
       initialized = true;

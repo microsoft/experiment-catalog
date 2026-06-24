@@ -5,10 +5,11 @@
   import MetricsFilter from "./MetricsFilter.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import FreeFilter from "./FreeFilter.svelte";
-  import { type ViewConfig } from "./Tools";
+  import { sanitizeProjectTagQuerystring, type ViewConfig } from "./Tools";
   import {
     getComparisonByRef,
     getSetResults,
+    listTags,
     setAsExperimentBaseline as apiSetAsExperimentBaseline,
   } from "./api";
   import {
@@ -78,9 +79,37 @@
     onchangeConfig?.(newConfig);
   };
 
+  const emitTagConfigChange = (newTagFilters: string) => {
+    const newConfig: ViewConfig = { ...config };
+    if (newTagFilters) {
+      newConfig.tags = newTagFilters;
+    } else {
+      delete newConfig.tags;
+    }
+    onchangeConfig?.(newConfig);
+  };
+
+  const reconcileTagFilters = async () => {
+    if (!tagFilters) return;
+    try {
+      const sanitizedTagFilters = await sanitizeProjectTagQuerystring(
+        project.name,
+        tagFilters,
+        listTags,
+      );
+      if (sanitizedTagFilters !== tagFilters) {
+        tagFilters = sanitizedTagFilters;
+        emitTagConfigChange(sanitizedTagFilters);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   const fetchComparison = async () => {
     try {
       loadingState = "loading";
+      await reconcileTagFilters();
       // get the comparison
       comparison = await getComparisonByRef(
         project.name,

@@ -48,6 +48,22 @@ export function filterImportantMetrics(
 }
 
 /**
+ * Keep URL-highlighted metrics scoped to metrics that exist in the current
+ * comparison.
+ */
+export function sanitizeCheckedMetrics(
+    checked: string | undefined,
+    availableMetrics: string[],
+): string {
+    if (!checked) return "";
+    const available = new Set(availableMetrics);
+    return checked
+        .split(",")
+        .filter((metric) => metric && available.has(metric))
+        .join(",");
+}
+
+/**
  * Build the `selected` entities array from the current set-list string
  * and the full comparison.
  *

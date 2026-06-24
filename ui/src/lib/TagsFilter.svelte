@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import TriStateCheckboxes from "./TriStateCheckboxes.svelte";
   import { listTags } from "./api";
+  import { sanitizeTagQuerystring } from "./Tools";
 
   interface Props {
     project: Project;
@@ -44,6 +45,12 @@
   const fetchTags = async () => {
     try {
       tags = await listTags(project.name);
+      const sanitizedQuerystring = sanitizeTagQuerystring(querystring, tags);
+      if (sanitizedQuerystring !== (querystring ?? "")) {
+        querystring = sanitizedQuerystring;
+        parseQuerystring();
+        onapply?.(querystring);
+      }
     } catch (error) {
       console.error(error);
     }
