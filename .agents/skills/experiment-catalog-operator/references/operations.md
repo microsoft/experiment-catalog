@@ -94,6 +94,8 @@ Changing a baseline changes interpretation for future comparisons. Confirm unles
 
 REST only in current catalog tools:
 
+`inference_uri`, `evaluation_uri`, and `ground_truth_uri` are optional support document links. Usually include `inference_uri` and `evaluation_uri` for result uploads; only include `ground_truth_uri` when the ground-truth source has a useful artifact URI to link.
+
 ```http
 POST /api/projects/{project}/experiments/{experiment}/results
 Content-Type: application/json

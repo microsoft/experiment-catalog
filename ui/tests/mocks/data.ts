@@ -93,6 +93,7 @@ function makeMetric(
 export const baselineResult = {
   ref: 'ref-1',
   set: 'baseline',
+  ground_truth_uri: null,
   inference_uri: null,
   evaluation_uri: null,
   desc: 'Baseline run',
@@ -110,6 +111,7 @@ export const baselineResult = {
 export const setAResult = {
   ref: 'ref-1',
   set: 'set-a',
+  ground_truth_uri: 'https://example.com/gt/set-a',
   inference_uri: 'https://example.com/inference/set-a',
   evaluation_uri: 'https://example.com/eval/set-a',
   desc: 'Set A run',
@@ -127,6 +129,7 @@ export const setAResult = {
 export const setBResult = {
   ref: 'ref-1',
   set: 'set-b',
+  ground_truth_uri: null,
   inference_uri: null,
   evaluation_uri: null,
   desc: 'Set B run',

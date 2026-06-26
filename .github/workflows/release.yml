@@ -1,0 +1,129 @@
+name: Release Version
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  REGISTRY: ghcr.io
+
+permissions: read-all
+
+jobs:
+  build-and-push-catalog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image-name: ${{ steps.image.outputs.name }}
+      image-tags: ${{ steps.meta.outputs.tags }}
+      image-digest: ${{ steps.build.outputs.digest }}
+    steps:
+      - name: Validate version tag
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Release tags must use vMAJOR.MINOR.PATCH format, got: $TAG_NAME" >&2
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set image name
+        id: image
+        run: echo "name=${REGISTRY}/${GITHUB_REPOSITORY}/catalog" >> "$GITHUB_OUTPUT"
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@80c7e94dd9b9319bd5eb7a0e0fe9291e23a2a2e9 # v6.1.0
+        with:
+          images: ${{ steps.image.outputs.name }}
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+
+      - name: Build and push Docker image
+        id: build
+        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        with:
+          context: .
+          file: ./catalog.Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          platforms: linux/amd64,linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  create-release:
+    needs: build-and-push-catalog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Write release artifacts
+        env:
+          IMAGE_NAME: ${{ needs.build-and-push-catalog.outputs.image-name }}
+          IMAGE_TAGS: ${{ needs.build-and-push-catalog.outputs.image-tags }}
+          IMAGE_DIGEST: ${{ needs.build-and-push-catalog.outputs.image-digest }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          mkdir -p artifacts/release
+          {
+            echo "version=${TAG_NAME#v}"
+            echo "tag=${TAG_NAME}"
+            echo "commit=${GITHUB_SHA}"
+            echo "image=${IMAGE_NAME}"
+            echo "digest=${IMAGE_DIGEST}"
+            echo "tags="
+            echo "${IMAGE_TAGS}"
+          } > artifacts/release/container-image.txt
+          {
+            echo "# ${TAG_NAME}"
+            echo
+            echo "- Commit: ${GITHUB_SHA}"
+            echo "- Image: ${IMAGE_NAME}@${IMAGE_DIGEST}"
+            echo
+            echo "## Tags"
+            echo
+            echo "${IMAGE_TAGS}" | sed 's/^/- `/' | sed 's/$/`/'
+          } > artifacts/release/release-artifacts.md
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-${{ github.ref_name }}
+          path: artifacts/release/
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG_NAME" --repo "$GITHUB_REPOSITORY" --title "$TAG_NAME" --latest
+            gh release upload "$TAG_NAME" artifacts/release/* --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$TAG_NAME" artifacts/release/* --repo "$GITHUB_REPOSITORY" --title "$TAG_NAME" --generate-notes --latest
+          fi

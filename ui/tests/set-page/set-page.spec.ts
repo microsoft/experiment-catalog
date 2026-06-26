@@ -142,13 +142,14 @@ test.describe('SetPage drill-down', () => {
     await expect(baselineBtn).toBeEnabled();
   });
 
-  test('inference and evaluation links in iteration rows', async ({ mockedPage: page }) => {
+  test('support resource links in iteration rows', async ({ mockedPage: page }) => {
     await page.goto(base);
     // Toggle set iterations to reveal detail rows
     await page.getByRole('button', { name: /toggle set iterations/ }).click();
     await expect(page.getByText('Set / set-a')).toBeVisible();
 
-    // URIs are rendered as buttons: (inf) and (eval) via window.open
+    // URIs are rendered as buttons via window.open
+    await expect(page.getByRole('button', { name: '(gt)' })).toBeVisible();
     await expect(page.getByRole('button', { name: '(inf)' })).toBeVisible();
     await expect(page.getByRole('button', { name: '(eval)' })).toBeVisible();
   });

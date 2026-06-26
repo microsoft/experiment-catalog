@@ -31,6 +31,7 @@ public class ResultsController : ControllerBase
         {
             Ref = request.Ref,
             Set = request.Set,
+            GroundTruthUri = request.GroundTruthUri,
             InferenceUri = request.InferenceUri,
             EvaluationUri = request.EvaluationUri,
             Metrics = request.ToMetrics(),

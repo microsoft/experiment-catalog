@@ -18,6 +18,7 @@ function makeResults(
   return values.map((v, i) => ({
     ref: `ref-${i}`,
     set: setName,
+    ground_truth_uri: null,
     inference_uri: null,
     evaluation_uri: null,
     desc: `${setName} result ${i}`,

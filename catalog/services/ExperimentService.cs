@@ -269,6 +269,7 @@ public class ExperimentService(
         {
             foreach (var result in results)
             {
+                if (!string.IsNullOrEmpty(result.GroundTruthUri)) result.GroundTruthUri = string.Format(config.PATH_TEMPLATE, result.GroundTruthUri);
                 if (!string.IsNullOrEmpty(result.InferenceUri)) result.InferenceUri = string.Format(config.PATH_TEMPLATE, result.InferenceUri);
                 if (!string.IsNullOrEmpty(result.EvaluationUri)) result.EvaluationUri = string.Format(config.PATH_TEMPLATE, result.EvaluationUri);
             }
