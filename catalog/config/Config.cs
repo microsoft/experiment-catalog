@@ -55,10 +55,10 @@ public class Config : IConfig, IValidatableObject
     [SetValue("PATH_TEMPLATE")]
     public string? PATH_TEMPLATE { get; set; }
 
-    [SetValue("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS", "AZURE_STORAGE_ACCOUNT_NAME")]
+    [SetValue("AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS")]
     public string? AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS { get; set; }
 
-    [SetValue("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS", "AZURE_STORAGE_ACCOUNT_CONNSTRING")]
+    [SetValue("AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS")]
     [ResolveSecret]
     [LogConfig(mode: LogConfigMode.Masked)]
     public string? AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS { get; set; }
@@ -132,6 +132,28 @@ public class Config : IConfig, IValidatableObject
     public bool SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT { get; set; } = false;
 
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
+
+    [SetValues]
+    public void ApplySupportDocsStorageDefaults()
+    {
+        if (!string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS))
+        {
+            return;
+        }
+
+        if (!string.IsNullOrEmpty(AZURE_STORAGE_ACCOUNT_CONNSTRING))
+        {
+            AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS = AZURE_STORAGE_ACCOUNT_CONNSTRING;
+            return;
+        }
+
+        AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS = AZURE_STORAGE_ACCOUNT_NAME;
+    }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
