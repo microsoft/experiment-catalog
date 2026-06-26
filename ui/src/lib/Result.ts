@@ -1,6 +1,7 @@
 interface Result {
     ref?: string;
     set?: string;
+    ground_truth_uri?: string;
     inference_uri?: string;
     evaluation_uri?: string;
     desc?: string;

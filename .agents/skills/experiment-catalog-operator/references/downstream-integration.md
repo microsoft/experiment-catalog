@@ -23,6 +23,8 @@ Do not require the downstream repo to copy Experiment Catalog source code. Treat
 3. Ensure metric definitions exist for known metrics.
 4. Upload each result row:
 
+The support document URI fields are optional. Most integrations should set `inference_uri` and `evaluation_uri` when those artifacts are written; setting `ground_truth_uri` is uncommon and should be reserved for cases where the ground-truth artifact itself needs to be linked.
+
 ```http
 POST {catalogBaseUrl}/projects/{project}/experiments/{experiment}/results
 Content-Type: application/json

@@ -84,6 +84,8 @@ Experiment:
 
 Result:
 
+Support document URIs are optional. It is common to set `inference_uri` and `evaluation_uri` so users can inspect run artifacts; it is not common to set `ground_truth_uri`, and agents should only include it when a distinct ground-truth artifact URI is available.
+
 ```json
 {
   "ref": "q1",

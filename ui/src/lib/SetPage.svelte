@@ -211,7 +211,6 @@
 
   let initialized = $state(false);
 
-
   // Called when metrics filter changes
   const onMetricsChange = () => {
     if (initialized) {
@@ -260,8 +259,16 @@
 </div>
 <h3>
   <span>SET: {setName}</span>
-  <button class="btn" onclick={fetchDetails} disabled={loadingState === "loading"}>toggle set iterations</button>
-  <button class="btn" onclick={fetchBaselineDetails} disabled={loadingState === "loading"}>toggle baseline iterations</button>
+  <button
+    class="btn"
+    onclick={fetchDetails}
+    disabled={loadingState === "loading"}>toggle set iterations</button
+  >
+  <button
+    class="btn"
+    onclick={fetchBaselineDetails}
+    disabled={loadingState === "loading"}>toggle baseline iterations</button
+  >
 </h3>
 
 {#if comparison}
@@ -349,6 +356,14 @@
             <tr>
               <td>
                 <nobr>Baseline / {result.set}</nobr>
+                {#if result.ground_truth_uri}
+                  <button
+                    class="link"
+                    onclick={() =>
+                      window.open(result.ground_truth_uri, "_blank")}
+                    >(gt)</button
+                  >
+                {/if}
                 {#if result.inference_uri}
                   <button
                     class="link"
@@ -416,6 +431,14 @@
             <tr>
               <td>
                 <nobr>Set / {result.set}</nobr>
+                {#if result.ground_truth_uri}
+                  <button
+                    class="link"
+                    onclick={() =>
+                      window.open(result.ground_truth_uri, "_blank")}
+                    >(gt)</button
+                  >
+                {/if}
                 {#if result.inference_uri}
                   <button
                     class="link"

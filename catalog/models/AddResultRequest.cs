@@ -18,6 +18,9 @@ public class AddResultRequest
     [ValidName]
     public string? Set { get; set; }
 
+    [JsonProperty("ground_truth_uri", NullValueHandling = NullValueHandling.Ignore)]
+    public string? GroundTruthUri { get; set; }
+
     [JsonProperty("inference_uri", NullValueHandling = NullValueHandling.Ignore)]
     public string? InferenceUri { get; set; }
 

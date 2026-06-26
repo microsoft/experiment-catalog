@@ -40,7 +40,7 @@ To configure the solution, you must provide the following environment variables.
 
 - **PRECISION_FOR_CALC_VALUES** [DEFAULT: 4]: The number of decimal places to use for calculated values.
 
-- **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference and evaluation output files. Use `{0}` as a placeholder for the URI.
+- **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference, evaluation, and ground truth output files. Use `{0}` as a placeholder for the URI. When running on localhost, it is common to set this to `http://localhost:6010/api/download?url={0}`. When running deployed, it is common to set this to `/api/download?url={0}`. Either of these options will give you a JSON download of the file when you click on the link in the UI. However, if you want to create your own visualization and analysis of the inference, evaluation, and ground truth output files, you can set this to a different URL that will allow you to do that.
 
 - **AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS** [OPTIONAL]: The name of a separate Azure Storage account for support documents. Defaults to the main storage account if ENABLE_DOWNLOAD is true.
 
@@ -151,10 +151,10 @@ Finally, you can record any results you have for the baseline experiment like th
 curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3, "gpt-correctness": 2 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
 ```
 
-You can also include optional URIs to inference and evaluation output files:
+You can also include optional URIs to inference, evaluation, and ground truth output files:
 
 ```bash
-curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "inference_uri": "path/to/inference.json", "evaluation_uri": "path/to/evaluation.json", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
+curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "inference_uri": "path/to/inference.json", "evaluation_uri": "path/to/evaluation.json", "ground_truth_uri": "path/to/ground-truth.json", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
 ```
 
 You do not have to pre-define any metrics, anything you want to send into the catalog will be accepted.
@@ -251,15 +251,15 @@ curl -i -X PUT -d '[
 
 Metric definition fields:
 
-| Field                | Type       | Required | Description                                                                                                |
-| -------------------- | ---------- | -------- | ---------------------------------------------------------------------------------------------------------- |
-| `name`               | string     | yes      | Metric name (must be a valid identifier).                                                                  |
-| `min`                | number     | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                         |
-| `max`                | number     | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                         |
-| `aggregate_function` | string     | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`.   |
-| `order`              | integer    | no       | Display order in the UI (lower numbers appear first).                                                      |
-| `is_important`       | boolean    | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                     |
-| `tags`               | string[]   | no       | Tags for categorization (e.g., `lower-is-better`).                                                         |
+| Field                | Type     | Required | Description                                                                                             |
+| -------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------- |
+| `name`               | string   | yes      | Metric name (must be a valid identifier).                                                               |
+| `min`                | number   | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                      |
+| `max`                | number   | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                      |
+| `aggregate_function` | string   | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`. |
+| `order`              | integer  | no       | Display order in the UI (lower numbers appear first).                                                   |
+| `is_important`       | boolean  | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                  |
+| `tags`               | string[] | no       | Tags for categorization (e.g., `lower-is-better`).                                                      |
 
 ### Compare by Ref
 
