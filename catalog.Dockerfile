@@ -1,12 +1,12 @@
 # Build UI first in a Node.js container
-FROM --platform=$BUILDPLATFORM node:26-bookworm@sha256:17895f86b5d1bed5ea97bde2ef4b2e8da46d6024d2eae32a5245bf0d0fb9ecd6 AS ui-build
+FROM --platform=$BUILDPLATFORM node:26-bookworm@sha256:35d3b83382381e0e2f1d066b98aba486a4fab481a241c7516389635b88d927c1 AS ui-build
 WORKDIR /ui
 COPY ui .
 RUN npm install
 RUN npm run build
 
 # create the build container
-FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:548d93f8a18a1acbe6cc127bc4f47281430d34a9e35c18afa80a8d6741c2adc3 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0@sha256:ea8bde36c11b6e7eec2656d0e59101d4462f6bd630730f2c8201ed0572b295d5 AS build
 ARG TARGETARCH
 LABEL stage=build
 WORKDIR /api
