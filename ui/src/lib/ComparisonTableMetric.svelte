@@ -77,7 +77,7 @@
     value: string;
   };
 
-  const formatNumber = (value: number) => value.toFixed(3).toLocaleString();
+  const formatNumber = (value: number) => value.toFixed(3);
 
   let summaryParts: SummaryPart[] = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
