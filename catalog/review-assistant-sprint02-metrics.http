@@ -1,4 +1,4 @@
-@baseURL = https://eval-catalog.salmonsky-371093b3.eastus2.azurecontainerapps.io/api
+@baseURL = http://localhost:6020/api
 @project = review-assistant-sprint02
 
 ### Get current metric definitions
