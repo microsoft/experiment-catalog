@@ -171,6 +171,9 @@ public class Experiment()
         decimal? normalized = definition.TryNormalize(average, out var x) ? x : null;
         definition.AggregateFunction = AggregateFunctions.Average;
 
+        decimal? rangeMin = values.Count > 0 ? values.Min() : null;
+        decimal? rangeMax = values.Count > 0 ? values.Max() : null;
+
         return new Metric
         {
             Count = metrics.Count,
@@ -180,9 +183,9 @@ public class Experiment()
             CoefficientOfVariation = average.HasValue && average.Value != 0 && stdDev.HasValue
                 ? stdDev.Value / Math.Abs(average.Value)
                 : null,
-            Range = values.Count > 0 ? values.Max() - values.Min() : null,
-            RangeMin = values.Count > 0 ? values.Min() : null,
-            RangeMax = values.Count > 0 ? values.Max() : null,
+            Range = rangeMin.HasValue && rangeMax.HasValue ? rangeMax.Value - rangeMin.Value : null,
+            RangeMin = rangeMin,
+            RangeMax = rangeMax,
         };
     }
 
