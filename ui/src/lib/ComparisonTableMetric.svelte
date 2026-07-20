@@ -40,7 +40,8 @@
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
-    return hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
+    return hasValidMetrics && resultMetric.value !== undefined && baselineMetric.value !== undefined
+      ? resultMetric.value - baselineMetric.value : 0;
   });
 
   let difp: number | undefined = $derived.by(() => {
@@ -67,7 +68,7 @@
     if (resultMetric.coefficient_of_variation !== undefined) {
       return resultMetric.coefficient_of_variation;
     }
-    if (resultMetric.std_dev === undefined || resultMetric.value === 0) {
+    if (resultMetric.std_dev === undefined || resultMetric.value === undefined || resultMetric.value === 0) {
       return undefined;
     }
     return resultMetric.std_dev / Math.abs(resultMetric.value);
@@ -112,7 +113,9 @@
 
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
-    {#if isCount}
+    {#if result.metrics[metric].value === undefined}
+      <span>-</span>
+    {:else if isCount}
       <span>{result.metrics[metric].value.toLocaleString()}</span>
     {:else if isCost}
       <span
@@ -122,8 +125,6 @@
           : "$" +
             result.metrics[metric].value.toFixed(2).toLocaleString()}</span
       >
-    {:else if result.metrics[metric].value == undefined}
-      <span>-</span>
     {:else}
       <span
         >{result.metrics[metric].value.toFixed(3) === "0.000" &&
