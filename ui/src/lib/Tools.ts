@@ -4,7 +4,9 @@ export interface ViewConfig {
     metrics?: string[];         // which metrics to display
     tags?: string;              // tag filter querystring
     show_val?: boolean;         // toggle for actual value display
+    show_cv?: boolean;          // toggle for coefficient of variation display
     show_std?: boolean;         // toggle for standard deviation display
+    show_range?: boolean;       // toggle for range display
     show_cnt?: boolean;         // toggle for count display
     show_stats?: boolean;       // toggle for p-value and CI display
     show_important_only?: boolean; // toggle for showing only important metrics
@@ -17,7 +19,9 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.metrics?.length) cleanConfig.metrics = config.metrics;
     if (config.tags) cleanConfig.tags = config.tags;
     if (config.show_val !== undefined) cleanConfig.show_val = config.show_val;
+    if (config.show_cv !== undefined) cleanConfig.show_cv = config.show_cv;
     if (config.show_std !== undefined) cleanConfig.show_std = config.show_std;
+    if (config.show_range !== undefined) cleanConfig.show_range = config.show_range;
     if (config.show_cnt !== undefined) cleanConfig.show_cnt = config.show_cnt;
     if (config.show_stats !== undefined) cleanConfig.show_stats = config.show_stats;
     if (config.show_important_only !== undefined) cleanConfig.show_important_only = config.show_important_only;

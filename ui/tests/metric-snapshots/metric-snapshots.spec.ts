@@ -127,6 +127,10 @@ function makeMetric(
     value,
     normalized: value,
     std_dev: stdDev,
+    coefficient_of_variation: value === 0 ? undefined : stdDev / Math.abs(value),
+    range: stdDev * 2,
+    range_min: value - stdDev,
+    range_max: value + stdDev,
     tags,
     ...extras,
   };

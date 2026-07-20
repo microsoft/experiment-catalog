@@ -26,3 +26,7 @@ ui/test-results/
 
 # Copilot
 .copilot-tracking
+
+# Local emulator/session state
+.azurite/
+.copilot/

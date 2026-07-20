@@ -13,21 +13,40 @@ test.describe('Show/hide toggles on experiment page', () => {
   test('all toggles are checked by default', async ({ mockedPage: page }) => {
     const toggles = page.locator('.toggles');
     await expect(toggles.getByLabel('Actual Value')).toBeChecked();
+    await expect(toggles.getByLabel('Coefficient of Variation')).toBeChecked();
     await expect(toggles.getByLabel('Std Dev')).toBeChecked();
+    await expect(toggles.getByLabel('Range')).not.toBeChecked();
     await expect(toggles.getByLabel('Count')).toBeChecked();
     await expect(toggles.getByLabel('Statistics')).toBeChecked();
   });
 
   test('unchecking Std Dev hides standard deviation values', async ({ mockedPage: page }) => {
-    // Std dev values (e.g., "(0.050)") should be visible initially
     const table = page.locator('table');
-    await expect(table.getByText('(0.050)').first()).toBeVisible();
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/).first()).toBeVisible();
 
-    // Uncheck Std Dev
     await page.locator('.toggles').getByLabel('Std Dev').uncheck();
 
-    // Std dev values should disappear
-    await expect(table.getByText('(0.050)')).toHaveCount(0);
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/)).toHaveCount(0);
+    await expect(table.getByText('(cv 5.7%)').first()).toBeVisible();
+  });
+
+  test('unchecking Coefficient of Variation hides CV values', async ({ mockedPage: page }) => {
+    const table = page.locator('table');
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/).first()).toBeVisible();
+
+    await page.locator('.toggles').getByLabel('Coefficient of Variation').uncheck();
+
+    await expect(table.getByText(/cv /)).toHaveCount(0);
+    await expect(table.getByText('(dev 0.050)').first()).toBeVisible();
+  });
+
+  test('checking Range shows range values after standard deviation', async ({ mockedPage: page }) => {
+    const table = page.locator('table');
+    await expect(table.getByText(/rng 0\.820-0\.920/)).toHaveCount(0);
+
+    await page.locator('.toggles').getByLabel('Range').check();
+
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050,\s*rng\s+0\.820-0\.920/).first()).toBeVisible();
   });
 
   test('unchecking Count hides count values', async ({ mockedPage: page }) => {
@@ -70,15 +89,13 @@ test.describe('Show/hide toggles on experiment page', () => {
     const table = page.locator('table');
     const toggle = page.locator('.toggles').getByLabel('Std Dev');
 
-    await expect(table.getByText('(0.050)').first()).toBeVisible();
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/).first()).toBeVisible();
 
-    // Uncheck
     await toggle.uncheck();
-    await expect(table.getByText('(0.050)')).toHaveCount(0);
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/)).toHaveCount(0);
 
-    // Re-check
     await toggle.check();
-    await expect(table.getByText('(0.050)').first()).toBeVisible();
+    await expect(table.getByText(/cv\s+5\.7%,\s*dev\s+0\.050/).first()).toBeVisible();
   });
 
   test('toggle state is persisted in URL config', async ({ mockedPage: page }) => {
@@ -94,6 +111,18 @@ test.describe('Show/hide toggles on experiment page', () => {
     expect(configB64).toBeTruthy();
     const config = JSON.parse(atob(configB64!));
     expect(config.show_std).toBe(false);
+  });
+
+  test('Range toggle state is persisted in URL config', async ({ mockedPage: page }) => {
+    await page.locator('.toggles').getByLabel('Range').check();
+
+    await expect(page).toHaveURL(/config=/);
+
+    const url = new URL(page.url());
+    const configB64 = url.searchParams.get('config');
+    expect(configB64).toBeTruthy();
+    const config = JSON.parse(atob(configB64!));
+    expect(config.show_range).toBe(true);
   });
 });
 

@@ -1,0 +1,100 @@
+@baseURL = https://eval-catalog.salmonsky-371093b3.eastus2.azurecontainerapps.io/api
+@project = review-assistant-sprint02
+
+### Get current metric definitions
+GET {{baseURL}}/projects/{{project}}/metrics HTTP/1.1
+
+### Define review assistant sprint 02 metrics
+PUT {{baseURL}}/projects/{{project}}/metrics HTTP/1.1
+Content-Type: application/json
+
+[
+  {
+    "name": "generation_accuracy",
+    "min": 0.0,
+    "max": 1.0,
+    "aggregate_function": "Average",
+    "order": 100,
+    "is_important": true
+  },
+  {
+    "name": "generation_precision",
+    "min": 0.0,
+    "max": 1.0,
+    "aggregate_function": "Average",
+    "order": 110
+  },
+  {
+    "name": "generation_recall",
+    "min": 0.0,
+    "max": 1.0,
+    "aggregate_function": "Average",
+    "order": 120,
+    "is_important": true
+  },
+  {
+    "name": "output_structure",
+    "min": 0.0,
+    "max": 1.0,
+    "aggregate_function": "Average",
+    "order": 200,
+    "is_important": true
+  },
+  {
+    "name": "retrieval_recall",
+    "min": 0.0,
+    "max": 1.0,
+    "aggregate_function": "Average",
+    "order": 300,
+    "is_important": true
+  },
+  {
+    "name": "meta_total_elapsed_ms",
+    "aggregate_function": "Average",
+    "order": 900,
+    "is_important": true,
+    "tags": [
+      "lower-is-better"
+    ]
+  },
+  {
+    "name": "meta_model_elapsed_ms",
+    "aggregate_function": "Average",
+    "order": 910,
+    "tags": [
+      "lower-is-better"
+    ]
+  },
+  {
+    "name": "meta_tool_elapsed_ms",
+    "aggregate_function": "Average",
+    "order": 920,
+    "tags": [
+      "lower-is-better"
+    ]
+  },
+  {
+    "name": "meta_tool_call_count",
+    "aggregate_function": "Count",
+    "order": 930,
+    "tags": [
+      "lower-is-better"
+    ]
+  },
+  {
+    "name": "meta_inference_cost",
+    "aggregate_function": "Cost",
+    "order": 940,
+    "tags": [
+      "lower-is-better"
+    ]
+  },
+  {
+    "name": "meta_evaluation_cost",
+    "aggregate_function": "Cost",
+    "order": 950,
+    "tags": [
+      "lower-is-better"
+    ]
+  }
+]

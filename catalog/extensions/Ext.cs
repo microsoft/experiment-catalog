@@ -68,6 +68,19 @@ public static class Ext
         return Convert.ToDecimal(stddev);
     }
 
+    public static decimal? Range<TSource>(
+        this IList<TSource> values,
+        Func<TSource, decimal?> selector)
+    {
+        var selectedValues = values.Select(v => selector(v)).OfType<decimal>().ToList();
+        if (selectedValues.Count == 0)
+        {
+            return null;
+        }
+
+        return selectedValues.Max() - selectedValues.Min();
+    }
+
     public static decimal DivBy(this int dividend, int divisor)
     {
         return divisor == 0 ? 0m : (decimal)dividend / (decimal)divisor;
