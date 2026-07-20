@@ -87,7 +87,7 @@
     if (showCoefficientOfVariation && coefficientOfVariation !== undefined) {
       parts.push({
         label: "cv",
-        value: `${(coefficientOfVariation * 100).toFixed(1).toLocaleString()}%`,
+        value: `${(coefficientOfVariation * 100).toFixed(1)}%`,
       });
     }
     if (showStdDev && resultMetric.std_dev !== undefined) {
