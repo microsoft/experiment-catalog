@@ -17,6 +17,18 @@ public class Metric
     [JsonProperty("std_dev", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? StdDev { get; set; }
 
+    [JsonProperty("coefficient_of_variation", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? CoefficientOfVariation { get; set; }
+
+    [JsonProperty("range", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? Range { get; set; }
+
+    [JsonProperty("range_min", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? RangeMin { get; set; }
+
+    [JsonProperty("range_max", NullValueHandling = NullValueHandling.Ignore)]
+    public decimal? RangeMax { get; set; }
+
     [JsonProperty("p_value", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? PValue { get; set; }
 

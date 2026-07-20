@@ -329,6 +329,7 @@
                 {metric}
                 baseline={comparison.experiment_baseline?.results?.[ref]}
                 definition={comparison.metric_definitions[metric]}
+                showRange={true}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -347,6 +348,7 @@
                 result={comparison.experiment_baseline?.results?.[ref]}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
+                showRange={true}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -386,7 +388,9 @@
                     {result}
                     {metric}
                     baseline={comparison.experiment_baseline?.results?.[ref]}
+                    showCoefficientOfVariation={false}
                     showStdDev={false}
+                    showRange={false}
                     showCount={false}
                     definition={comparison.metric_definitions[metric]}
                   ></ComparisonTableMetric>
@@ -410,6 +414,7 @@
                 {metric}
                 baseline={comparison.experiment_baseline?.results?.[ref]}
                 definition={comparison.metric_definitions[metric]}
+                showRange={true}
               ></ComparisonTableMetric>
             </td>
           {/each}
@@ -461,7 +466,9 @@
                     {result}
                     {metric}
                     baseline={comparison.experiment_baseline?.results?.[ref]}
+                    showCoefficientOfVariation={false}
                     showStdDev={false}
+                    showRange={false}
                     showCount={false}
                     definition={comparison.metric_definitions[metric]}
                   ></ComparisonTableMetric>

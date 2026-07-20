@@ -30,11 +30,18 @@ describe("encodeConfig", () => {
     });
 
     it("encodes boolean toggle values", () => {
-        const cfg: ViewConfig = { show_val: false, show_std: true };
+        const cfg: ViewConfig = {
+            show_val: false,
+            show_cv: false,
+            show_std: true,
+            show_range: true,
+        };
         const encoded = encodeConfig(cfg);
         const decoded = decodeConfig(encoded!);
         expect(decoded.show_val).toBe(false);
+        expect(decoded.show_cv).toBe(false);
         expect(decoded.show_std).toBe(true);
+        expect(decoded.show_range).toBe(true);
     });
 
     it("encodes show_important_only true", () => {
