@@ -67,7 +67,7 @@
     if (resultMetric.coefficient_of_variation !== undefined) {
       return resultMetric.coefficient_of_variation;
     }
-    if (resultMetric.std_dev === undefined || !resultMetric.value) {
+    if (resultMetric.std_dev === undefined || resultMetric.value === 0) {
       return undefined;
     }
     return resultMetric.std_dev / Math.abs(resultMetric.value);
