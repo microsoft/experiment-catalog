@@ -18,8 +18,19 @@ test.describe('URL config encoding and decoding', () => {
 
     // Other toggles should still be checked (defaults)
     await expect(page.locator('.toggles').getByLabel('Actual Value')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Range')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Count')).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Statistics')).toBeChecked();
+  });
+
+  test('navigating with show_cv=false and show_range=true pre-sets the new toggles', async ({ mockedPage: page }) => {
+    const config = encodeConfig({ show_cv: false, show_range: true });
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+    await expect(page.getByRole('heading', { name: /EXPERIMENT: exp-001/ })).toBeVisible();
+
+    await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).not.toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Range')).toBeChecked();
   });
 
   test('navigating with checked_metrics highlights those rows', async ({ mockedPage: page }) => {
@@ -72,12 +83,16 @@ test.describe('URL config encoding and decoding', () => {
     await expect(page.getByRole('heading', { name: /EXPERIMENT: exp-001/ })).toBeVisible();
 
     // All toggles should be at defaults (checked)
+    await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Std Dev')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Range')).not.toBeChecked();
   });
 
   test('multiple config values round-trip through the URL', async ({ mockedPage: page }) => {
     const config = encodeConfig({
       show_std: false,
+      show_cv: false,
+      show_range: true,
       show_cnt: false,
       checked_metrics: 'cost',
     });
@@ -85,7 +100,9 @@ test.describe('URL config encoding and decoding', () => {
     await expect(page.locator('table')).toBeVisible();
 
     // Std Dev and Count should be unchecked
+    await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Std Dev')).not.toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Range')).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Count')).not.toBeChecked();
 
     // Cost row should be highlighted

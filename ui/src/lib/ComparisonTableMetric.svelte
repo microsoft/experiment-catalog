@@ -5,7 +5,9 @@
     metric: string;
     definition?: MetricDefinition;
     showActualValue?: boolean;
+    showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
+    showRange?: boolean;
     showCount?: boolean;
     showStatistics?: boolean;
   }
@@ -16,7 +18,9 @@
     metric,
     definition = undefined,
     showActualValue = true,
+    showCoefficientOfVariation = true,
     showStdDev = true,
+    showRange = false,
     showCount = true,
     showStatistics = true,
   }: Props = $props();
@@ -36,7 +40,8 @@
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
-    return hasValidMetrics ? resultMetric.value - baselineMetric.value : 0;
+    return hasValidMetrics && resultMetric.value !== undefined && baselineMetric.value !== undefined
+      ? resultMetric.value - baselineMetric.value : 0;
   });
 
   let difp: number | undefined = $derived.by(() => {
@@ -57,11 +62,60 @@
   let p_value: number | undefined = $derived(result?.metrics?.[metric]?.p_value);
   let ci_lower: number | undefined = $derived(result?.metrics?.[metric]?.ci_lower);
   let ci_upper: number | undefined = $derived(result?.metrics?.[metric]?.ci_upper);
+  let coefficientOfVariation: number | undefined = $derived.by(() => {
+    const resultMetric = result?.metrics?.[metric];
+    if (!resultMetric) return undefined;
+    if (resultMetric.coefficient_of_variation !== undefined) {
+      return resultMetric.coefficient_of_variation;
+    }
+    if (resultMetric.std_dev === undefined || resultMetric.value === undefined || resultMetric.value === 0) {
+      return undefined;
+    }
+    return resultMetric.std_dev / Math.abs(resultMetric.value);
+  });
+  type SummaryPart = {
+    label: string;
+    value: string;
+  };
+
+  const formatNumber = (value: number) => value.toFixed(3);
+
+  let summaryParts: SummaryPart[] = $derived.by(() => {
+    const resultMetric = result?.metrics?.[metric];
+    if (!isAvg || !resultMetric) return [];
+
+    const parts: SummaryPart[] = [];
+    if (showCoefficientOfVariation && coefficientOfVariation !== undefined) {
+      parts.push({
+        label: "cv",
+        value: `${(coefficientOfVariation * 100).toFixed(1)}%`,
+      });
+    }
+    if (showStdDev && resultMetric.std_dev !== undefined) {
+      parts.push({ label: "dev", value: formatNumber(resultMetric.std_dev) });
+    }
+    if (showRange) {
+      if (
+        resultMetric.range_min !== undefined &&
+        resultMetric.range_max !== undefined
+      ) {
+        parts.push({
+          label: "rng",
+          value: `${formatNumber(resultMetric.range_min)}-${formatNumber(resultMetric.range_max)}`,
+        });
+      } else if (resultMetric.range !== undefined) {
+        parts.push({ label: "rng", value: formatNumber(resultMetric.range) });
+      }
+    }
+    return parts;
+  });
 </script>
 
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
-    {#if isCount}
+    {#if result.metrics[metric].value === undefined}
+      <span>-</span>
+    {:else if isCount}
       <span>{result.metrics[metric].value.toLocaleString()}</span>
     {:else if isCost}
       <span
@@ -71,8 +125,6 @@
           : "$" +
             result.metrics[metric].value.toFixed(2).toLocaleString()}</span
       >
-    {:else if result.metrics[metric].value == undefined}
-      <span>-</span>
     {:else}
       <span
         >{result.metrics[metric].value.toFixed(3) === "0.000" &&
@@ -86,8 +138,12 @@
         >
       {/if}
     {/if}
-    {#if showStdDev && isAvg && result.metrics[metric].std_dev !== undefined}
-      <span>({result.metrics[metric].std_dev.toFixed(3).toLocaleString()})</span
+    {#if summaryParts.length > 0}
+      <span class="summary"
+        >({#each summaryParts as part, index}<span class="summary-label"
+            >{part.label}</span
+          >
+          {part.value}{#if index < summaryParts.length - 1},{" "}{/if}{/each})</span
       >
     {/if}
     {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
@@ -188,6 +244,18 @@
 
   .actual {
     font-weight: lighter;
+  }
+
+  .summary {
+    font-size: 0.9em;
+  }
+
+  .summary-label {
+    color: #aaa;
+    font-size: 0.72em;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
   }
 
   .pvalue {

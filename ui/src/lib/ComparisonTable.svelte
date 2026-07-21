@@ -23,7 +23,9 @@
     checked: string;
     initialTags?: string;
     showActualValue?: boolean;
+    showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
+    showRange?: boolean;
     showCount?: boolean;
     showStatistics?: boolean;
     showImportantOnly?: boolean;
@@ -41,7 +43,9 @@
     checked,
     initialTags = "",
     showActualValue = true,
+    showCoefficientOfVariation = true,
     showStdDev = true,
+    showRange = false,
     showCount = true,
     showStatistics = true,
     showImportantOnly = false,
@@ -313,7 +317,9 @@
               {metric}
               definition={comparison.metric_definitions[metric]}
               {showActualValue}
+              {showCoefficientOfVariation}
               {showStdDev}
+              {showRange}
               {showCount}
               {showStatistics}
             /></td
@@ -324,7 +330,9 @@
               {metric}
               definition={comparison.metric_definitions[metric]}
               {showActualValue}
+              {showCoefficientOfVariation}
               {showStdDev}
+              {showRange}
               {showCount}
               {showStatistics}
             /></td
@@ -338,7 +346,9 @@
                 {metric}
                 definition={comparison.metric_definitions[metric]}
                 {showActualValue}
+                {showCoefficientOfVariation}
                 {showStdDev}
+                {showRange}
                 {showCount}
                 {showStatistics}
               /></td

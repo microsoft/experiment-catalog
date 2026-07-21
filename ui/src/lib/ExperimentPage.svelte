@@ -40,7 +40,9 @@
   let checked: string = $state("");
   let tags: string = $state("");
   let showActualValue: boolean = $state(true);
+  let showCoefficientOfVariation: boolean = $state(true);
   let showStdDev: boolean = $state(true);
+  let showRange: boolean = $state(false);
   let showCount: boolean = $state(true);
   let showStatistics: boolean = $state(true);
   let showImportantOnly: boolean = $state(false);
@@ -52,7 +54,9 @@
     checked = config.checked_metrics ?? "";
     tags = config.tags ?? "";
     showActualValue = config.show_val ?? true;
+    showCoefficientOfVariation = config.show_cv ?? true;
     showStdDev = config.show_std ?? true;
+    showRange = config.show_range ?? false;
     showCount = config.show_cnt ?? true;
     showStatistics = config.show_stats ?? true;
     showImportantOnly = config.show_important_only ?? uiSettings.show_only_important_metrics_by_default ?? false;
@@ -71,16 +75,26 @@
     } else {
       delete newConfig.tags;
     }
-    // Only store non-default values (defaults are true)
+    // Only store non-default values.
     if (!showActualValue) {
       newConfig.show_val = false;
     } else {
       delete newConfig.show_val;
     }
+    if (!showCoefficientOfVariation) {
+      newConfig.show_cv = false;
+    } else {
+      delete newConfig.show_cv;
+    }
     if (!showStdDev) {
       newConfig.show_std = false;
     } else {
       delete newConfig.show_std;
+    }
+    if (showRange) {
+      newConfig.show_range = true;
+    } else {
+      delete newConfig.show_range;
     }
     if (!showCount) {
       newConfig.show_cnt = false;
@@ -232,10 +246,26 @@
       <label class="toggle-label">
         <input
           type="checkbox"
+          bind:checked={showCoefficientOfVariation}
+          onchange={onToggleChange}
+        />
+        Coefficient of Variation
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
           bind:checked={showStdDev}
           onchange={onToggleChange}
         />
         Std Dev
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showRange}
+          onchange={onToggleChange}
+        />
+        Range
       </label>
       <label class="toggle-label">
         <input type="checkbox" bind:checked={showCount} onchange={onToggleChange} />
@@ -268,7 +298,8 @@
   <div class="reference-content">
     <p class="legend">
       <strong>Legend:</strong>
-      [value] ([standard-deviation]) [change-vs-experiment-baseline]
+      [value] (CV [coefficient-of-variation], DEV [standard-deviation], RNG [min]-[max])
+      [change-vs-experiment-baseline]
       x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])
     </p>
     <p>
@@ -325,7 +356,9 @@
       {checked}
       initialTags={tags}
       {showActualValue}
+      {showCoefficientOfVariation}
       {showStdDev}
+      {showRange}
       {showCount}
       {showStatistics}
       {showImportantOnly}

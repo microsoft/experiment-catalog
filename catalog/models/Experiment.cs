@@ -166,15 +166,26 @@ public class Experiment()
     private Metric ReduceAsAverage(string key, MetricDefinition definition, List<Metric> metrics)
     {
         var average = metrics.Average(x => x.Value);
+        var stdDev = metrics.StdDev(x => x.Value);
+        var values = metrics.Select(x => x.Value).OfType<decimal>().ToList();
         decimal? normalized = definition.TryNormalize(average, out var x) ? x : null;
         definition.AggregateFunction = AggregateFunctions.Average;
+
+        decimal? rangeMin = values.Count > 0 ? values.Min() : null;
+        decimal? rangeMax = values.Count > 0 ? values.Max() : null;
 
         return new Metric
         {
             Count = metrics.Count,
             Value = average,
             Normalized = normalized,
-            StdDev = metrics.StdDev(x => x.Value),
+            StdDev = stdDev,
+            CoefficientOfVariation = average.HasValue && average.Value != 0 && stdDev.HasValue
+                ? stdDev.Value / Math.Abs(average.Value)
+                : null,
+            Range = rangeMin.HasValue && rangeMax.HasValue ? rangeMax.Value - rangeMin.Value : null,
+            RangeMin = rangeMin,
+            RangeMax = rangeMax,
         };
     }
 
