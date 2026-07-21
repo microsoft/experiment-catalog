@@ -8,11 +8,15 @@ The free filter allows you to narrow down ground-truth results to those meeting 
 
 - **Metric values**: `[metric_name]` - Access a metric from the current experiment set
 - **Baseline values**: `[baseline.metric_name]` - Access a metric from the experiment baseline
+- **Raw metric fields**: `result.metrics["metric_name"].field` - Access fields such as `value`, `std_dev`, `coefficient_of_variation`, `normalized`, `p_value`, `ci_lower`, `ci_upper`, `range_min`, `range_max`, and `count`
+- **Raw baseline fields**: `baseline.metrics["metric_name"].field` - Access the same fields from the experiment baseline
 - **Reference ID**: `ref` - The ground-truth reference identifier
 - **Operators**: `<`, `<=`, `>`, `>=`, `==`, `!=`, `===`
 - **Logical operators**: `AND`, `OR` (case-insensitive)
 - **Grouping**: `( )` - Use parentheses to control evaluation order
 - **Null checks**: `== null`, `!= undefined`, etc. - Check for missing metrics
+
+The bracket shorthand targets metric values. For example, `[generation_correctness]` is equivalent to `result.metrics["generation_correctness"].value`, and `[baseline.generation_correctness]` is equivalent to `baseline.metrics["generation_correctness"].value`.
 
 ### Use Cases & Examples
 
@@ -100,7 +104,51 @@ Find cases with significant improvements:
 [generation_correctness] > [baseline.generation_correctness] * 1.2
 ```
 
-#### 7. Analyzing Latency and Cost
+Find cases where the absolute value difference is meaningful:
+
+```text
+[generation_correctness] - [baseline.generation_correctness] > 0.05
+```
+
+Find cases where the absolute difference is large in either direction:
+
+```text
+Math.abs([generation_correctness] - [baseline.generation_correctness]) > 0.10
+```
+
+#### 7. Filtering on Aggregate Statistics
+
+Find noisy aggregate metrics by standard deviation:
+
+```text
+result.metrics["generation_correctness"].std_dev > 0.10
+```
+
+Find unstable aggregate metrics by coefficient of variation:
+
+```text
+result.metrics["generation_correctness"].coefficient_of_variation > 0.20
+```
+
+Use a fallback CV calculation when `coefficient_of_variation` is not present:
+
+```text
+result.metrics["generation_correctness"].std_dev / Math.abs(result.metrics["generation_correctness"].value) > 0.20
+```
+
+Find statistically significant rows:
+
+```text
+result.metrics["generation_correctness"].p_value < 0.05
+```
+
+Compare baseline and current standard deviation:
+
+```text
+result.metrics["generation_correctness"].std_dev > baseline.metrics["generation_correctness"].std_dev * 1.5
+```
+
+#### 8. Analyzing Latency and Cost
 
 Find slow responses that might need optimization:
 
@@ -114,7 +162,7 @@ Find cases where latency increased but quality also improved (acceptable trade-o
 [latency] > [baseline.latency] AND [generation_correctness] > [baseline.generation_correctness]
 ```
 
-#### 8. Multi-Metric Analysis
+#### 9. Multi-Metric Analysis
 
 Complex queries for deep analysis - find cases where retrieval stayed the same or improved, but generation regressed:
 
@@ -128,7 +176,7 @@ Find cases where the model is struggling despite good retrieval:
 [retrieval_recall] > 0.9 AND [generation_correctness] < 0.7
 ```
 
-#### 9. Checking for Missing Metrics
+#### 10. Checking for Missing Metrics
 
 Find ground-truths where a metric was not computed (useful for identifying evaluation gaps):
 
@@ -146,7 +194,7 @@ Find cases where baseline exists but current experiment is missing the metric:
 [generation_correctness] == null AND [baseline.generation_correctness] != null
 ```
 
-#### 10. Using Parentheses for Complex Logic
+#### 11. Using Parentheses for Complex Logic
 
 Parentheses allow you to group conditions and control evaluation order:
 
