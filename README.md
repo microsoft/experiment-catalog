@@ -81,6 +81,15 @@ The application consists of several main components:
 # Find significant improvements (>20% better)
 [generation_correctness] > [baseline.generation_correctness] * 1.2
 
+# Find absolute metric differences
+[generation_correctness] - [baseline.generation_correctness] > 0.05
+
+# Find noisy aggregate metrics by standard deviation
+result.metrics["generation_correctness"].std_dev > 0.10
+
+# Find unstable aggregate metrics by coefficient of variation
+result.metrics["generation_correctness"].coefficient_of_variation > 0.20
+
 # Complex analysis - retrieval got worse but generation improved
 [retrieval_recall] < [baseline.retrieval_recall] AND [generation_correctness] > [baseline.generation_correctness]
 
