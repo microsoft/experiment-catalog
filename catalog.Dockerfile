@@ -1,5 +1,5 @@
 # Build UI first in a Node.js container
-FROM --platform=$BUILDPLATFORM node:26-bookworm@sha256:17895f86b5d1bed5ea97bde2ef4b2e8da46d6024d2eae32a5245bf0d0fb9ecd6 AS ui-build
+FROM --platform=$BUILDPLATFORM node:26-bookworm@sha256:057896e7e3f542ff82f7e65f106ac04e646775316449e676dfe8fb053d3b43ef AS ui-build
 WORKDIR /ui
 COPY ui .
 RUN npm install
