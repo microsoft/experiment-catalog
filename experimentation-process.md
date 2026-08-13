@@ -1,6 +1,6 @@
 # Experimentation Process
 
-This document proposes a process for running experiments and then cataloging them for later comparison. This process was used by our team with good success, but there were some areas that could be improved. This document will incorporate those improvements as well.
+This document proposes a process for running experiments and cataloging them for later comparison. It incorporates practices that have worked well in real-world use, along with improvements identified through experience.
 
 ## Workflow
 
@@ -27,17 +27,21 @@ The workflow for running experiments is as follows:
 
 1. Run a Final Project Baseline
 
+## Exploration and Formal Evaluation
+
+Notebooks, prototypes, and other ad hoc tools are appropriate for exploring ideas quickly. Once an idea shows enough promise to warrant comparison, review, or adoption, transition it into the formal experimentation workflow. Reproduce it through the official evaluation runner using the standard scripts, metrics, and ground truth data, then record the experiment and its results in the catalog. This preserves the flexibility of early exploration while ensuring that decisions rely on repeatable and comparable evidence.
+
 ## Projects (Milestones, Checkpoints)
 
 Whether they are called projects, milestones, or checkpoints, the goal is the same - there should be a period of experimentation which produces a new version of the solution that can be measured and judged as better or worse than the previous version. As there are often many experiments in a project, this ensures that the solution is actually getting better as a whole (there is no guarantee that individual positive experiments will yield a better working solution). This new version could be deployed if it was better allowing for incremental improvement. This would be considered one iteration of experimentation and then the process could start over again for further improvement.
 
-For our engagement, we aligned our projects with our 2-week sprints, so every two weeks we evaluated a new version of the solution and found it in each case to be better than our previous version. This is a good indicator that we should continue with experimentation. Until we reach a point where we are commonly failing to find improvement, there is obviously fertile ground for experimentation.
+Projects can align with a regular delivery cadence, such as 2-week sprints. At the end of each period, evaluate a new version of the solution against the previous version. Consistent improvement is a good indicator that experimentation should continue. Until experiments commonly fail to produce improvements, there is still fertile ground for further experimentation.
 
 ## Baselines
 
 A baseline is a measurement of the current state of the solution. It is important to have a baseline to compare against when running experiments. This allows you to determine if the experiment was successful or not. If the experiment was successful, you should see an improvement over the baseline. If the experiment was not successful, you should see no improvement or a decrease in performance.
 
-When working with non-deterministic inference or evaluation systems, it is important to run the baseline multiple times to get a good average. For our engagement, we ran all baselines with 5 iterations.
+When working with non-deterministic inference or evaluation systems, it is important to run the baseline multiple times to get a representative average. Five iterations is a practical starting point for each baseline.
 
 - **Project Baseline**: Run this before doing experimentation so there is something to compare the experiment results against.
 
@@ -47,44 +51,40 @@ When working with non-deterministic inference or evaluation systems, it is impor
 
 ## Best Permutation
 
-Determining which permutation of the experiment is the best is not always easy to determine - with a lot of ground truth there is often almost no difference between the permutations. There were some tricks we used:
+Determining which experiment permutation is best is not always easy. With a large ground truth set, there is often almost no difference between permutations. The following techniques can help:
 
-- **Look at Subsets**: Looking at all ground truth often shows very little difference, but when we look at subsets of the data, we can often see big differences. For instance, with 800 ground truths most of our experiment permutations were within 1% of each other, but when we looked at subsets like "multi-turn" examples, we might find 20-30% difference.
+- **Look at Subsets**: Looking at all ground truth often shows very little difference, but subsets of the data can reveal significant differences. For example, with 800 ground truths, most experiment permutations might be within 1% of each other, while a subset such as "multi-turn" examples might show a 20-30% difference.
 
-- **Prioritize Metrics**: We had about 20 metrics and between permutations some might be better and some might be worse. We prioritized the metrics and then looked at the best permutation based on the highest priority metrics.
+- **Prioritize Metrics**: When an evaluation uses many metrics, some may improve while others worsen between permutations. Prioritize the metrics, then identify the best permutation based on the highest-priority metrics.
 
 - **Statistical Significance**: Use the catalog's built-in bootstrap p-value calculation to determine whether differences between permutations are statistically significant rather than relying on raw metric deltas alone. The catalog supports this via a configurable sample size, confidence level, and minimum-iterations threshold, and can compute p-values automatically on a schedule. This is the recommended way to compare permutations.
 
 ## Summary / Review
 
-It is important to have enough documentation about the experiment that it can be repeated. This also helps when reviewing the experiment with your team.
+It is important to have enough documentation about the experiment that it can be repeated. This also helps when reviewing the experiment with your team. Results presented for review should come from the standardized evaluation process and be recorded in the catalog so that reviewers can compare them using consistent data, metrics, and execution methods.
 
 ## Approve or Reject
 
-An approval in this case generally refers to the code and configuration being merged into a main branch. A failed experiment that ends in rejection might still provide insights that can be used in future experiments.
+An approval in this case generally refers to the code and configuration being merged into a main branch. Before approval, promising results discovered through exploratory work should be reproduced with the official evaluation runner, scripts, metrics, and ground truth data, with the resulting experiment and measurements recorded in the catalog. A failed experiment that ends in rejection might still provide insights that can be used in future experiments.
 
 ## Evaluation System
 
-From our experience, we had the following thoughts on our evaluation system:
+An evaluation system should account for the following considerations:
 
 - **Concurrency**: It was important for multiple engineers to be able to run experiments at the same time.
 
-- **Resume**: This feature was helpful before we moved to global deployments for models which had much greater token limits.
+- **Resume**: Resume support is helpful when model deployments have constrained token limits. It may become less important when using global deployments with much greater token limits.
 
-- **Hyperparameterization**: We solved this by introducing an Experimentation Agent that understands how to use the evaluation framework and tools to execute experiments. A user describes what they want in natural language, and the agent builds the necessary configurations and launches the runs.
+- **Hyperparameterization**: An Experimentation Agent can understand how to use the evaluation framework and tools to execute experiments. A user describes what they want in natural language, and the agent builds the necessary configurations and launches the runs.
 
-- **Retry**: This capability didn't solve the 429 issues we were having, but it was easy to implement.
+- **Retry**: Retry support is easy to implement, although it does not necessarily resolve HTTP 429 issues.
 
-- **Metric Subsets**: We only had a single evaluation script that ran all metrics. It would have been helpful to have a way to run subsets of metrics, for instance, only retrieval metrics or both retrieval + generation.
+- **Metric Subsets**: A single evaluation script that runs all metrics can be limiting. Support subsets of metrics, such as retrieval metrics only or both retrieval and generation metrics.
 
-- **Local Execution**: We somewhat supported local executions, but it wasn't a fully realized scenario. It would have been helpful to have a way to run experiments locally to speed up the evaluation process.
+- **Local Execution**: Fully supporting local execution can speed up the evaluation process.
 
-- **Streaming**: While performance could be improved by running inference and evaluation at the same time by streaming the data from one process to another, this was not important for our engagement. Evaluations were generally about 30 minutes.
+- **Streaming**: Performance can be improved by running inference and evaluation at the same time and streaming data from one process to the other. This may not be important when evaluations generally take about 30 minutes.
 
-- **Transformation**: The ability to transform data formats on input and output was helpful only very early in the engagement until we standardized on a format for all files (ground truth, inference, and evaluation).
+- **Transformation**: The ability to transform input and output data formats is most helpful early in a project. Its value diminishes after standardizing the format of ground truth, inference, and evaluation files.
 
 All these features are supported by the [Evaluator](./evaluator) project.
-
-## Other Thoughts
-
-- We had some experiments that were conducted in notebooks outside of the evaluation system using potentially different data, inference, metrics, evaluation, etc. Those were often not repeatable and therefore limited in how much knowledge we could gain from those.
