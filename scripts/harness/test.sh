@@ -23,17 +23,19 @@ if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
   PW_IMAGE="mcr.microsoft.com/playwright:v1.62.1-noble"
 
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
     npm_registry=$(npm config get registry)
+    echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
     docker run --rm \
       --platform linux/amd64 \
       --ipc=host \
       -v "$root_dir":/work \
+      --tmpfs /work/ui/node_modules:exec \
       -w /work/ui \
       -e CI="${CI:-}" \
-      -e npm_config_registry="$npm_registry" \
+      -e NPM_CONFIG_REGISTRY="$npm_registry" \
+      -e NPM_CONFIG_REPLACE_REGISTRY_HOST=npmjs \
       "$PW_IMAGE" \
-      bash -c "npm ci && npx playwright test"
+      bash -c "npm ci && npx --no-install playwright test"
   else
     echo "    [warn] Docker not available — running Playwright tests natively."
     npx playwright install --with-deps chromium
