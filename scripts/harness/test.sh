@@ -26,6 +26,7 @@ if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
     npm_registry=$(npm config get registry)
     echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
     docker run --rm \
+      --platform linux/amd64 \
       --ipc=host \
       -v "$root_dir":/work \
       --tmpfs /work/ui/node_modules:exec \
