@@ -5,6 +5,11 @@ updates:
     directory: "/catalog"
     schedule:
       interval: "weekly"
+    # ASP.NET Core 10 requires Microsoft.OpenApi 2.x; remove after moving to .NET 11.
+    ignore:
+      - dependency-name: "Microsoft.OpenApi"
+        update-types:
+          - "version-update:semver-major"
     groups:
       nuget-catalog:
         patterns:
