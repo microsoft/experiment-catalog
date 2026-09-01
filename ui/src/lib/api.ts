@@ -143,6 +143,29 @@ export function getExperimentDownloadUrl(
     );
 }
 
+export function getMetricsExportUrl(
+    projectName: string,
+    experimentName: string,
+): string {
+    return url(
+        `/api/analysis/projects/${projectName}/experiments/${experimentName}/metrics?format=csv`,
+    );
+}
+
+export function getArtifactManifestUrl(
+    projectName: string,
+    experimentName: string,
+    types = "inference,evaluation",
+): string {
+    const params = new URLSearchParams({
+        types,
+        format: "jsonl",
+    });
+    return url(
+        `/api/analysis/projects/${projectName}/experiments/${experimentName}/artifacts?${params}`,
+    );
+}
+
 // ── Comparison ──────────────────────────────────────────────────────────────
 
 export async function getComparison(

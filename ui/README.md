@@ -1,5 +1,45 @@
 # Catalog UI
 
+## Metric Formatting
+
+Metric-definition tags can opt numeric values into specialized display formats. The
+underlying values remain numeric and are unchanged for storage, aggregation,
+comparison, filtering, and export.
+
+- `elapsed_time` treats the metric value as milliseconds and displays at most two
+  adjacent units. For example, `1500` displays as `1s 500ms`, `62000` as `1m 2s`,
+  and `3900010` as `1h 5m`. Values are rounded normally at the precision of the
+  smaller displayed unit. Negative or non-finite absolute values display as
+  `-`; signed comparison deltas retain their sign. This formatting is used in
+  comparison values and summaries (deviation and range) and on distribution
+  chart axes. Charts clamp an inferred elapsed-time axis to zero, but honor
+  explicit metric-definition `min` and `max` bounds.
+- Metrics without a specialized formatter use comma-separated numeric values
+  while retaining the precision appropriate to their aggregate type. This
+  grouped formatting applies to comparison values, counts, costs, and
+  statistics; chart axes may abbreviate large values as `k` or `M`.
+
+## Data And File Access
+
+The experiment page's **download** dialog provides three data-access workflows:
+
+- **download** retrieves the complete stored experiment JSONL.
+- **export** retrieves raw per-iteration metrics as a notebook-friendly CSV.
+- **manifest** retrieves JSONL containing the exact stored artifact URIs for
+  inference files, evaluation files, or both. The dialog includes Python
+  examples for reading metric exports and downloading artifacts directly with
+  `DefaultAzureCredential`.
+
+The dialog operates at experiment scope. Set-scoped JSON/CSV metric exports and
+JSON/JSONL manifests are also available through the
+[`/api/analysis` endpoints](../catalog/README.md#export-raw-metrics). Metric
+CSV rows use `(set, ref, iteration)` join keys; retrieval metrics are split into
+`.found` and `.expected` columns containing JSON arrays. Manifest downloads are
+location lists only: the catalog does not proxy files or build ZIP archives.
+The Python artifact example requires `azure-identity` and
+`azure-storage-blob`, a supported `DefaultAzureCredential` login, and blob
+authorization for every listed URI.
+
 ## Free Filter
 
 The free filter allows you to narrow down ground-truth results to those meeting specific criteria. This is essential when evaluating experimentation results to identify patterns, regressions, improvements, or unexpected behaviors across your test cases.

@@ -157,7 +157,31 @@ You can also include optional URIs to inference, evaluation, and ground truth ou
 curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "inference_uri": "path/to/inference.json", "evaluation_uri": "path/to/evaluation.json", "ground_truth_uri": "path/to/ground-truth.json", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
 ```
 
-You do not have to pre-define any metrics, anything you want to send into the catalog will be accepted.
+Numeric metrics do not need to be pre-defined. Classification and retrieval
+metrics must either have a compatible metric definition or use a name from
+which the catalog can infer a supported aggregate.
+
+Metrics may be numeric, classification labels (`t+`, `t-`, `f+`, or `f-`), or
+structured retrieval values:
+
+```json
+{
+  "metrics": {
+    "retrieval": {
+      "found": ["doc-1", "doc-3"],
+      "expected": ["doc-1", "doc-2"]
+    }
+  }
+}
+```
+
+A retrieval value must contain exactly the `found` and `expected` arrays. Each
+array may contain at most 10,000 unique, case-sensitive string IDs; IDs must be
+non-empty, non-whitespace, and at most 500 characters. Precision, recall, and
+F1 aggregates derive confusion counts from set membership in these arrays.
+Without a metric definition, classification labels are accepted when the metric
+name contains `accuracy`, `precision`, `recall`, or `f1` (case-insensitive);
+retrieval values require `precision`, `recall`, or `f1`.
 
 ## Create an experiment
 
@@ -251,15 +275,85 @@ curl -i -X PUT -d '[
 
 Metric definition fields:
 
-| Field                | Type     | Required | Description                                                                                             |
-| -------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `name`               | string   | yes      | Metric name (must be a valid identifier).                                                               |
-| `min`                | number   | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                      |
-| `max`                | number   | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                      |
-| `aggregate_function` | string   | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`. |
-| `order`              | integer  | no       | Display order in the UI (lower numbers appear first).                                                   |
-| `is_important`       | boolean  | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                  |
-| `tags`               | string[] | no       | Tags for categorization (e.g., `lower-is-better`).                                                      |
+| Field                | Type     | Required | Description                                                                                                                                                                                                                 |
+| -------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | string   | yes      | Metric name (must be a valid identifier).                                                                                                                                                                                   |
+| `min`                | number   | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                                                                                                                                          |
+| `max`                | number   | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                                                                                                                                          |
+| `aggregate_function` | string   | no       | `Default`, `Average`, `AverageByRef`, `Precision`, `Recall`, `F1`, `MicroPrecision`, `MicroRecall`, `MicroF1`, `MacroPrecision`, `MacroRecall`, `MacroF1`, `Accuracy`, `Count`, or `Cost`. Defaults to `Default`.                  |
+| `order`              | integer  | no       | Display order in the UI (lower numbers appear first).                                                                                                                                                                       |
+| `is_important`       | boolean  | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                                                                                                                                      |
+| `tags`               | string[] | no       | Tags controlling categorization and display. For example, `lower-is-better`, `no-p`, and `elapsed_time`; `elapsed_time` means that stored numeric values are milliseconds.                                                    |
+
+Aggregation behavior:
+
+- `Average` averages all numeric observations. `AverageByRef` first averages
+  each ref's numeric observations, then gives every ref equal weight. Its
+  summary count and variation describe refs, not raw iterations. Observations
+  without a ref are excluded, and aggregation fails when no referenced numeric
+  observations remain.
+- `Precision`, `Recall`, and `F1` pool confusion counts across all observations.
+  `MicroPrecision`, `MicroRecall`, and `MicroF1` are explicit aliases for the
+  same pooled behavior.
+- `MacroPrecision`, `MacroRecall`, and `MacroF1` pool observations within each
+  ref, calculate that ref's score, and then average the ref scores equally.
+  Observations without a ref are excluded.
+- Precision, recall, and F1 variants accept either classification labels or
+  structured retrieval values. Do not mix retrieval values with classification
+  or numeric values for one metric in a set. `Accuracy` remains
+  classification-only. For backward compatibility, numeric history alongside
+  classification values is retained but does not contribute confusion counts.
+- With `Default`, metric names containing `precision`, `recall`, `f1`, or
+  `accuracy` infer the corresponding classification/retrieval aggregate when
+  compatible values are present; other numeric metrics average.
+- Statistics (paired permutation p-values and bootstrap confidence intervals)
+  are calculated only for `Average` and `AverageByRef` metrics, excluding
+  metrics tagged `no-p`. Pairing is by ref and still requires the configured
+  minimum number of paired observations.
+
+### Export Raw Metrics
+
+Export experiment- or set-scoped raw metrics:
+
+```text
+GET /api/analysis/projects/{project}/experiments/{experiment}/metrics?format=json
+GET /api/analysis/projects/{project}/experiments/{experiment}/metrics?format=csv
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics?format=json
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics?format=csv
+```
+
+JSON returns rows shaped as `{set, ref, iteration, metrics}`. CSV is a wide
+table with `set`, `ref`, and `iteration` join keys followed by alphabetically
+ordered metric columns. Structured retrieval metrics use
+`<metric>.found` and `<metric>.expected` CSV columns containing JSON arrays.
+Metric names that collide with join keys are prefixed with `metric.`.
+
+`iteration` is the one-based source-order occurrence for each `(set, ref)`
+pair. It is assigned across all result records, so gaps are possible when a
+record has no exportable metrics. Records without both `set` and `ref`, and
+annotation-only or metricless records, are omitted. Exports contain raw values,
+not aggregate statistics or annotations. `format` accepts only `json` or
+`csv`.
+
+### Export Artifact Manifests
+
+Export manifests for the exact stored inference and evaluation URIs:
+
+```text
+GET /api/analysis/projects/{project}/experiments/{experiment}/artifacts?format=jsonl&types=inference,evaluation
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/artifacts?format=jsonl&types=inference
+```
+
+Use `format=json` for a JSON array or `format=jsonl` for one object per line.
+Each row is `{type, set, ref, iteration, uri}` and uses the same `(set, ref,
+iteration)` join key as raw metrics. `types` is a comma-separated list
+containing `inference`, `evaluation`, or both (the default).
+
+Manifests omit records without both `set` and `ref` and de-duplicate identical
+`(type, uri)` entries. The catalog returns the URI stored on the result as-is;
+it does not validate the URI, proxy blob contents, mint access tokens, or
+create ZIP archives. For Azure Blob URIs, clients download directly using an
+identity with blob access.
 
 ### Compare by Ref
 

@@ -63,10 +63,25 @@ Assume `{baseUrl}` includes `/api`, for example `http://localhost:6010/api`.
 | `PUT` | `/projects/{project}/metrics` | Add/update metric definitions. |
 | `POST` | `/analysis/statistics` | Enqueue statistics. |
 | `POST` | `/analysis/meaningful-tags` | Meaningful tag analysis. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/metrics` | Export raw per-iteration metrics for every set as JSON or CSV. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics` | Export raw per-iteration metrics for one set as JSON or CSV. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/artifacts` | List inference and evaluation artifact locations for every set as JSON or JSONL. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/artifacts` | List inference and evaluation artifact locations for one set as JSON or JSONL. |
 | `GET` | `/settings` | UI settings. |
 | `GET` | `/download?url=...` | Download support document if enabled. |
 
 The `sets` query parameter exists on compare but current controller ignores it; filter by tags or compare all sets instead.
+
+Metrics export endpoints return JSON by default. Add `?format=csv` for a wide
+CSV with `set`, `ref`, `iteration`, and one column per metric. These exports
+exclude annotations, aggregate statistics, support-document URIs, and policies.
+
+Artifact manifest endpoints return JSON by default. Add `?format=jsonl` for a
+downloadable manifest and use `types=inference`, `types=evaluation`, or
+`types=inference,evaluation` to select artifact types. Each row contains
+`type`, `set`, `ref`, `iteration`, and the exact stored Azure Blob `uri`.
+Duplicate type/URI pairs are emitted once. Artifact content is not proxied or
+zipped by these endpoints.
 
 ## JSON Shapes
 
@@ -97,6 +112,26 @@ Support document URIs are optional. It is common to set `inference_uri` and `eva
   }
 }
 ```
+
+Retrieval result:
+
+```json
+{
+  "ref": "q1",
+  "set": "set-000",
+  "metrics": {
+    "retrieval_f1": {
+      "found": ["A", "B", "D"],
+      "expected": ["B", "C", "D"]
+    }
+  }
+}
+```
+
+`found` order is retrieval rank. `expected` is an unordered binary-relevance
+set, and duplicate IDs are rejected. Analysis JSON exports preserve this
+object. CSV exports use `<metric>.found` and `<metric>.expected` columns whose
+cells contain JSON arrays.
 
 Annotation:
 

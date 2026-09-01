@@ -1,5 +1,12 @@
 <script lang="ts">
   import { getContext } from "svelte";
+  import { formatMetricValue } from "../metricFormatters";
+
+  interface Props {
+    metricDefinition?: MetricDefinition;
+  }
+
+  let { metricDefinition }: Props = $props();
 
   const { yScale, width } = getContext("LayerCake") as any;
 
@@ -29,10 +36,16 @@
   }
 
   function formatTick(value: number): string {
-    if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}k`;
-    if (Number.isInteger(value)) return value.toString();
-    return value.toFixed(4);
+    return formatMetricValue(value, metricDefinition?.tags, (numericValue) => {
+      if (Math.abs(numericValue) >= 1000000) {
+        return `${(numericValue / 1000000).toFixed(1)}M`;
+      }
+      if (Math.abs(numericValue) >= 1000) {
+        return `${(numericValue / 1000).toFixed(0)}k`;
+      }
+      if (Number.isInteger(numericValue)) return numericValue.toString();
+      return numericValue.toFixed(4);
+    });
   }
 </script>
 
@@ -59,4 +72,3 @@
     {formatTick(tick)}
   </text>
 {/each}
-

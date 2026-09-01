@@ -6,7 +6,7 @@ compatibility: Requires a reachable Experiment Catalog API and/or experiment-cat
 metadata:
   spec_version: "1.0"
   version: "1.0.0"
-  catalog_skill_version: "1.0.0"
+  catalog_skill_version: "1.5.0"
   catalog_project: "microsoft/experiment-catalog"
 ---
 
