@@ -1,5 +1,29 @@
 # Catalog UI
 
+## Metric Formatting
+
+Metric-definition tags can opt numeric values into specialized display formats. The
+underlying values remain numeric and are unchanged for storage, aggregation,
+comparison, filtering, and export.
+
+- `elapsed_time` treats the metric value as milliseconds and displays at most two
+  adjacent units. For example, `1500` displays as `1s 500ms`, `62000` as `1m 2s`,
+  and `3900010` as `1h 5m`. Values are rounded normally at the precision of the
+  smaller displayed unit. Negative or non-finite values display as `-`.
+- Metrics without a specialized formatter use comma-separated numeric values
+  while retaining the precision appropriate to their aggregate type.
+
+## Data And File Access
+
+The experiment page's **download** dialog provides three data-access workflows:
+
+- **download** retrieves the complete stored experiment JSONL.
+- **export** retrieves raw per-iteration metrics as a notebook-friendly CSV.
+- **manifest** retrieves JSONL containing the exact Azure Blob locations of
+  inference files, evaluation files, or both. The dialog includes Python
+  examples for reading metric exports and downloading artifacts directly with
+  `DefaultAzureCredential`.
+
 ## Free Filter
 
 The free filter allows you to narrow down ground-truth results to those meeting specific criteria. This is essential when evaluating experimentation results to identify patterns, regressions, improvements, or unexpected behaviors across your test cases.

@@ -1,13 +1,13 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ComparisonTable from "./ComparisonTable.svelte";
+  import DataAccessModal from "./DataAccessModal.svelte";
   import MeaningfulTags from "./MeaningfulTags.svelte";
   import type { ViewConfig } from "./Tools";
   import {
     useProjectBaseline,
     setAsProjectBaseline as apiSetAsProjectBaseline,
     computeStatistics as apiComputeStatistics,
-    getExperimentDownloadUrl,
   } from "./api";
 
   interface Props {
@@ -48,6 +48,7 @@
   let showImportantOnly: boolean = $state(false);
   let hasImportantMetrics: boolean = $state(false);
   let ready: boolean = $state(false);
+  let dataAccessOpen: boolean = $state(false);
 
   // Initialize from config on mount
   onMount(() => {
@@ -186,13 +187,13 @@
     <button class="btn" onclick={computeStatistics}>
       compute statistics
     </button>
-    <a
+    <button
       class="btn"
-      href={getExperimentDownloadUrl(project.name, experiment.name)}
-      download="{experiment.name}.jsonl"
+      onclick={() => (dataAccessOpen = true)}
+      title="Download experiment data, export metrics, or access associated files."
     >
       download
-    </a>
+    </button>
   </div>
   <div class="toolbar-divider"></div>
   <div class="toolbar-group">
@@ -201,6 +202,13 @@
     </button>
   </div>
 </div>
+
+<DataAccessModal
+  isOpen={dataAccessOpen}
+  projectName={project.name}
+  experimentName={experiment.name}
+  onclose={() => (dataAccessOpen = false)}
+/>
 
 <section class="page-content">
   <div class="meta-row">

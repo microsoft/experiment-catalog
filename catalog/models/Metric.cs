@@ -40,4 +40,7 @@ public class Metric
 
     [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
     public string? Classification { get; set; }
+
+    [JsonProperty("retrieval", NullValueHandling = NullValueHandling.Ignore)]
+    public RetrievalValue? Retrieval { get; set; }
 }

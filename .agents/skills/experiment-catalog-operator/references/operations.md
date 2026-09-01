@@ -112,6 +112,23 @@ Content-Type: application/json
 }
 ```
 
+Metrics may also contain retrieval observations. `found` is ordered by retrieval
+rank and `expected` is an unordered binary-relevance set. IDs must be unique,
+non-empty strings within each array.
+
+```json
+{
+  "ref": "q1",
+  "set": "set-000",
+  "metrics": {
+    "retrieval_f1": {
+      "found": ["A", "B", "D"],
+      "expected": ["B", "C", "D"]
+    }
+  }
+}
+```
+
 For set-level annotations without metrics:
 
 ```json
@@ -153,11 +170,32 @@ Aggregate functions:
 
 - `Default`
 - `Average`
+- `AverageByRef`
 - `Recall`
 - `Precision`
+- `F1`
+- `MicroPrecision` (alias of `Precision`)
+- `MicroRecall` (alias of `Recall`)
+- `MicroF1` (alias of `F1`)
+- `MacroPrecision`
+- `MacroRecall`
+- `MacroF1`
 - `Accuracy`
 - `Count`
 - `Cost`
+
+`Precision`, `Recall`, and `F1` pool classification or retrieval outcomes
+before calculating the metric. The corresponding `Micro*` names are explicit
+aliases with identical behavior. Their `Macro*` variants calculate one pooled
+score per ref and then average the ref scores equally. `Accuracy` supports
+classification values only because retrieval observations do not provide true
+negatives.
+
+`AverageByRef` first averages numeric iterations within each ref, then averages
+the ref-level means equally. Its count and variation statistics describe the
+ref-level means rather than the raw iteration values. Confidence intervals and
+p-values pair the baseline and experiment by ref for both `Average` and
+`AverageByRef`.
 
 Default inference:
 

@@ -5,6 +5,7 @@
   import AxisX from "./AxisX.svelte";
   import AxisY from "./AxisY.svelte";
   import { computeBoxStats, deterministicJitter, type BoxStats } from "./distributionData";
+  import { ELAPSED_TIME_FORMAT_TAG } from "../metricFormatters";
 
   interface SetGroup {
     label: string;
@@ -54,7 +55,13 @@
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
     const padding = (max - min) * 0.08 || 1;
-    return [min - padding, max + padding];
+    const paddedMin = min - padding;
+    return [
+      metricDefinition?.tags?.includes(ELAPSED_TIME_FORMAT_TAG)
+        ? Math.max(0, paddedMin)
+        : paddedMin,
+      max + padding,
+    ];
   });
 
   function colorForGroup(index: number): string {
@@ -83,7 +90,7 @@
             )}
           >
             <Svg>
-              <AxisY />
+              <AxisY {metricDefinition} />
               <AxisX {labels} {annotations} />
               <BoxPlotLayer {boxStats} {colorForGroup} {labels} />
               <BeeswarmLayer {groups} {colorForGroup} />
@@ -134,5 +141,4 @@
     font-style: italic;
   }
 </style>
-
 

@@ -1,4 +1,11 @@
 <script lang="ts">
+  import {
+    ELAPSED_TIME_FORMAT_TAG,
+    formatMetricValue,
+    formatNumber,
+    hasMetricFormatter,
+  } from "./metricFormatters";
+
   interface Props {
     result?: Result;
     baseline?: Result;
@@ -34,6 +41,9 @@
   let isAvg: boolean = $derived(!(isCount || isCost));
   let lowerIsBetter: boolean = $derived(
     !!(definition && definition.tags && definition.tags.includes("lower-is-better"))
+  );
+  let isElapsedTime: boolean = $derived(
+    hasMetricFormatter(definition?.tags, ELAPSED_TIME_FORMAT_TAG)
   );
 
   let diff: number = $derived.by(() => {
@@ -78,7 +88,8 @@
     value: string;
   };
 
-  const formatNumber = (value: number) => value.toFixed(3);
+  const formatValue = (value: number, allowNegative = false) =>
+    formatMetricValue(value, definition?.tags, formatNumber, { allowNegative });
 
   let summaryParts: SummaryPart[] = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
@@ -92,7 +103,7 @@
       });
     }
     if (showStdDev && resultMetric.std_dev !== undefined) {
-      parts.push({ label: "dev", value: formatNumber(resultMetric.std_dev) });
+      parts.push({ label: "dev", value: formatValue(resultMetric.std_dev) });
     }
     if (showRange) {
       if (
@@ -101,10 +112,10 @@
       ) {
         parts.push({
           label: "rng",
-          value: `${formatNumber(resultMetric.range_min)}-${formatNumber(resultMetric.range_max)}`,
+          value: `${formatValue(resultMetric.range_min)}-${formatValue(resultMetric.range_max)}`,
         });
       } else if (resultMetric.range !== undefined) {
-        parts.push({ label: "rng", value: formatNumber(resultMetric.range) });
+        parts.push({ label: "rng", value: formatValue(resultMetric.range) });
       }
     }
     return parts;
@@ -116,25 +127,24 @@
     {#if result.metrics[metric].value === undefined}
       <span>-</span>
     {:else if isCount}
-      <span>{result.metrics[metric].value.toLocaleString()}</span>
+      <span>{formatNumber(result.metrics[metric].value, 0)}</span>
     {:else if isCost}
       <span
         >{result.metrics[metric].value.toFixed(2) === "0.00" &&
         result.metrics[metric].value > 0
           ? ">$0.00"
-          : "$" +
-            result.metrics[metric].value.toFixed(2).toLocaleString()}</span
+          : "$" + formatNumber(result.metrics[metric].value, 2)}</span
       >
     {:else}
-      <span
-        >{result.metrics[metric].value.toFixed(3) === "0.000" &&
+      <span>{isElapsedTime
+          ? formatValue(result.metrics[metric].value)
+          : result.metrics[metric].value.toFixed(3) === "0.000" &&
         result.metrics[metric].value > 0
           ? ">0.00"
-          : result.metrics[metric].value.toFixed(3).toLocaleString()}</span
-      >
+          : formatNumber(result.metrics[metric].value)}</span>
       {#if isAvg && showActualValue}
         <span class="actual"
-          >&nbsp;{difp != undefined && difp > 0 ? "+" : ""}{diff.toFixed(3)}&nbsp;</span
+          >&nbsp;{difp != undefined && difp > 0 ? "+" : ""}{formatValue(diff, true)}&nbsp;</span
         >
       {/if}
     {/if}
@@ -218,8 +228,8 @@
       <span class="pvalue">p={p_value.toFixed(2)}</span>
       {#if ci_lower != undefined && ci_upper != undefined}
         <span class="pvalue"
-          >({ci_lower.toFixed(3).toLocaleString()} to
-          {ci_upper.toFixed(3).toLocaleString()})</span
+          >({formatValue(ci_lower, true)} to
+          {formatValue(ci_upper, true)})</span
         >
       {/if}
     {/if}

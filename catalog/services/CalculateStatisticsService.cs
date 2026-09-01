@@ -98,7 +98,7 @@ public class CalculateStatisticsService(
             return null;
         }
 
-        // identify metrics eligible for p-value calculation (must use Average aggregation and not be tagged 'no-p')
+        // identify metrics eligible for p-value calculation (must use a numeric average and not be tagged 'no-p')
         var eligibleMetrics = GetEligibleMetrics(experimentResult, experiment.MetricDefinitions);
 
         // calculate p-values and confidence intervals for each eligible metric
@@ -124,7 +124,7 @@ public class CalculateStatisticsService(
 
     /// <summary>
     /// Identifies metrics that are eligible for p-value calculation.
-    /// A metric is eligible if it uses the Average aggregate function and is not tagged with 'no-p'.
+    /// A metric is eligible if it uses Average or AverageByRef and is not tagged with 'no-p'.
     /// </summary>
     private IEnumerable<string> GetEligibleMetrics(
         IDictionary<string, Result> experimentResult,
@@ -142,8 +142,10 @@ public class CalculateStatisticsService(
                 if (definition?.Tags?.Contains("no-p") == true)
                     return false;
 
-                // only include metrics that use Average aggregation
-                return definition?.AggregateFunction == AggregateFunctions.Average;
+                // statistics pair per-ref averages, which supports both numeric average modes
+                return definition?.AggregateFunction is
+                    AggregateFunctions.Average or
+                    AggregateFunctions.AverageByRef;
             });
     }
 
