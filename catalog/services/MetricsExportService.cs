@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
@@ -37,23 +38,23 @@ public static class MetricsExportService
         {
             if (string.IsNullOrEmpty(result.Set) ||
                 string.IsNullOrEmpty(result.Ref) ||
-                result.Metrics is null ||
                 (setName is not null && result.Set != setName))
             {
                 continue;
             }
 
+            var key = (result.Set, result.Ref);
+            iterations.TryGetValue(key, out var iteration);
+            iteration++;
+            iterations[key] = iteration;
+
+            if (result.Metrics is null) continue;
             var metrics = result.Metrics
                 .Select(metric => (metric.Key, Value: GetRawValue(metric.Value)))
                 .Where(metric => metric.Value is not null)
                 .ToDictionary(metric => metric.Key, metric => metric.Value!);
 
             if (metrics.Count == 0) continue;
-
-            var key = (result.Set, result.Ref);
-            iterations.TryGetValue(key, out var iteration);
-            iteration++;
-            iterations[key] = iteration;
 
             rows.Add(new MetricsExportRow
             {
@@ -68,6 +69,33 @@ public static class MetricsExportService
     }
 
     public static string ToCsv(IReadOnlyList<MetricsExportRow> rows)
+    {
+        var output = new StringBuilder();
+        foreach (var line in GetCsvLines(rows))
+        {
+            output.AppendLine(line);
+        }
+        return output.ToString();
+    }
+
+    public static async Task WriteCsvAsync(
+        Stream output,
+        IReadOnlyList<MetricsExportRow> rows,
+        CancellationToken cancellationToken = default)
+    {
+        await using var writer = new StreamWriter(
+            output,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            leaveOpen: true);
+        foreach (var line in GetCsvLines(rows))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await writer.WriteLineAsync(line.AsMemory(), cancellationToken);
+        }
+        await writer.FlushAsync(cancellationToken);
+    }
+
+    private static IEnumerable<string> GetCsvLines(IReadOnlyList<MetricsExportRow> rows)
     {
         var metricNames = rows
             .SelectMany(row => row.Metrics.Keys)
@@ -95,9 +123,7 @@ public static class MetricsExportService
             }
             return columns;
         }).ToList();
-        var output = new StringBuilder();
-
-        WriteCsvRow(output, ["set", "ref", "iteration", .. metricColumns.Select(column => column.Header)]);
+        yield return CreateCsvRow(["set", "ref", "iteration", .. metricColumns.Select(column => column.Header)]);
         foreach (var row in rows)
         {
             var values = new List<string>
@@ -107,10 +133,8 @@ public static class MetricsExportService
                 row.Iteration.ToString(CultureInfo.InvariantCulture),
             };
             values.AddRange(metricColumns.Select(column => GetCsvMetricValue(row, column)));
-            WriteCsvRow(output, values);
+            yield return CreateCsvRow(values);
         }
-
-        return output.ToString();
     }
 
     private static object? GetRawValue(Metric metric)
@@ -137,11 +161,8 @@ public static class MetricsExportService
                 : retrieval.Expected);
     }
 
-    private static void WriteCsvRow(StringBuilder output, IEnumerable<string> values)
-    {
-        output.AppendJoin(',', values.Select(EscapeCsvValue));
-        output.AppendLine();
-    }
+    private static string CreateCsvRow(IEnumerable<string> values) =>
+        string.Join(',', values.Select(EscapeCsvValue));
 
     private static string EscapeCsvValue(string value)
     {

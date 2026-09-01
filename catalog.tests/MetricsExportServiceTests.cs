@@ -79,6 +79,30 @@ public class MetricsExportServiceTests
     }
 
     [Fact]
+    public void CreateRows_AssignsIterationsBeforeFilteringMetriclessResults()
+    {
+        var experiment = new Experiment
+        {
+            Name = "experiment",
+            Hypothesis = "test",
+            Results =
+            [
+                new Result
+                {
+                    Set = "set-a",
+                    Ref = "ref-1",
+                    InferenceUri = "https://example/inference.json",
+                },
+                CreateResult("set-a", "ref-1", ("score", new Metric { Value = 1m })),
+            ],
+        };
+
+        var row = Assert.Single(MetricsExportService.CreateRows(experiment));
+
+        Assert.Equal(2, row.Iteration);
+    }
+
+    [Fact]
     public void ToCsv_CreatesWideTableWithStableMetricColumnsAndEscaping()
     {
         var rows = new List<MetricsExportRow>

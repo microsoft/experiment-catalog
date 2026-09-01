@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
@@ -79,6 +81,25 @@ public static class ArtifactManifestService
             Environment.NewLine,
             rows.Select(JsonConvert.SerializeObject)) +
         (rows.Count > 0 ? Environment.NewLine : string.Empty);
+
+    public static async Task WriteJsonLinesAsync(
+        Stream output,
+        IReadOnlyList<ArtifactManifestRow> rows,
+        CancellationToken cancellationToken = default)
+    {
+        await using var writer = new StreamWriter(
+            output,
+            new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+            leaveOpen: true);
+        foreach (var row in rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await writer.WriteLineAsync(
+                JsonConvert.SerializeObject(row).AsMemory(),
+                cancellationToken);
+        }
+        await writer.FlushAsync(cancellationToken);
+    }
 
     private static void AddArtifact(
         List<ArtifactManifestRow> rows,

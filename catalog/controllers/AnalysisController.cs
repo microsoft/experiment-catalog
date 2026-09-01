@@ -1,10 +1,11 @@
 using System;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 
 namespace Catalog;
 
@@ -128,12 +129,12 @@ public class AnalysisController : ControllerBase
 
         if (string.Equals(format, "csv", StringComparison.OrdinalIgnoreCase))
         {
-            var csv = MetricsExportService.ToCsv(rows);
             var setSuffix = setName is null ? string.Empty : $"-{setName}";
-            return File(
-                Encoding.UTF8.GetBytes(csv),
+            SetDownloadHeaders(
                 "text/csv; charset=utf-8",
                 $"{experimentName}{setSuffix}-metrics.csv");
+            await MetricsExportService.WriteCsvAsync(Response.Body, rows, cancellationToken);
+            return new EmptyResult();
         }
 
         return Ok(rows);
@@ -173,17 +174,29 @@ public class AnalysisController : ControllerBase
 
         if (string.Equals(format, "jsonl", StringComparison.OrdinalIgnoreCase))
         {
-            var jsonLines = ArtifactManifestService.ToJsonLines(rows);
             var setSuffix = setName is null ? string.Empty : $"-{setName}";
             var typeSuffix = string.Join(
                 '-',
                 ArtifactManifestService.SupportedTypes.Where(requestedTypes.Contains));
-            return File(
-                Encoding.UTF8.GetBytes(jsonLines),
+            SetDownloadHeaders(
                 "application/x-ndjson; charset=utf-8",
                 $"{experimentName}{setSuffix}-{typeSuffix}-artifacts.jsonl");
+            await ArtifactManifestService.WriteJsonLinesAsync(
+                Response.Body,
+                rows,
+                cancellationToken);
+            return new EmptyResult();
         }
 
         return Ok(rows);
+    }
+
+    private void SetDownloadHeaders(string contentType, string fileName)
+    {
+        Response.ContentType = contentType;
+        Response.GetTypedHeaders().ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileNameStar = fileName,
+        };
     }
 }

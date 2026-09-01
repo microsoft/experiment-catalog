@@ -15,6 +15,8 @@
   let { isOpen, projectName, experimentName, onclose }: Props = $props();
   let includeInference = $state(true);
   let includeEvaluation = $state(true);
+  let modalElement: HTMLDivElement | undefined = $state();
+  let closeButton: HTMLButtonElement | undefined = $state();
 
   let artifactTypes = $derived(
     [
@@ -74,6 +76,38 @@ with open("${artifactManifestFilename}") as manifest:
   const handleKeydown = (event: KeyboardEvent) => {
     if (isOpen && event.key === "Escape") close();
   };
+
+  const handleModalKeydown = (event: KeyboardEvent) => {
+    if (event.key !== "Tab" || !modalElement) return;
+
+    const focusable = Array.from(
+      modalElement.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), input:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+      ),
+    );
+    if (focusable.length === 0) return;
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  };
+
+  $effect(() => {
+    if (!isOpen) return;
+
+    const previousFocus =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : undefined;
+    queueMicrotask(() => closeButton?.focus());
+    return () => previousFocus?.focus();
+  });
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -84,7 +118,9 @@ with open("${artifactManifestFilename}") as manifest:
     <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_noninteractive_element_interactions -->
     <div
       class="modal"
+      bind:this={modalElement}
       onclick={(event) => event.stopPropagation()}
+      onkeydown={handleModalKeydown}
       role="dialog"
       aria-modal="true"
       aria-labelledby="data-access-title"
@@ -95,7 +131,7 @@ with open("${artifactManifestFilename}") as manifest:
           <h3 id="data-access-title">Data and files</h3>
           <p>{projectName} / {experimentName}</p>
         </div>
-        <button class="btn" onclick={close}>close</button>
+        <button class="btn" bind:this={closeButton} onclick={close}>close</button>
       </div>
 
       <div class="data-options">

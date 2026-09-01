@@ -34,6 +34,31 @@ public class ArtifactManifestServiceTests
     }
 
     [Fact]
+    public void CreateRows_AssignsIterationsBeforeFilteringArtifactlessResults()
+    {
+        var experiment = new Experiment
+        {
+            Name = "experiment",
+            Hypothesis = "test",
+            Results =
+            [
+                CreateResult("set-a", "ref-1", null, null),
+                new Result
+                {
+                    Set = "set-a",
+                    Ref = "ref-1",
+                    InferenceUri = "https://example/inference.json",
+                },
+            ],
+        };
+        var types = new HashSet<string>(["inference"], StringComparer.OrdinalIgnoreCase);
+
+        var row = Assert.Single(ArtifactManifestService.CreateRows(experiment, types));
+
+        Assert.Equal(2, row.Iteration);
+    }
+
+    [Fact]
     public void ToJsonLines_ProducesOneObjectPerLine()
     {
         var rows = new List<ArtifactManifestRow>

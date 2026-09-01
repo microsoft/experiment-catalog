@@ -57,4 +57,20 @@ test.describe('Experiment data access', () => {
       '# Selected artifact types: inference',
     );
   });
+
+  test('moves focus into the modal and restores it when closed', async ({
+    mockedPage: page,
+  }) => {
+    const close = page.getByRole('button', { name: 'close' });
+    const dialog = page.getByRole('dialog', { name: 'Data and files' });
+
+    await expect(close).toBeFocused();
+    await close.press('Shift+Tab');
+    await expect(dialog.locator('summary').last()).toBeFocused();
+    await page.keyboard.press('Tab');
+    await expect(close).toBeFocused();
+    await close.click();
+
+    await expect(page.getByRole('button', { name: 'download' })).toBeFocused();
+  });
 });
