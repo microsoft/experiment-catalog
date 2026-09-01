@@ -1,7 +1,7 @@
 ---
 title: Experiment Catalog
 description: Catalog, compare, and analyze experiment runs with a .NET API, Svelte UI, and deterministic development harness.
-ms.date: 2026-08-28
+ms.date: 2026-09-01
 ms.topic: overview
 ---
 
@@ -60,8 +60,12 @@ The application consists of several main components:
 
 - Compare experiment results against baselines
 - View aggregate statistics across sets
+- Aggregate structured retrieval metrics with pooled or per-ref precision,
+  recall, and F1
 - Drill down into individual ground-truth results
 - Compare metrics across multiple evaluation runs
+- Export raw metrics and direct-download artifact manifests at experiment or
+  set scope (see the [catalog API guide](./catalog/README.md#export-raw-metrics))
 
 ### Filtering Capabilities
 
