@@ -30,6 +30,11 @@ updates:
     directory: "/ui"
     schedule:
       interval: "weekly"
+    # svelte-check 4.x supports TypeScript 5 and 6; remove when it supports 7.
+    ignore:
+      - dependency-name: "typescript"
+        update-types:
+          - "version-update:semver-major"
     groups:
       npm-ui:
         patterns:
