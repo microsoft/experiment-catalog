@@ -19,6 +19,54 @@ comparison, filtering, and export.
   grouped formatting applies to comparison values, counts, costs, and
   statistics; chart axes may abbreviate large values as `k` or `M`.
 
+## Comparison Legend And Toggles
+
+The experiment comparison page can show aggregate comparison metadata directly
+in each metric cell:
+
+- `xN` is the aggregate `count`: the number of metric observations represented
+  by that aggregate.
+- `(M refs)` is `unique_refs`: the number of distinct non-null refs that
+  contributed to that aggregate metric.
+- `WIN W` is the number of shared refs where the set's per-ref aggregate beats
+  the experiment baseline's per-ref aggregate.
+- `TIE T` is the number of shared refs where the set's per-ref aggregate exactly
+  equals the experiment baseline's per-ref aggregate.
+
+WIN and TIE appear alongside the other summary statistics, while the count and
+unique-ref count remain at the end of the core metric display:
+
+```text
+[value] [difference] (CV ..., DEV ..., RNG ..., WIN [winning-refs],
+TIE [tied-refs]) ... x[number-of-values] ([unique-refs] refs)
+```
+
+Important details:
+
+- `WIN` is shown by default on the experiment comparison page.
+- `TIE` is hidden by default until the user enables the toggle.
+- Wins use metric direction from the `lower-is-better` metric-definition tag;
+  when the tag is absent, higher values win.
+- Ties use exact equality. Version 1 does not apply any tolerance.
+- Only shared refs with numeric values on both the candidate aggregate and the
+  experiment baseline aggregate are paired.
+- The experiment baseline is the comparison target, so it does not show `WIN`
+  or `TIE` counts for itself.
+- These fields are response-only comparison metadata, not persisted metric
+  values.
+
+## Metric Descriptions In The UI
+
+Metric definitions can include an optional `description` field. When present,
+the experiment comparison page can display the text in italics on a line below
+the corresponding metric row. Use the **Metric Desc** option at the beginning
+of the **Show** controls to reveal these rows. The option is hidden by default
+and is persisted in shared URL configuration as `show_desc`.
+
+Descriptions are presentation metadata only. They help users understand what a
+metric means, but they do not affect metric submission requirements, stored
+results, aggregation behavior, or analysis semantics.
+
 ## Data And File Access
 
 The experiment page's **download** dialog provides three data-access workflows:

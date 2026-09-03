@@ -31,17 +31,25 @@ describe("encodeConfig", () => {
 
     it("encodes boolean toggle values", () => {
         const cfg: ViewConfig = {
+            show_desc: true,
             show_val: false,
+            show_diff: false,
             show_cv: false,
             show_std: true,
             show_range: true,
+            show_win: false,
+            show_tie: true,
         };
         const encoded = encodeConfig(cfg);
         const decoded = decodeConfig(encoded!);
+        expect(decoded.show_desc).toBe(true);
         expect(decoded.show_val).toBe(false);
+        expect(decoded.show_diff).toBe(false);
         expect(decoded.show_cv).toBe(false);
         expect(decoded.show_std).toBe(true);
         expect(decoded.show_range).toBe(true);
+        expect(decoded.show_win).toBe(false);
+        expect(decoded.show_tie).toBe(true);
     });
 
     it("encodes show_important_only true", () => {

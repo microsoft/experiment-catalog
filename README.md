@@ -1,7 +1,7 @@
 ---
 title: Experiment Catalog
 description: Catalog, compare, and analyze experiment runs with a .NET API, Svelte UI, and deterministic development harness.
-ms.date: 2026-09-01
+ms.date: 2026-09-02
 ms.topic: overview
 ---
 
@@ -36,6 +36,7 @@ The application consists of several main components:
 | ----------------- | --------------------------------------------------------------------------------- |
 | **catalog**       | ASP.NET Core API that stores experiment data in Azure Blob Storage                |
 | **MCP interface** | MCP tools hosted by the catalog API for project, experiment, and analysis actions |
+| **cli**           | Python package and CLI for publishing metrics from CSV files or notebooks          |
 | **ui**            | Svelte frontend for visualizing and comparing experiments                         |
 | **catalog.tests** | xUnit tests for the catalog API                                                   |
 
@@ -52,16 +53,25 @@ The application consists of several main components:
 ### Experiment Management
 
 - Create projects and experiments with hypotheses
+- Create projects, experiments, and push metric rows from the
+  [Experiment Catalog CLI](./cli/README.md) or the same Python API in notebooks
 - Set project-level and experiment-level baselines
-- Record arbitrary metrics without pre-definition
+- Record arbitrary metrics without requiring metric definitions, while
+  optionally adding metric-definition descriptions for inline comparison context
 - Annotate sets with commit hashes, configuration links, or notes
 
 ### Comparison & Analysis
 
-- Compare experiment results against baselines
+- Compare experiment results against baselines per set or per ref
 - View aggregate statistics across sets
 - Aggregate structured retrieval metrics with pooled or per-ref precision,
   recall, and F1
+- Surface response-only aggregate comparison metadata such as distinct
+  contributing refs and per-ref WIN/TIE counts against the experiment baseline
+- Compute trusted runtime-only custom aggregate metrics from
+  administrator-managed Python files during comparison and meaningful-tags
+  analysis (see the
+  [Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics))
 - Drill down into individual ground-truth results
 - Compare metrics across multiple evaluation runs
 - Export raw metrics and direct-download artifact manifests at experiment or
@@ -109,11 +119,42 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js 20+](https://nodejs.org/)
+- [Python 3.10+](https://www.python.org/downloads/) for the CLI, notebook
+  API, and optional runtime custom aggregate metrics
 - [Docker](https://www.docker.com/) (for containerized deployment)
 - Azure Storage Account
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (when using `INCLUDE_CREDENTIAL_TYPES=azcli`)
 
 ### Running Locally
+
+#### Experiment Catalog CLI
+
+Install the reusable CLI and notebook package:
+
+```bash
+python3 -m venv cli/.venv
+cli/.venv/bin/python -m pip install -e ./cli
+source cli/.venv/bin/activate
+export EXPERIMENT_CATALOG_BASE_URL=http://localhost:6010/api
+experiment-catalog --help
+```
+
+For example:
+
+```bash
+experiment-catalog create-project sprint-42
+experiment-catalog create-experiment \
+  --project sprint-42 notebook-test \
+  --hypothesis "The candidate prompt improves answer correctness."
+experiment-catalog push ./cli/examples/notebook-results.csv \
+  --project sprint-42 \
+  --experiment notebook-test \
+  --set candidate-a \
+  --dry-run
+```
+
+See the [CLI guide](./cli/README.md) for the CSV format, dry runs, metric
+pushes, and notebook examples.
 
 #### Backend API
 
@@ -135,6 +176,9 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
    ```
 
    Full configuration for the API can be found in the [Catalog README](./catalog/README.md).
+   Optional runtime custom aggregate metrics use the
+   `CUSTOM_AGGREGATE_*` settings documented in the
+   [Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics).
 
 3. Run the API:
 
@@ -181,6 +225,14 @@ docker run -p 6010:6010 -e AZURE_STORAGE_ACCOUNT_CONNSTRING="<your-connection-st
 ```
 
 You can instead provide `AZURE_STORAGE_ACCOUNT_NAME` when the container has access to a supported Azure credential, such as a service principal or managed identity.
+
+The published runtime image includes `python3` for optional runtime custom
+aggregate metrics. For local development, place functions in
+[`catalog/user-defined-aggregates`](./catalog/user-defined-aggregates) and set
+`CUSTOM_AGGREGATE_FUNCTIONS_PATH` to that folder. For deployments, mount a
+trusted folder of `.py` files and set
+`CUSTOM_AGGREGATE_FUNCTIONS_PATH` as described in the
+[Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics).
 
 ## ISE OSS Usage Attribution Disclosure
 
@@ -273,7 +325,9 @@ Data provenance policy:
 - Any generated or synthetic examples should be clearly labeled in-file and in documentation.
 - Contributors must document data origin, generation method, and intended usage when adding new sample datasets.
 
-The catalog service sample files are documented in [catalog/README.md](./catalog/README.md#sample-data).
+The runnable synthetic
+[`cli/examples/notebook-results.csv`](./cli/examples/notebook-results.csv)
+demonstrates the push format without using production data.
 
 ## Community Triage and Ownership
 

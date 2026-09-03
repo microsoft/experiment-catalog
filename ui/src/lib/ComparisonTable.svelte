@@ -22,11 +22,15 @@
     setList?: string;
     checked: string;
     initialTags?: string;
-    showActualValue?: boolean;
+    showMetricDescription?: boolean;
+    showValue?: boolean;
+    showDiff?: boolean;
     showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
     showRange?: boolean;
     showCount?: boolean;
+    showWin?: boolean;
+    showTie?: boolean;
     showStatistics?: boolean;
     showImportantOnly?: boolean;
     ondrilldown?: (set: string) => void;
@@ -42,11 +46,15 @@
     setList = $bindable(),
     checked,
     initialTags = "",
-    showActualValue = true,
+    showMetricDescription = false,
+    showValue = true,
+    showDiff = true,
     showCoefficientOfVariation = true,
     showStdDev = true,
     showRange = false,
     showCount = true,
+    showWin = true,
+    showTie = false,
     showStatistics = true,
     showImportantOnly = false,
     ondrilldown,
@@ -316,11 +324,14 @@
               baseline={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
-              {showActualValue}
+              {showValue}
+              {showDiff}
               {showCoefficientOfVariation}
               {showStdDev}
               {showRange}
               {showCount}
+              {showWin}
+              {showTie}
               {showStatistics}
             /></td
           >
@@ -329,11 +340,14 @@
               result={comparison.experiment_baseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
-              {showActualValue}
+              {showValue}
+              {showDiff}
               {showCoefficientOfVariation}
               {showStdDev}
               {showRange}
               {showCount}
+              {showWin}
+              {showTie}
               {showStatistics}
             /></td
           >
@@ -345,16 +359,33 @@
                 baseline={comparison.experiment_baseline?.result}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
-                {showActualValue}
+                {showValue}
+                {showDiff}
                 {showCoefficientOfVariation}
                 {showStdDev}
                 {showRange}
                 {showCount}
+                {showWin}
+                {showTie}
                 {showStatistics}
               /></td
             >
           {/each}
         </tr>
+        {#if showMetricDescription && comparison.metric_definitions[metric]?.description}
+          <tr
+            class="metric-description-row"
+            class:highlighted={metricsHighlighted?.has(metric)}
+          >
+            <td></td>
+            <td
+              class="metric-description"
+              colspan={selected.length + 3}
+            >
+              <em>{comparison.metric_definitions[metric].description}</em>
+            </td>
+          </tr>
+        {/if}
       {/each}
     </tbody>
   </table>
@@ -383,6 +414,12 @@
   td.label {
     text-align: left;
     font-weight: bold;
+  }
+
+  td.metric-description {
+    padding-top: 0.1rem;
+    padding-bottom: 0.75rem;
+    color: #b8b8b8;
   }
 
   .checkbox-column {

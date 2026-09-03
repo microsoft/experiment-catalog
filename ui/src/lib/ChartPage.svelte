@@ -219,7 +219,11 @@
     </div>
     <div class="control-group">
       <label for="metric-select">Metric</label>
-      <select id="metric-select" bind:value={selectedMetric} onchange={onMetricChange}>
+      <select
+        id="metric-select"
+        bind:value={selectedMetric}
+        onchange={onMetricChange}
+      >
         {#each allMetrics as metric}
           <option value={metric}>{metric}</option>
         {/each}
@@ -284,4 +288,3 @@
     font-style: italic;
   }
 </style>
-

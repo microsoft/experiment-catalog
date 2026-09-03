@@ -11,11 +11,15 @@
     baseline?: Result;
     metric: string;
     definition?: MetricDefinition;
-    showActualValue?: boolean;
+    showValue?: boolean;
+    showDiff?: boolean;
     showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
     showRange?: boolean;
     showCount?: boolean;
+    showUniqueRefs?: boolean;
+    showWin?: boolean;
+    showTie?: boolean;
     showStatistics?: boolean;
   }
 
@@ -24,11 +28,15 @@
     baseline = undefined,
     metric,
     definition = undefined,
-    showActualValue = true,
+    showValue = true,
+    showDiff = true,
     showCoefficientOfVariation = true,
     showStdDev = true,
     showRange = false,
     showCount = true,
+    showUniqueRefs = true,
+    showWin = true,
+    showTie = false,
     showStatistics = true,
   }: Props = $props();
 
@@ -93,19 +101,19 @@
 
   let summaryParts: SummaryPart[] = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
-    if (!isAvg || !resultMetric) return [];
+    if (!resultMetric) return [];
 
     const parts: SummaryPart[] = [];
-    if (showCoefficientOfVariation && coefficientOfVariation !== undefined) {
+    if (isAvg && showCoefficientOfVariation && coefficientOfVariation !== undefined) {
       parts.push({
         label: "cv",
         value: `${(coefficientOfVariation * 100).toFixed(1)}%`,
       });
     }
-    if (showStdDev && resultMetric.std_dev !== undefined) {
+    if (isAvg && showStdDev && resultMetric.std_dev !== undefined) {
       parts.push({ label: "dev", value: formatValue(resultMetric.std_dev) });
     }
-    if (showRange) {
+    if (isAvg && showRange) {
       if (
         resultMetric.range_min !== undefined &&
         resultMetric.range_max !== undefined
@@ -118,33 +126,43 @@
         parts.push({ label: "rng", value: formatValue(resultMetric.range) });
       }
     }
+    if (showWin && resultMetric.wins !== undefined) {
+      parts.push({ label: "win", value: resultMetric.wins.toString() });
+    }
+    if (showTie && resultMetric.ties !== undefined) {
+      parts.push({ label: "tie", value: resultMetric.ties.toString() });
+    }
     return parts;
   });
 </script>
 
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
-    {#if result.metrics[metric].value === undefined}
-      <span>-</span>
-    {:else if isCount}
-      <span>{formatNumber(result.metrics[metric].value, 0)}</span>
-    {:else if isCost}
-      <span
-        >{result.metrics[metric].value.toFixed(2) === "0.00" &&
-        result.metrics[metric].value > 0
-          ? ">$0.00"
-          : "$" + formatNumber(result.metrics[metric].value, 2)}</span
-      >
-    {:else}
-      <span>{isElapsedTime
-          ? formatValue(result.metrics[metric].value)
-          : result.metrics[metric].value.toFixed(3) === "0.000" &&
-        result.metrics[metric].value > 0
-          ? ">0.00"
-          : formatNumber(result.metrics[metric].value)}</span>
-      {#if isAvg && showActualValue}
-        <span class="actual"
-          >&nbsp;{difp != undefined && difp > 0 ? "+" : ""}{formatValue(diff, true)}&nbsp;</span
+    {#if showValue}
+      {#if result.metrics[metric].value === undefined}
+        <span class="value">-</span>
+      {:else if isCount}
+        <span class="value">{formatNumber(result.metrics[metric].value, 0)}</span>
+      {:else if isCost}
+        <span class="value"
+          >{result.metrics[metric].value.toFixed(2) === "0.00" &&
+          result.metrics[metric].value > 0
+            ? ">$0.00"
+            : "$" + formatNumber(result.metrics[metric].value, 2)}</span
+        >
+      {:else}
+        <span class="value">{isElapsedTime
+            ? formatValue(result.metrics[metric].value)
+            : result.metrics[metric].value.toFixed(3) === "0.000" &&
+          result.metrics[metric].value > 0
+            ? ">0.00"
+            : formatNumber(result.metrics[metric].value)}</span>
+      {/if}
+    {/if}
+    {#if result.metrics[metric].value !== undefined}
+      {#if isAvg && showDiff}
+        <span class="diff"
+          >&nbsp;{diff >= 0 ? "+" : ""}{formatValue(diff, true)}&nbsp;</span
         >
       {/if}
     {/if}
@@ -156,7 +174,7 @@
           {part.value}{#if index < summaryParts.length - 1},{" "}{/if}{/each})</span
       >
     {/if}
-    {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
+    {#if showDiff && isAvg && diff === 0 && result.metrics[metric].value !== undefined}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="10,15 35,15 35,35 10,35"
@@ -164,7 +182,7 @@
         />
       </svg>
     {/if}
-    {#if isAvg && diff > 0}
+    {#if showDiff && isAvg && diff > 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -178,7 +196,7 @@
         />
       </svg>
     {/if}
-    {#if isAvg && diff < 0}
+    {#if showDiff && isAvg && diff < 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -193,25 +211,25 @@
       </svg>
     {/if}
 
-    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && !lowerIsBetter}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && !lowerIsBetter}
       <span class:difp-red={difp < 0} class:difp-green={difp > 0}
         >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
       >
     {/if}
-    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && lowerIsBetter}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && lowerIsBetter}
       <span class:difp-red={difp > 0} class:difp-green={difp < 0}
         >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
       >
     {/if}
-    {#if difp != undefined && !Number.isNaN(difp) && !Number.isFinite(difp)}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && !Number.isFinite(difp)}
       <span class:difp-green={!lowerIsBetter} class:difp-red={lowerIsBetter}
         >&infin;%</span
       >
     {/if}
-    {#if difp != undefined && Number.isNaN(difp) && diff === 0}
+    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff === 0}
       <span>0%</span>
     {/if}
-    {#if difp != undefined && Number.isNaN(difp) && diff < 0}
+    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff < 0}
       <span class:difp-green={lowerIsBetter} class:difp-red={!lowerIsBetter}
         >&infin;%</span
       >
@@ -222,6 +240,12 @@
         <span>&nbsp;</span>
       {/if}
       <span>x{result.metrics[metric].count}</span>
+      {#if showUniqueRefs && result.metrics[metric].unique_refs !== undefined}
+        <span>
+          ({result.metrics[metric].unique_refs}
+          {result.metrics[metric].unique_refs === 1 ? "ref" : "refs"})
+        </span>
+      {/if}
     {/if}
 
     {#if showStatistics && p_value != undefined && !Number.isNaN(p_value) && Number.isFinite(p_value)}
@@ -252,7 +276,7 @@
     color: #6a6;
   }
 
-  .actual {
+  .diff {
     font-weight: lighter;
   }
 

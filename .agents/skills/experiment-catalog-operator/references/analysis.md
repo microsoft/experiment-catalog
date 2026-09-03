@@ -32,7 +32,24 @@ Response shape:
 - `experiment_baseline`: aggregate experiment baseline entity.
 - `sets`: aggregate result for each set/permutation.
 
-Each entity contains project, experiment, optional set, aggregate result, and count. Each result contains metric objects with `value`, `normalized`, `count`, `std_dev`, `p_value`, `ci_lower`, `ci_upper`, or `classification`.
+Each entity contains project, experiment, optional set, aggregate result, and
+count. Each result contains metric objects with `value`, `normalized`, `count`,
+`unique_refs`, `wins`, `ties`, `std_dev`, `p_value`, `ci_lower`, `ci_upper`, or
+`classification`.
+
+- `unique_refs` is the number of distinct non-null refs contributing to that
+  aggregate metric.
+- `wins` counts shared refs where the set's per-ref aggregate beats the
+  experiment baseline. Higher values win unless the metric is tagged
+  `lower-is-better`.
+- `ties` counts exact per-ref aggregate equality. There is no tie tolerance in
+  the current implementation.
+- Missing refs and nonnumeric metric values do not form comparison pairs.
+- Baseline metrics omit `wins` and `ties`.
+
+When administrators configure runtime custom aggregate functions, their derived
+metrics also appear in these aggregate results. They are recalculated from the
+filtered raw results for each request and are not persisted.
 
 ## Per-Ref Comparison
 
@@ -52,6 +69,9 @@ GET /api/projects/{project}/experiments/{experiment}/sets/{set}/compare-by-ref?i
 ```
 
 Compare each ref's `experiment_set` metrics to `experiment_baseline` or `project_baseline`. Report the largest deltas and the ref IDs.
+
+Runtime custom aggregate functions execute separately for each ref represented
+in the response, so derived metrics can also be used for per-ref diagnosis.
 
 ## Raw Set Details
 
@@ -136,6 +156,10 @@ Response:
 - `tags[].count`
 
 Prioritize high absolute impact with enough count to matter.
+
+Meaningful Tags supports runtime custom aggregate metric names. Do not infer
+statistical significance for those metrics: runtime derived values are not
+included in the current statistics pipeline.
 
 ## Free Filter Semantics
 

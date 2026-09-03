@@ -29,7 +29,17 @@ The workflow for running experiments is as follows:
 
 ## Exploration and Formal Evaluation
 
-Notebooks, prototypes, and other ad hoc tools are appropriate for exploring ideas quickly. Once an idea shows enough promise to warrant comparison, review, or adoption, transition it into the formal experimentation workflow. Reproduce it through the official evaluation runner using the standard scripts, metrics, and ground truth data, then record the experiment and its results in the catalog. This preserves the flexibility of early exploration while ensuring that decisions rely on repeatable and comparable evidence.
+Notebooks, prototypes, and other ad hoc tools are appropriate for exploring
+ideas quickly. Notebook code can publish validated exploratory metrics with the
+same `experiment_catalog.Catalog.push_metrics` implementation used by the CLI;
+see the [CLI and Python API guide](./cli/README.md#python-and-notebook-api) for
+an example. Once an idea shows enough promise to warrant comparison, review, or
+adoption, transition it into the formal experimentation workflow. Reproduce it
+through the team's standard evaluation workflow using consistent scripts,
+metrics, and ground truth data, then record the experiment and its results in
+the catalog.
+This preserves the flexibility of early exploration while ensuring that
+decisions rely on repeatable and comparable evidence.
 
 ## Projects (Milestones, Checkpoints)
 
@@ -57,7 +67,18 @@ Determining which experiment permutation is best is not always easy. With a larg
 
 - **Prioritize Metrics**: When an evaluation uses many metrics, some may improve while others worsen between permutations. Prioritize the metrics, then identify the best permutation based on the highest-priority metrics.
 
-- **Statistical Significance**: Use the catalog's built-in bootstrap p-value calculation to determine whether differences between permutations are statistically significant rather than relying on raw metric deltas alone. The catalog supports this via a configurable sample size, confidence level, and minimum-iterations threshold, and can compute p-values automatically on a schedule. This is the recommended way to compare permutations.
+- **Use Domain-Specific Rollups Carefully**: If built-in aggregates do not
+  capture your success criteria, administrators can deploy trusted runtime
+  custom aggregate Python functions. These metrics are recalculated from the
+  filtered raw results on each comparison or meaningful-tags request, are not
+  persisted, and are not included in the initial statistics pipeline.
+
+- **Statistical Significance**: Use the catalog's paired permutation p-values
+  and bootstrap confidence intervals to determine whether differences between
+  permutations are statistically significant rather than relying on raw metric
+  deltas alone. Calculate statistics after enough paired observations have
+  been recorded, then consider both the p-value and whether the confidence
+  interval excludes zero.
 
 ## Summary / Review
 
@@ -65,7 +86,10 @@ It is important to have enough documentation about the experiment that it can be
 
 ## Approve or Reject
 
-An approval in this case generally refers to the code and configuration being merged into a main branch. Before approval, promising results discovered through exploratory work should be reproduced with the official evaluation runner, scripts, metrics, and ground truth data, with the resulting experiment and measurements recorded in the catalog. A failed experiment that ends in rejection might still provide insights that can be used in future experiments.
+An approval in this case generally refers to the code and configuration being merged into a main branch. Before approval, promising results discovered through exploratory work should be reproduced with the team's standard evaluation scripts, metrics, and
+ground truth data, with the resulting experiment and measurements recorded in
+the catalog. A failed experiment that ends in rejection might still provide
+insights that can be used in future experiments.
 
 ## Evaluation System
 
@@ -87,4 +111,6 @@ An evaluation system should account for the following considerations:
 
 - **Transformation**: The ability to transform input and output data formats is most helpful early in a project. Its value diminishes after standardizing the format of ground truth, inference, and evaluation files.
 
-All these features are supported by the [Evaluator](./evaluator) project.
+These are design considerations for whichever evaluation runner or workflow a
+team integrates with the catalog. The catalog records and analyzes results; it
+does not currently provide an evaluation runner in this repository.

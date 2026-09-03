@@ -96,6 +96,7 @@ public class ExperimentAggregationTests
 
         Assert.Equal(20m, metric.Value);
         Assert.Equal(2, metric.Count);
+        Assert.Equal(2, metric.UniqueRefs);
         Assert.Equal(10m, metric.RangeMin);
         Assert.Equal(30m, metric.RangeMax);
     }
@@ -220,6 +221,7 @@ public class ExperimentAggregationTests
 
         Assert.Equal(1m, metric.Value);
         Assert.Equal(2, metric.Count);
+        Assert.Equal(1, metric.UniqueRefs);
     }
 
     private static Result CreateResult(string set, decimal value) => new()

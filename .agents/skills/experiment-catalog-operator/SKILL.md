@@ -6,7 +6,7 @@ compatibility: Requires a reachable Experiment Catalog API and/or experiment-cat
 metadata:
   spec_version: "1.0"
   version: "1.0.0"
-  catalog_skill_version: "1.5.0"
+  catalog_skill_version: "1.8.0"
   catalog_project: "microsoft/experiment-catalog"
 ---
 
@@ -63,12 +63,15 @@ Translate "ground truth" to `ref` in catalog operations.
 ## Analysis Rules
 
 - Prioritize metrics marked `is_important`.
+- Use a metric definition's optional `description` when explaining unfamiliar metrics or presenting metric choices.
 - Respect metric direction. Tags such as `lower-is-better` mean a lower value is an improvement.
 - Prefer `normalized` values when comparing metrics with `min`/`max`; otherwise compare `value`.
 - Treat missing metrics as evidence to investigate, not as zero.
 - Report sample size (`count`, result counts) next to conclusions.
 - Separate overall aggregate findings from subset/tag/ref findings.
 - Do not call a change statistically significant unless `p_value` supports it or statistics have been calculated.
+- Runtime custom aggregate metrics can appear in aggregate, per-ref, and meaningful-tag responses. They are recalculated from filtered raw results and currently have no persisted statistics.
+- In aggregate comparisons, report `wins` as the number of shared refs where the set's per-ref aggregate beats the experiment baseline and `ties` as exact equality. Respect `lower-is-better`; otherwise higher values win.
 
 ## Safety Rules
 

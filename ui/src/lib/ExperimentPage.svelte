@@ -39,11 +39,15 @@
   // Local state initialized from config (set in onMount to avoid warnings)
   let checked: string = $state("");
   let tags: string = $state("");
-  let showActualValue: boolean = $state(true);
+  let showMetricDescription: boolean = $state(false);
+  let showValue: boolean = $state(true);
+  let showDiff: boolean = $state(true);
   let showCoefficientOfVariation: boolean = $state(true);
   let showStdDev: boolean = $state(true);
   let showRange: boolean = $state(false);
   let showCount: boolean = $state(true);
+  let showWin: boolean = $state(true);
+  let showTie: boolean = $state(false);
   let showStatistics: boolean = $state(true);
   let showImportantOnly: boolean = $state(false);
   let hasImportantMetrics: boolean = $state(false);
@@ -54,11 +58,15 @@
   onMount(() => {
     checked = config.checked_metrics ?? "";
     tags = config.tags ?? "";
-    showActualValue = config.show_val ?? true;
+    showMetricDescription = config.show_desc ?? false;
+    showValue = config.show_val ?? true;
+    showDiff = config.show_diff ?? true;
     showCoefficientOfVariation = config.show_cv ?? true;
     showStdDev = config.show_std ?? true;
     showRange = config.show_range ?? false;
     showCount = config.show_cnt ?? true;
+    showWin = config.show_win ?? true;
+    showTie = config.show_tie ?? false;
     showStatistics = config.show_stats ?? true;
     showImportantOnly = config.show_important_only ?? uiSettings.show_only_important_metrics_by_default ?? false;
     ready = true;
@@ -77,10 +85,20 @@
       delete newConfig.tags;
     }
     // Only store non-default values.
-    if (!showActualValue) {
+    if (showMetricDescription) {
+      newConfig.show_desc = true;
+    } else {
+      delete newConfig.show_desc;
+    }
+    if (!showValue) {
       newConfig.show_val = false;
     } else {
       delete newConfig.show_val;
+    }
+    if (!showDiff) {
+      newConfig.show_diff = false;
+    } else {
+      delete newConfig.show_diff;
     }
     if (!showCoefficientOfVariation) {
       newConfig.show_cv = false;
@@ -101,6 +119,16 @@
       newConfig.show_cnt = false;
     } else {
       delete newConfig.show_cnt;
+    }
+    if (!showWin) {
+      newConfig.show_win = false;
+    } else {
+      delete newConfig.show_win;
+    }
+    if (showTie) {
+      newConfig.show_tie = true;
+    } else {
+      delete newConfig.show_tie;
     }
     if (!showStatistics) {
       newConfig.show_stats = false;
@@ -246,10 +274,26 @@
       <label class="toggle-label">
         <input
           type="checkbox"
-          bind:checked={showActualValue}
+          bind:checked={showMetricDescription}
           onchange={onToggleChange}
         />
-        Actual Value
+        Metric Desc
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showValue}
+          onchange={onToggleChange}
+        />
+        Value
+      </label>
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showDiff}
+          onchange={onToggleChange}
+        />
+        Diff
       </label>
       <label class="toggle-label">
         <input
@@ -274,6 +318,14 @@
           onchange={onToggleChange}
         />
         Range
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" bind:checked={showWin} onchange={onToggleChange} />
+        Win
+      </label>
+      <label class="toggle-label">
+        <input type="checkbox" bind:checked={showTie} onchange={onToggleChange} />
+        Tie
       </label>
       <label class="toggle-label">
         <input type="checkbox" bind:checked={showCount} onchange={onToggleChange} />
@@ -306,9 +358,11 @@
   <div class="reference-content">
     <p class="legend">
       <strong>Legend:</strong>
-      [value] (CV [coefficient-of-variation], DEV [standard-deviation], RNG [min]-[max])
+      [value] (CV [coefficient-of-variation], DEV [standard-deviation],
+      RNG [min]-[max], WIN [winning-refs], TIE [tied-refs])
       [change-vs-experiment-baseline]
-      x[number-of-values] p=[p-value] ([CI-lower] - [CI-upper])
+      x[number-of-values] ([unique-refs] refs)
+      p=[p-value] ([CI-lower] - [CI-upper])
     </p>
     <p>
       <strong>Statistics:</strong>
@@ -363,11 +417,15 @@
       {setList}
       {checked}
       initialTags={tags}
-      {showActualValue}
+      {showMetricDescription}
+      {showValue}
+      {showDiff}
       {showCoefficientOfVariation}
       {showStdDev}
       {showRange}
       {showCount}
+      {showWin}
+      {showTie}
       {showStatistics}
       {showImportantOnly}
       bind:this={comparisonTable}

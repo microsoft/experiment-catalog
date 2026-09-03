@@ -3,11 +3,15 @@ export interface ViewConfig {
     checked_metrics?: string;   // metric highlighting (comma-separated)
     metrics?: string[];         // which metrics to display
     tags?: string;              // tag filter querystring
-    show_val?: boolean;         // toggle for actual value display
+    show_desc?: boolean;        // toggle for metric description display
+    show_val?: boolean;         // toggle for metric value display
+    show_diff?: boolean;        // toggle for difference display
     show_cv?: boolean;          // toggle for coefficient of variation display
     show_std?: boolean;         // toggle for standard deviation display
     show_range?: boolean;       // toggle for range display
     show_cnt?: boolean;         // toggle for count display
+    show_win?: boolean;         // toggle for per-ref win count display
+    show_tie?: boolean;         // toggle for per-ref tie count display
     show_stats?: boolean;       // toggle for p-value and CI display
     show_important_only?: boolean; // toggle for showing only important metrics
 }
@@ -18,11 +22,15 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.checked_metrics) cleanConfig.checked_metrics = config.checked_metrics;
     if (config.metrics?.length) cleanConfig.metrics = config.metrics;
     if (config.tags) cleanConfig.tags = config.tags;
+    if (config.show_desc !== undefined) cleanConfig.show_desc = config.show_desc;
     if (config.show_val !== undefined) cleanConfig.show_val = config.show_val;
+    if (config.show_diff !== undefined) cleanConfig.show_diff = config.show_diff;
     if (config.show_cv !== undefined) cleanConfig.show_cv = config.show_cv;
     if (config.show_std !== undefined) cleanConfig.show_std = config.show_std;
     if (config.show_range !== undefined) cleanConfig.show_range = config.show_range;
     if (config.show_cnt !== undefined) cleanConfig.show_cnt = config.show_cnt;
+    if (config.show_win !== undefined) cleanConfig.show_win = config.show_win;
+    if (config.show_tie !== undefined) cleanConfig.show_tie = config.show_tie;
     if (config.show_stats !== undefined) cleanConfig.show_stats = config.show_stats;
     if (config.show_important_only !== undefined) cleanConfig.show_important_only = config.show_important_only;
 

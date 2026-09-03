@@ -14,7 +14,8 @@ namespace Catalog;
 public class ExperimentService(
     ILogger<ExperimentService> logger,
     IStorageService storageService,
-    IConfigFactory<IConfig> configFactory)
+    IConfigFactory<IConfig> configFactory,
+    IDerivedMetricService derivedMetricService)
 {
     /// <summary>
     /// Lists the distinct set names for an experiment.
@@ -68,6 +69,10 @@ public class ExperimentService(
         CancellationToken cancellationToken = default)
     {
         var comparison = new Comparison();
+        var derivedGroups = new List<DerivedMetricGroup>();
+        IDictionary<string, Result>? projectBaselineByRef = null;
+        IDictionary<string, Result>? experimentBaselineByRef = null;
+        var setsByRef = new Dictionary<string, IDictionary<string, Result>>();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
@@ -77,7 +82,10 @@ public class ExperimentService(
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags)?.ToList() ?? [];
+            var baselineSetResults = baselineFiltered
+                .Where(result => result.Set == baselineSet)
+                .ToList();
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonEntity
             {
@@ -87,6 +95,16 @@ public class ExperimentService(
                 Result = baseline.AggregateSet(baselineSet, baselineFiltered),
                 Count = baseline.Results?.Count(x => x.Set == baselineSet), // unfiltered count
             };
+            AddDerivedGroup(
+                derivedGroups,
+                comparison.ProjectBaseline.Result,
+                baselineSetResults);
+            projectBaselineByRef = baseline.AggregateSetByRef(baselineSet, baselineFiltered);
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                projectBaselineByRef,
+                baselineSet,
+                baselineSetResults);
         }
         catch (Exception e)
         {
@@ -99,7 +117,10 @@ public class ExperimentService(
         // get the experiment baseline
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags)?.ToList() ?? [];
+        var experimentBaselineResults = experimentFiltered
+            .Where(result => result.Set == experimentBaselineSet)
+            .ToList();
         experiment.MetricDefinitions = comparison.MetricDefinitions;
         comparison.ExperimentBaseline =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
@@ -112,11 +133,33 @@ public class ExperimentService(
                 Result = experiment.AggregateSet(experimentBaselineSet, experimentFiltered),
                 Count = experiment.Results?.Count(x => x.Set == experimentBaselineSet), // unfiltered count
             };
+        if (!ReferenceEquals(comparison.ExperimentBaseline, comparison.ProjectBaseline))
+        {
+            AddDerivedGroup(
+                derivedGroups,
+                comparison.ExperimentBaseline?.Result,
+                experimentBaselineResults);
+            experimentBaselineByRef = experiment.AggregateSetByRef(
+                experimentBaselineSet,
+                experimentFiltered);
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                experimentBaselineByRef,
+                experimentBaselineSet,
+                experimentBaselineResults);
+        }
+        else
+        {
+            experimentBaselineByRef = projectBaselineByRef;
+        }
 
         // get the sets
         comparison.Sets = experiment.AggregateAllSets(experimentFiltered)
             .Select(x =>
             {
+                var setResults = experimentFiltered
+                    .Where(result => result.Set == x.Set)
+                    .ToList();
                 // find matching statistics
                 var statistics = experiment.Statistics?.LastOrDefault(y =>
                 {
@@ -144,14 +187,59 @@ public class ExperimentService(
                     }
                 }
 
-                return new ComparisonEntity
+                var entity = new ComparisonEntity
                 {
                     Project = projectName,
                     Experiment = experiment.Name,
                     Set = x.Set,
                     Result = x,
                 };
-            });
+                AddDerivedGroup(
+                    derivedGroups,
+                    entity.Result,
+                    setResults);
+                var setByRef = experiment.AggregateSetByRef(x.Set, experimentFiltered);
+                if (!string.IsNullOrEmpty(x.Set) && setByRef is not null)
+                {
+                    setsByRef[x.Set] = setByRef;
+                }
+                AddDerivedGroupsByRef(
+                    derivedGroups,
+                    setByRef,
+                    x.Set,
+                    setResults);
+                return entity;
+            })
+            .ToList();
+
+        await derivedMetricService.ApplyAsync(
+            derivedGroups,
+            comparison.MetricDefinitions,
+            cancellationToken);
+
+        if (!IsSameEntity(comparison.ProjectBaseline, comparison.ExperimentBaseline))
+        {
+            ComparisonMetricCalculator.ApplyWinAndTieCounts(
+                comparison.ProjectBaseline?.Result,
+                projectBaselineByRef,
+                experimentBaselineByRef,
+                comparison.MetricDefinitions);
+        }
+        foreach (var entity in comparison.Sets)
+        {
+            if (entity.Set is null ||
+                (entity.Experiment == comparison.ExperimentBaseline?.Experiment &&
+                 entity.Set == comparison.ExperimentBaseline?.Set) ||
+                !setsByRef.TryGetValue(entity.Set, out var setByRef))
+            {
+                continue;
+            }
+            ComparisonMetricCalculator.ApplyWinAndTieCounts(
+                entity.Result,
+                setByRef,
+                experimentBaselineByRef,
+                comparison.MetricDefinitions);
+        }
 
         return comparison;
     }
@@ -175,6 +263,7 @@ public class ExperimentService(
         CancellationToken cancellationToken = default)
     {
         var comparison = new ComparisonByRef();
+        var derivedGroups = new List<DerivedMetricGroup>();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
@@ -183,7 +272,7 @@ public class ExperimentService(
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags)?.ToList() ?? [];
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonByRefEntity
             {
@@ -192,6 +281,10 @@ public class ExperimentService(
                 Set = baseline.BaselineSet ?? baseline.LastSet,
                 Results = baseline.AggregateSetByRef(baseline.BaselineSet ?? baseline.LastSet, baselineFiltered),
             };
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                comparison.ProjectBaseline,
+                baselineFiltered);
         }
         catch (Exception e)
         {
@@ -200,7 +293,7 @@ public class ExperimentService(
 
         // get the experiment info
         var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags)?.ToList() ?? [];
         experiment.MetricDefinitions = comparison.MetricDefinitions;
 
         // get the experiment baseline
@@ -217,6 +310,10 @@ public class ExperimentService(
                 Set = experiment.BaselineSet ?? experiment.FirstSet,
                 Results = experiment.AggregateSetByRef(experiment.BaselineSet ?? experiment.FirstSet, experimentFiltered),
             };
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                comparison.ExperimentBaseline,
+                experimentFiltered);
         }
 
         // get the set experiment
@@ -227,6 +324,15 @@ public class ExperimentService(
             Set = setName,
             Results = experiment.AggregateSetByRef(setName, experimentFiltered),
         };
+        AddDerivedGroupsByRef(
+            derivedGroups,
+            comparison.ExperimentSet,
+            experimentFiltered);
+
+        await derivedMetricService.ApplyAsync(
+            derivedGroups,
+            comparison.MetricDefinitions,
+            cancellationToken);
 
         return comparison;
     }
@@ -276,5 +382,59 @@ public class ExperimentService(
         }
 
         return results;
+    }
+
+    private static void AddDerivedGroup(
+        ICollection<DerivedMetricGroup> groups,
+        Result? target,
+        IEnumerable<Result> results)
+    {
+        if (target is null) return;
+        var metricResults = results
+            .Where(result => result.Metrics is { Count: > 0 })
+            .ToList();
+        groups.Add(new DerivedMetricGroup(
+            groups.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            metricResults,
+            target));
+    }
+
+    private static bool IsSameEntity(
+        ComparisonEntity? left,
+        ComparisonEntity? right) =>
+        left is not null &&
+        right is not null &&
+        left.Project == right.Project &&
+        left.Experiment == right.Experiment &&
+        left.Set == right.Set;
+
+    private static void AddDerivedGroupsByRef(
+        ICollection<DerivedMetricGroup> groups,
+        ComparisonByRefEntity? entity,
+        IReadOnlyCollection<Result> results)
+    {
+        if (entity?.Results is null || string.IsNullOrEmpty(entity.Set)) return;
+        AddDerivedGroupsByRef(groups, entity.Results, entity.Set, results);
+    }
+
+    private static void AddDerivedGroupsByRef(
+        ICollection<DerivedMetricGroup> groups,
+        IDictionary<string, Result>? targets,
+        string? set,
+        IReadOnlyCollection<Result> results)
+    {
+        if (targets is null || string.IsNullOrEmpty(set)) return;
+        var resultsByRef = results
+            .Where(result => result.Set == set && !string.IsNullOrEmpty(result.Ref))
+            .GroupBy(result => result.Ref!)
+            .ToDictionary(group => group.Key, group => group.AsEnumerable());
+        foreach (var (reference, target) in targets)
+        {
+            resultsByRef.TryGetValue(reference, out var matchingResults);
+            AddDerivedGroup(
+                groups,
+                target,
+                matchingResults ?? []);
+        }
     }
 }

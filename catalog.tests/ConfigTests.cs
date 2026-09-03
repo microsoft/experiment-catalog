@@ -11,6 +11,16 @@ public class ConfigTests
     private const string SupportDocsAccountName = "supportdocsaccount";
     private const string SupportDocsConnectionString = "DefaultEndpointsProtocol=https;AccountName=supportdocsaccount;AccountKey=ZmFrZUtleQ==;EndpointSuffix=core.windows.net";
 
+    [Fact]
+    public void CustomAggregateDefaults_AreRunawayProtectionNotPerformanceLimits()
+    {
+        var config = new Config();
+
+        Assert.Null(config.CUSTOM_AGGREGATE_FUNCTIONS_PATH);
+        Assert.Equal("python3", config.CUSTOM_AGGREGATE_PYTHON_EXECUTABLE);
+        Assert.Equal(30, config.CUSTOM_AGGREGATE_TIMEOUT_SECONDS);
+    }
+
     [Theory]
     [MemberData(nameof(SupportDocsStorageDefaultData))]
     public void ApplySupportDocsStorageDefaults_PreservesIndependentAuthOptions(

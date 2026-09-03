@@ -2,7 +2,7 @@
 FROM --platform=$BUILDPLATFORM node:26-bookworm@sha256:9f94d34c787165dca03b74e5bf9c3bf90e8de79b19aa3d87fe1fa1694bf75c89 AS ui-build
 WORKDIR /ui
 COPY ui .
-RUN npm install
+RUN npm ci --include=optional
 RUN npm run build
 
 # create the build container
@@ -19,6 +19,10 @@ RUN dotnet publish -c Release -o out -a $TARGETARCH
 FROM mcr.microsoft.com/dotnet/aspnet:10.0@sha256:a4556ed033fa96f984bb7a8d348851cb2d36b1281dd2420070045f664fbb5f94
 ARG INSTALL_AZURE_CLI=false
 WORKDIR /app
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 COPY --from=build /api/out .
 COPY --from=build /api/wwwroot ./wwwroot
 
