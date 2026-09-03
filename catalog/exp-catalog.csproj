@@ -26,4 +26,11 @@
     <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" Version="1.8.3" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="aggregate-runtime/**" Exclude="aggregate-runtime/tests/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

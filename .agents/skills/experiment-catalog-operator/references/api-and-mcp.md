@@ -36,6 +36,9 @@ Analysis tools:
 | `MeaningfulTags(project, experiment, set, metric, excludeTags, compareTo)` | Rank tag subsets by metric impact. |
 
 Current MCP gap: result upload and metric definition writes are REST operations.
+The repository's Experiment Catalog CLI wraps these REST operations for project
+creation, experiment creation, and CSV metric pushes. Its
+`experiment_catalog.Catalog` class exposes the same implementation to notebooks.
 
 ## REST Endpoints
 
@@ -82,6 +85,22 @@ downloadable manifest and use `types=inference`, `types=evaluation`, or
 `type`, `set`, `ref`, `iteration`, and the exact stored Azure Blob `uri`.
 Duplicate type/URI pairs are emitted once. Artifact content is not proxied or
 zipped by these endpoints.
+
+When runtime custom aggregate functions are enabled by the catalog
+administrator, derived metrics are included in comparison, per-ref comparison,
+and Meaningful Tags responses. They are response-only values calculated from
+the filtered raw results; they are not returned by raw metric exports or
+included in the current statistics pipeline.
+
+Aggregate comparison metric objects may also contain:
+
+- `unique_refs`: distinct non-null refs contributing to the metric.
+- `wins`: shared refs where the set's per-ref aggregate beats the experiment
+  baseline, respecting `lower-is-better`.
+- `ties`: shared refs whose per-ref aggregate values are exactly equal.
+
+`wins` and `ties` are omitted for the baseline itself and when no numeric pairs
+exist. They are counts rather than rates.
 
 ## JSON Shapes
 
@@ -149,6 +168,7 @@ Metric definition:
 ```json
 {
   "name": "generation_correctness",
+  "description": "Fraction of evaluated answers judged correct.",
   "min": 0,
   "max": 1,
   "aggregate_function": "Average",
@@ -157,6 +177,10 @@ Metric definition:
   "tags": []
 }
 ```
+
+`description` is optional presentation metadata. On the experiment comparison
+page, users can enable **Metric Desc** to show it in italics below the
+corresponding metric row.
 
 Tag:
 

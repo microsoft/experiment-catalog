@@ -154,6 +154,7 @@ Content-Type: application/json
 [
   {
     "name": "generation_correctness",
+    "description": "Fraction of evaluated answers judged correct.",
     "min": 0,
     "max": 1,
     "aggregate_function": "Average",

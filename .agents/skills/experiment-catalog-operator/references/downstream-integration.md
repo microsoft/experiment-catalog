@@ -18,6 +18,39 @@ Do not require the downstream repo to copy Experiment Catalog source code. Treat
 
 ## Minimal Publish Flow
 
+Prefer the Experiment Catalog CLI or its shared Python API for local scripts
+and notebooks. Both paths use the same result validation and REST API:
+
+```bash
+experiment-catalog create-project project-example
+experiment-catalog create-experiment \
+  --project project-example \
+  experiment-000 \
+  --hypothesis "Hypothesis text."
+experiment-catalog push ./results.csv \
+  --project project-example \
+  --experiment experiment-000 \
+  --set set-000
+```
+
+```python
+from experiment_catalog import Catalog
+
+catalog = Catalog("http://localhost:6010/api")
+catalog.push_metrics(
+    project="project-example",
+    experiment="experiment-000",
+    set_name="set-000",
+    results=[{
+        "ref": "ground-truth-id",
+        "metrics": {"generation_correctness": 0.9},
+    }],
+)
+```
+
+Use direct REST calls when the CLI package cannot be installed or when an
+existing integration already has a reliable publisher.
+
 1. Ensure project exists.
 2. Ensure experiment exists.
 3. Ensure metric definitions exist for known metrics.

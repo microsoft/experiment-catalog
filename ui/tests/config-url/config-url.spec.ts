@@ -17,10 +17,14 @@ test.describe('URL config encoding and decoding', () => {
     await expect(toggle).not.toBeChecked();
 
     // Other toggles should still be checked (defaults)
-    await expect(page.locator('.toggles').getByLabel('Actual Value')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Metric Desc')).not.toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Value', { exact: true })).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Diff', { exact: true })).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Range')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Count')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Win')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Tie')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Statistics')).toBeChecked();
   });
 
@@ -31,6 +35,31 @@ test.describe('URL config encoding and decoding', () => {
 
     await expect(page.locator('.toggles').getByLabel('Coefficient of Variation')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Range')).toBeChecked();
+  });
+
+  test('navigating with show_val=false and show_diff=false pre-sets Value and Diff', async ({ mockedPage: page }) => {
+    const config = encodeConfig({ show_val: false, show_diff: false });
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+    await expect(page.getByRole('heading', { name: /EXPERIMENT: exp-001/ })).toBeVisible();
+
+    await expect(page.locator('.toggles').getByLabel('Value', { exact: true })).not.toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Diff', { exact: true })).not.toBeChecked();
+  });
+
+  test('navigating with show_desc=true shows metric descriptions', async ({ mockedPage: page }) => {
+    const config = encodeConfig({ show_desc: true });
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+    await expect(page.locator('.toggles').getByLabel('Metric Desc')).toBeChecked();
+    await expect(page.locator('.metric-description-row')).toHaveCount(3);
+  });
+
+  test('navigating with show_win=false and show_tie=true pre-sets Win and Tie', async ({ mockedPage: page }) => {
+    const config = encodeConfig({ show_win: false, show_tie: true });
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+    await expect(page.getByRole('heading', { name: /EXPERIMENT: exp-001/ })).toBeVisible();
+
+    await expect(page.locator('.toggles').getByLabel('Win')).not.toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Tie')).toBeChecked();
   });
 
   test('navigating with checked_metrics highlights those rows', async ({ mockedPage: page }) => {

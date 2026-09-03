@@ -455,7 +455,20 @@ public class Experiment()
 
         result.Metrics = metrics.ToDictionary(
             x => x.Key,
-            x => this.Reduce(x.Key, x.Value, source));
+            x =>
+            {
+                var metric = this.Reduce(x.Key, x.Value, source);
+                var aggregateFunction = this.MetricDefinitions![x.Key].AggregateFunction;
+                metric.UniqueRefs = source
+                    .Where(result =>
+                        !string.IsNullOrEmpty(result.Ref) &&
+                        result.Metrics?.TryGetValue(x.Key, out var sourceMetric) == true &&
+                        ContributesToAggregate(sourceMetric, aggregateFunction))
+                    .Select(result => result.Ref)
+                    .Distinct(StringComparer.Ordinal)
+                    .Count();
+                return metric;
+            });
 
         if (annotations.Count > 0)
         {
@@ -464,6 +477,25 @@ public class Experiment()
         result.Runtime = (int)(last - first).TotalSeconds;
         return result;
     }
+
+    private static bool ContributesToAggregate(
+        Metric metric,
+        AggregateFunctions aggregateFunction) =>
+        aggregateFunction switch
+        {
+            AggregateFunctions.Accuracy => metric.Classification is not null,
+            AggregateFunctions.Precision or
+            AggregateFunctions.Recall or
+            AggregateFunctions.F1 or
+            AggregateFunctions.MicroPrecision or
+            AggregateFunctions.MicroRecall or
+            AggregateFunctions.MicroF1 or
+            AggregateFunctions.MacroPrecision or
+            AggregateFunctions.MacroRecall or
+            AggregateFunctions.MacroF1 =>
+                metric.Classification is not null || metric.Retrieval is not null,
+            _ => true,
+        };
 
     public Result? AggregateSet(string? set, IEnumerable<Result>? results = null)
     {

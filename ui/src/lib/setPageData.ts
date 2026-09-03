@@ -71,9 +71,17 @@ export function extractMetricDefinitions(
     comparison: ComparisonByRef,
     metricNames: string[],
 ): MetricDefinition[] {
-    return metricNames
-        .map((name) => comparison.metric_definitions[name])
-        .filter((def) => def !== undefined);
+    return metricNames.map((name) =>
+        comparison.metric_definitions[name] ?? {
+            name,
+            min: null,
+            max: null,
+            aggregate_function: "Default",
+            order: Number.MAX_SAFE_INTEGER,
+            is_important: false,
+            tags: [],
+        },
+    );
 }
 
 /**

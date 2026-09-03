@@ -19,6 +19,8 @@ ui/test-results/
 # Python artifacts
 **/__pycache__/
 **/*.pyc
+**/*.egg-info/
+**/.venv/
 
 # OS/editor artifacts
 .DS_Store

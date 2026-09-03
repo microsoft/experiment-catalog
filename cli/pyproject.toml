@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "experiment-catalog-cli"
+version = "0.1.0"
+description = "Create and publish experiments from Python or the Experiment Catalog CLI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [{ name = "Microsoft" }]
+dependencies = []
+
+[project.scripts]
+experiment-catalog = "experiment_catalog.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

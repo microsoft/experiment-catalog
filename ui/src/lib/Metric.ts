@@ -1,5 +1,8 @@
 interface Metric {
     count?: number;
+    unique_refs?: number;
+    wins?: number;
+    ties?: number;
     value?: number;
     normalized?: number;
     std_dev?: number;

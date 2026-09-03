@@ -32,18 +32,31 @@ if [ -d "ui" ] && [ -f "ui/package.json" ]; then
   cd "$root_dir"
 fi
 
-# --- Python (evaluation) ---
+# --- Python ---
+python_paths=()
+if [ -d "catalog/aggregate-runtime" ]; then
+  python_paths+=("catalog/aggregate-runtime/")
+fi
+if [ -d "catalog/user-defined-aggregates" ]; then
+  python_paths+=("catalog/user-defined-aggregates/")
+fi
+if [ -d "cli" ]; then
+  python_paths+=("cli/")
+fi
 if [ -d "evaluation" ]; then
+  python_paths+=("evaluation/")
+fi
+if [ "${#python_paths[@]}" -gt 0 ]; then
   if command -v ruff >/dev/null 2>&1; then
-    run_step "ruff check (evaluation)" ruff check evaluation/
+    run_step "ruff check" ruff check "${python_paths[@]}"
   elif command -v flake8 >/dev/null 2>&1; then
-    run_step "flake8 (evaluation)" flake8 evaluation/
+    run_step "flake8" flake8 "${python_paths[@]}"
   else
     echo "==> Lint: [skip] no Python linter found (install ruff or flake8)"
   fi
 
   if command -v ruff >/dev/null 2>&1; then
-    run_step "ruff format --check (evaluation)" ruff format --check evaluation/
+    run_step "ruff format --check" ruff format --check "${python_paths[@]}"
   fi
 fi
 

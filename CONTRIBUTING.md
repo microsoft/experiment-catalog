@@ -1,7 +1,7 @@
 ---
 title: Contributing to Experiment Catalog
 description: Contribution workflow, quality gates, and pull request requirements for experiment-catalog.
-ms.date: 2026-05-20
+ms.date: 2026-09-02
 ms.topic: how-to
 ---
 
@@ -28,6 +28,7 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) for the catalog service
 - [Node.js 20 or later](https://nodejs.org/) for the UI
+- [Python 3.10 or later](https://www.python.org/downloads/) for the CLI and Python API
 - [Docker](https://www.docker.com/) for container builds and local image validation
 - Access to the Azure resources required by the component you are working on
 
@@ -51,11 +52,13 @@ Run `make setup` after cloning and `make ci` before opening a pull request.
 ### Component-specific docs
 
 - See [catalog/README.md](./catalog/README.md) for catalog API configuration and usage.
+- See [cli/README.md](./cli/README.md) for CLI, CSV, and notebook API usage.
 - See [ui/README.md](./ui/README.md) for the Svelte UI.
 
 ## Repository layout
 
 - `catalog/` contains the .NET 10 API and MCP surface for experiment storage and analysis.
+- `cli/` contains the Python package, command-line interface, CSV example, and tests.
 - `ui/` contains the Svelte and TypeScript web application.
 - `catalog.tests/` contains automated tests for the catalog service.
 - `docs/` contains design and architecture documents.

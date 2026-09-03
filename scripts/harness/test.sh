@@ -7,6 +7,12 @@ cd "$root_dir"
 echo "==> Test: running .NET tests..."
 dotnet test experiment-catalog.sln --nologo --verbosity quiet
 
+echo "==> Test: running Experiment Catalog CLI tests..."
+PYTHONPATH=cli/src python3 -m unittest discover -s cli/tests -v
+
+echo "==> Test: running custom aggregate runner tests..."
+PYTHONPATH=catalog/aggregate-runtime python3 -m unittest discover -s catalog/aggregate-runtime/tests -v
+
 echo "==> Test: running UI unit tests..."
 if [ -d "ui" ] && [ -f "ui/vitest.config.ts" ]; then
   cd ui

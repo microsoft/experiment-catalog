@@ -131,6 +131,16 @@ public class Config : IConfig, IValidatableObject
     [SetValue("SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT")]
     public bool SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT { get; set; } = false;
 
+    [SetValue("CUSTOM_AGGREGATE_FUNCTIONS_PATH")]
+    public string? CUSTOM_AGGREGATE_FUNCTIONS_PATH { get; set; }
+
+    [SetValue("CUSTOM_AGGREGATE_PYTHON_EXECUTABLE")]
+    public string CUSTOM_AGGREGATE_PYTHON_EXECUTABLE { get; set; } = "python3";
+
+    [SetValue("CUSTOM_AGGREGATE_TIMEOUT_SECONDS")]
+    [Range(1, 3600)]
+    public int CUSTOM_AGGREGATE_TIMEOUT_SECONDS { get; set; } = 30;
+
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
     [SetValues]
