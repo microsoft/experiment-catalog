@@ -49,6 +49,42 @@ public class AnalysisServiceTests
         Assert.Equal(1, diffs["high"].Count);
     }
 
+    [Fact]
+    public async Task GetMeaningfulTagsAsync_PassesMetriclessRowsToDerivedMetrics()
+    {
+        var experiment = new Experiment
+        {
+            Name = "experiment",
+            Hypothesis = "Derived metrics can inspect result metadata without stored metrics.",
+            Results =
+            [
+                new Result { Set = "candidate", Ref = "q1", InferenceUri = "q1.json" },
+                new Result { Set = "candidate", Ref = "q2", InferenceUri = "q2.json" },
+            ],
+        };
+        var tags = new List<Tag>
+        {
+            new() { Name = "first", Refs = ["q1"] },
+            new() { Name = "second", Refs = ["q2"] },
+        };
+        var service = new AnalysisService(
+            new TestStorageService(experiment, tags),
+            new RowCountDerivedMetricService());
+
+        var response = await service.GetMeaningfulTagsAsync(new MeaningfulTagsRequest
+        {
+            Project = "project",
+            Experiment = "experiment",
+            Set = "candidate",
+            Metric = "row_count",
+            CompareTo = MeaningfulTagsComparisonMode.Zero,
+        });
+
+        var diffs = response.Tags!.ToDictionary(diff => diff.Tag);
+        Assert.Equal(1m, diffs["first"].Diff);
+        Assert.Equal(1m, diffs["second"].Diff);
+    }
+
     private static Result CreateResult(string reference, decimal score) => new()
     {
         Set = "candidate",
@@ -75,6 +111,26 @@ public class AnalysisServiceTests
                 {
                     Value = values.Average(),
                     Count = values.Count,
+                };
+            }
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class RowCountDerivedMetricService : IDerivedMetricService
+    {
+        public Task ApplyAsync(
+            IReadOnlyCollection<DerivedMetricGroup> groups,
+            IReadOnlyDictionary<string, MetricDefinition> metricDefinitions,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var group in groups)
+            {
+                group.Target.Metrics ??= [];
+                group.Target.Metrics["row_count"] = new Metric
+                {
+                    Value = group.Results.Count,
+                    Count = group.Results.Count,
                 };
             }
             return Task.CompletedTask;

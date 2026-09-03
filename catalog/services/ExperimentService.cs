@@ -390,12 +390,9 @@ public class ExperimentService(
         IEnumerable<Result> results)
     {
         if (target is null) return;
-        var metricResults = results
-            .Where(result => result.Metrics is { Count: > 0 })
-            .ToList();
         groups.Add(new DerivedMetricGroup(
             groups.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
-            metricResults,
+            results.ToList(),
             target));
     }
 
