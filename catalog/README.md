@@ -168,6 +168,35 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "name": "project-examp
 
 This will create a container in Azure Blob Storage of the specified name. The container will have a metadata property of "exp_catalog_type": "project".
 
+To read one project, including its emoji, note, and `ground_truth`, without
+listing every project:
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example
+```
+
+`GET /api/projects/{projectName}` returns the same project representation as
+`GET /api/projects` and returns 404 when the project does not exist.
+
+Project cards can show one of 16 optional emojis, a note of up to 40 characters,
+and a ground truth name of up to 40 characters. Choose an emoji directly from
+the card's icon/pulldown, or edit all three fields together with the card's
+edit button or the display API. Ground truth and note are only editable in
+the dialog. Use the emoji IDs listed
+under [Create an experiment](#create-an-experiment); send `null` to clear a field.
+All three fields must be present in the update payload:
+
+```bash
+curl -i -X PUT -H "Content-Type: application/json" \
+  -d '{ "emoji": "target", "note": "New project", "ground_truth": "Evaluation set v2" }' \
+  http://localhost:6010/api/projects/project-example/display
+```
+
+These fields live in project container metadata. The ground truth name is
+returned as `ground_truth` by the project list and detail endpoints and the
+MCP `ListProjects` tool. Text is stored as base64-encoded UTF-8 so non-ASCII
+values work. Display edits preserve project baseline and unrelated metadata.
+
 ## Create a baseline
 
 You can call the API to create a baseline experiment like this...
@@ -228,6 +257,26 @@ After you have a baseline, you will create some experiments. For example, you mi
 curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreasing the temperature will give better results." }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments
 ```
 
+To make a crowded experiment list easier to scan, an experiment can have an
+optional emoji and a note of up to 40 characters. Choose an emoji directly
+from its card's icon/pulldown, or use the card's edit button to update the emoji
+and note together in a dialog. Notes are only editable in the dialog. Both
+paths update the same `PUT` endpoint (use `null` to clear either field):
+
+```bash
+curl -i -X PUT -H "Content-Type: application/json" \
+  -d '{ "emoji": "rocket", "note": "Faster candidate" }' \
+  http://localhost:6010/api/projects/project-example/experiments/experiment-000/display
+```
+
+Emoji IDs supported by the picker and API are `star`, `rocket`, `bulb`,
+`flask`, `chart`, `search`, `flag`, `warning`, `target`, `lightning`, `puzzle`,
+`compass`, `robot`, `check`, `seedling`, and `trophy`. These display fields live
+in the experiment blob's metadata, not its JSONL content. The note is stored as
+base64-encoded UTF-8 to support Unicode in Azure Blob metadata; changing either
+field updates the blob ETag and can invalidate a cached download. Metadata
+edits retain the designated baseline and other existing metadata.
+
 Then to record results for that experiment, you can do it exactly like the baseline...
 
 ```bash
@@ -245,6 +294,24 @@ Alternatively, you can set the experiment baseline to the project baseline like 
 ```bash
 curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/:project/baseline
 ```
+
+### Hide a set
+
+From a set detail page, **hide this set** asks for confirmation and then
+appends a permanent `{"x":"X","set":"my-set"}` tombstone to the experiment
+JSONL. The same action is available through:
+
+```bash
+curl -i -X PUT \
+  http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-set/hidden
+```
+
+Hidden sets disappear from set lists, comparison candidates, charts, and
+automatic statistics, including when more results arrive later. Existing
+results are not deleted; known direct set URLs and the raw experiment download
+remain available. The API refuses to hide an active experiment or project
+baseline (choose a different baseline first), and refuses to designate a
+hidden set as an experiment baseline. Repeating the request is a no-op.
 
 ## Compare
 
@@ -268,6 +335,27 @@ You can filter the comparison by tags:
 ```bash
 curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?include-tags=tag1,tag2&exclude-tags=tag3"
 ```
+
+To compare against a particular set without changing any baseline designation,
+pass all three `compare-project`, `compare-experiment`, and `compare-set`
+parameters to `compare` or `sets/{set}/compare-by-ref`. The response retains
+the project and experiment baseline fields and adds `comparison_target`.
+Differences and win/tie counts use that target. Stored p-values and confidence
+intervals are not included for overridden comparisons.
+
+```bash
+curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?compare-project=another-project&compare-experiment=run-2&compare-set=baseline"
+```
+
+The current project's metric definitions are used to aggregate both sides.
+When the target is in another project, include/exclude tag filters apply only
+to the current experiment and are ignored for the imported target. The
+ground-truth refs, metric names, and evaluation definitions may differ across
+projects, so interpret cross-project comparisons with care. The named-set
+endpoint accepts `metric-project` when fetching imported iterations for
+comparison using the current project's definitions. Meaningful-tags requests
+can include `comparison_target: { "project": "...", "experiment": "...",
+"set": "..." }` when `compare_to` is `Baseline`.
 
 ## Annotate
 

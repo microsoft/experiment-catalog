@@ -180,6 +180,25 @@ pushes, and notebook examples.
    `CUSTOM_AGGREGATE_*` settings documented in the
    [Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics).
 
+   For local-only storage, set `AZURE_STORAGE_ACCOUNT_CONNSTRING=UseDevelopmentStorage=true`
+   instead of an Azure account name, and start Azurite **before** using the API.
+   From the repository root, run this in a separate terminal (Docker required):
+
+   ```bash
+   mkdir -p .azurite
+   docker run --rm --name experiment-catalog-azurite-blob-local \
+     -p 127.0.0.1:10000:10000 \
+     -v "$PWD/.azurite:/data" \
+     mcr.microsoft.com/azure-storage/azurite \
+     azurite-blob --blobHost 0.0.0.0 --location /data --skipApiVersionCheck
+   ```
+
+   `--skipApiVersionCheck` allows newer Azure Storage SDK requests against
+   Azurite versions that have not added that API version yet. Azurite data
+   stays in the ignored `.azurite/` directory. A connection refusal
+   on `127.0.0.1:10000` when listing projects means the local Blob emulator is
+   not listening; the API can start even when storage is unavailable.
+
 3. Run the API:
 
    ```bash

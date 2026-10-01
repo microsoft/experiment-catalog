@@ -1,5 +1,12 @@
+export interface ComparisonTarget {
+    project: string;
+    experiment: string;
+    set: string;
+}
+
 // ViewConfig holds display/filter state that can be encoded in the URL
 export interface ViewConfig {
+    comparison_target?: ComparisonTarget;
     checked_metrics?: string;   // metric highlighting (comma-separated)
     metrics?: string[];         // which metrics to display
     tags?: string;              // tag filter querystring
@@ -13,6 +20,7 @@ export interface ViewConfig {
     show_win?: boolean;         // toggle for per-ref win count display
     show_tie?: boolean;         // toggle for per-ref tie count display
     show_stats?: boolean;       // toggle for p-value and CI display
+    show_project_baseline?: boolean; // toggle for project baseline column
     show_important_only?: boolean; // toggle for showing only important metrics
 }
 
@@ -22,6 +30,7 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.checked_metrics) cleanConfig.checked_metrics = config.checked_metrics;
     if (config.metrics?.length) cleanConfig.metrics = config.metrics;
     if (config.tags) cleanConfig.tags = config.tags;
+    if (config.comparison_target) cleanConfig.comparison_target = config.comparison_target;
     if (config.show_desc !== undefined) cleanConfig.show_desc = config.show_desc;
     if (config.show_val !== undefined) cleanConfig.show_val = config.show_val;
     if (config.show_diff !== undefined) cleanConfig.show_diff = config.show_diff;
@@ -32,6 +41,7 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.show_win !== undefined) cleanConfig.show_win = config.show_win;
     if (config.show_tie !== undefined) cleanConfig.show_tie = config.show_tie;
     if (config.show_stats !== undefined) cleanConfig.show_stats = config.show_stats;
+    if (config.show_project_baseline !== undefined) cleanConfig.show_project_baseline = config.show_project_baseline;
     if (config.show_important_only !== undefined) cleanConfig.show_important_only = config.show_important_only;
 
     // Return null if config is empty

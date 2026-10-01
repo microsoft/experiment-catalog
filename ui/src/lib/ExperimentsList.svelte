@@ -2,7 +2,8 @@
   import { onMount } from "svelte";
   import ExperimentCard from "./ExperimentCard.svelte";
   import CreateExperimentModal from "./CreateExperimentModal.svelte";
-  import { listExperiments, createExperiment } from "./api";
+  import EditExperimentDisplayModal from "./EditExperimentDisplayModal.svelte";
+  import { listExperiments, createExperiment, updateExperimentDisplay } from "./api";
 
   interface Props {
     project: Project;
@@ -16,6 +17,9 @@
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let showCreateModal = $state(false);
   let createError = $state("");
+  let editingExperiment: Experiment | undefined = $state();
+  let displayError = $state("");
+  let savingDisplay = $state(false);
 
   const fetchExperiments = async () => {
     try {
@@ -70,6 +74,41 @@
   const handleCreateCancel = () => {
     showCreateModal = false;
   };
+
+  const updateDisplay = async (experiment: Experiment, display: { emoji: string | null; note: string | null }) => {
+    const response = await updateExperimentDisplay(
+      project.name, experiment.name, display.emoji, display.note,
+    );
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`HTTP ${response.status}: ${message || response.statusText}`);
+    }
+    const updated: Experiment = await response.json();
+    experiments = experiments.map((item) => item.name === experiment.name ? updated : item);
+  };
+
+  const saveEmoji = (experiment: Experiment, emoji: string | null) =>
+    updateDisplay(experiment, { emoji, note: experiment.note ?? null });
+
+  const editExperiment = (experiment: Experiment) => {
+    displayError = "";
+    editingExperiment = experiment;
+  };
+
+  const saveDisplay = async (display: { emoji: string | null; note: string | null }) => {
+    if (!editingExperiment || savingDisplay) return;
+    const experiment = editingExperiment;
+    savingDisplay = true;
+    displayError = "";
+    try {
+      await updateDisplay(experiment, display);
+      editingExperiment = undefined;
+    } catch (error) {
+      displayError = error instanceof Error ? error.message : "Could not save experiment display";
+    } finally {
+      savingDisplay = false;
+    }
+  };
 </script>
 
 <button class="btn" onclick={unselectProject}>&larr; back</button>
@@ -81,14 +120,14 @@
 {#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/spinner.gif" />
+    <img class="loading" alt="loading" src="./spinner.gif" />
   </div>
 {:else if loadingState === "error"}
   <div>Error loading experiments.</div>
 {:else}
   <div class="flex-container">
     {#each experiments as experiment (experiment.name)}
-      <ExperimentCard onselect={select} {experiment} />
+      <ExperimentCard onselect={select} onedit={editExperiment} onemoji={saveEmoji} {experiment} />
     {/each}
   </div>
 {/if}
@@ -100,6 +139,15 @@
   onsubmit={handleCreateSubmit}
   oncancel={handleCreateCancel}
 />
+{#if editingExperiment}
+  <EditExperimentDisplayModal
+    experiment={editingExperiment}
+    error={displayError}
+    saving={savingDisplay}
+    onsubmit={saveDisplay}
+    oncancel={() => { editingExperiment = undefined; }}
+  />
+{/if}
 
 <style>
   .actions {

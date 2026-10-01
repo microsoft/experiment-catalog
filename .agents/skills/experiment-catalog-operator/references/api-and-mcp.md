@@ -14,6 +14,10 @@ Project tools:
 | `AddTagToProject(project, tagName, refs)` | Add/update a tag and associated refs. |
 | `GetMetricDefinitions(project)` | Read metric definitions. |
 
+For REST clients that already know a project name, use
+`GET /api/projects/{project}` to read its emoji, note, and `ground_truth`
+without calling the project collection endpoint.
+
 Experiment tools:
 
 | Tool | Use |

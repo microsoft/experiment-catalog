@@ -36,6 +36,12 @@ public class Experiment()
     [JsonProperty("annotations", NullValueHandling = NullValueHandling.Ignore)]
     public List<Annotation>? Annotations { get; set; }
 
+    [JsonProperty("emoji", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Emoji { get; set; }
+
+    [JsonProperty("note", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Note { get; set; }
+
     [JsonProperty("created", NullValueHandling = NullValueHandling.Ignore)]
     public DateTimeOffset Created { get; set; } = DateTimeOffset.UtcNow;
 
@@ -49,7 +55,35 @@ public class Experiment()
     public List<Result>? Saved { get; set; }
 
     [JsonIgnore]
+    public HashSet<string> HiddenSets { get; } = new(StringComparer.Ordinal);
+
+    [JsonIgnore]
     public Dictionary<string, object>? Metadata { get; set; }
+
+    public void ApplyStorageRecord(string line)
+    {
+        var result = JsonConvert.DeserializeObject<Result>(line);
+        if (result is null) return;
+
+        if (result.X == "X")
+        {
+            var marker = JsonConvert.DeserializeObject<HiddenSetRecord>(line);
+            if (string.IsNullOrEmpty(marker?.Set))
+            {
+                throw new FormatException("a hidden-set record is missing its set name.");
+            }
+            HiddenSets.Add(marker.Set);
+        }
+        else if (result.X == "P")
+        {
+            var statistics = JsonConvert.DeserializeObject<Statistics>(line);
+            if (statistics is not null) (Statistics ??= []).Add(statistics);
+        }
+        else
+        {
+            (Results ??= []).Add(result);
+        }
+    }
 
     private bool TryReduceAsCost(string key, MetricDefinition definition, List<Metric> metrics, out Metric metric)
     {
@@ -605,19 +639,19 @@ public class Experiment()
         get => this.Results?
             .Select(x => x.Set)
             .Distinct()
-            .Where(x => !string.IsNullOrEmpty(x))
+            .Where(x => !string.IsNullOrEmpty(x) && !HiddenSets.Contains(x))
             .Cast<string>()
             ?? Enumerable.Empty<string>();
     }
 
     public string? FirstSet
     {
-        get => Results?.FirstOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+        get => Results?.FirstOrDefault(r => !string.IsNullOrEmpty(r.Set) && !HiddenSets.Contains(r.Set))?.Set;
     }
 
     public string? LastSet
     {
-        get => Results?.LastOrDefault(r => !string.IsNullOrEmpty(r.Set))?.Set;
+        get => Results?.LastOrDefault(r => !string.IsNullOrEmpty(r.Set) && !HiddenSets.Contains(r.Set))?.Set;
     }
 
     public string? BaselineSet

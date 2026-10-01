@@ -13,6 +13,7 @@
     definition?: MetricDefinition;
     showValue?: boolean;
     showDiff?: boolean;
+    requireBaselineForDiff?: boolean;
     showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
     showRange?: boolean;
@@ -30,6 +31,7 @@
     definition = undefined,
     showValue = true,
     showDiff = true,
+    requireBaselineForDiff = false,
     showCoefficientOfVariation = true,
     showStdDev = true,
     showRange = false,
@@ -54,12 +56,12 @@
     hasMetricFormatter(definition?.tags, ELAPSED_TIME_FORMAT_TAG)
   );
 
-  let diff: number = $derived.by(() => {
+  let diff: number | undefined = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
-    return hasValidMetrics && resultMetric.value !== undefined && baselineMetric.value !== undefined
-      ? resultMetric.value - baselineMetric.value : 0;
+    return hasValidMetrics && resultMetric.value != null && baselineMetric.value != null
+      ? resultMetric.value - baselineMetric.value : requireBaselineForDiff ? undefined : 0;
   });
 
   let difp: number | undefined = $derived.by(() => {
@@ -160,7 +162,7 @@
       {/if}
     {/if}
     {#if result.metrics[metric].value !== undefined}
-      {#if isAvg && showDiff}
+      {#if isAvg && showDiff && diff !== undefined}
         <span class="diff"
           >&nbsp;{diff >= 0 ? "+" : ""}{formatValue(diff, true)}&nbsp;</span
         >
@@ -182,7 +184,7 @@
         />
       </svg>
     {/if}
-    {#if showDiff && isAvg && diff > 0}
+    {#if showDiff && isAvg && diff !== undefined && diff > 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -196,7 +198,7 @@
         />
       </svg>
     {/if}
-    {#if showDiff && isAvg && diff < 0}
+    {#if showDiff && isAvg && diff !== undefined && diff < 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -229,7 +231,7 @@
     {#if showDiff && difp != undefined && Number.isNaN(difp) && diff === 0}
       <span>0%</span>
     {/if}
-    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff < 0}
+    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff !== undefined && diff < 0}
       <span class:difp-green={lowerIsBetter} class:difp-red={!lowerIsBetter}
         >&infin;%</span
       >

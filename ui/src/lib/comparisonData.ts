@@ -7,7 +7,7 @@ import { sortMetrics } from "./Tools";
 
 /**
  * Collect every unique metric key that appears anywhere in a Comparison
- * (project baseline, experiment baseline, and all sets), sorted by the
+ * (project baseline, active baseline, and all sets), sorted by the
  * provided metric-definition ordering.
  */
 export function extractSortedMetrics(
@@ -15,7 +15,7 @@ export function extractSortedMetrics(
 ): string[] {
     const allKeys = [
         ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
-        ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
+        ...Object.keys((comparison.comparison_target ?? comparison.experiment_baseline)?.result?.metrics ?? {}),
         ...(comparison.sets ?? []).flatMap((entity) =>
             Object.keys(entity.result?.metrics ?? {}),
         ),

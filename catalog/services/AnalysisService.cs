@@ -33,10 +33,18 @@ public class AnalysisService(
             cancellationToken)).ToDictionary(definition => definition.Name);
         experiment.MetricDefinitions = metricDefinitions;
 
+        var target = request.CompareTo == MeaningfulTagsComparisonMode.Baseline
+            ? request.ComparisonTarget
+            : null;
         var baseline = request.CompareTo == MeaningfulTagsComparisonMode.Baseline
-            ? experiment // await storageService.GetProjectBaselineAsync(request.Project, cancellationToken)
+            ? target is null
+                ? experiment
+                : await storageService.GetExperimentAsync(
+                    target.Project, target.Experiment, cancellationToken: cancellationToken)
             : null;
         if (baseline is not null) baseline.MetricDefinitions = metricDefinitions;
+        if (target is not null && !baseline!.Sets.Contains(target.Set))
+            throw new HttpException(404, "comparison target set not found.");
 
         var listOfTags = await storageService.ListTagsAsync(request.Project, cancellationToken);
         var includeTags = await storageService.GetTagsAsync(request.Project, listOfTags, cancellationToken);
@@ -69,8 +77,10 @@ public class AnalysisService(
             Result? baselineResult = null;
             if (baseline is not null)
             {
-                var baselineSet = baseline.BaselineSet ?? baseline.FirstSet;
-                var baselineResults = baseline.Filter([tag], excludeTags)?.ToList() ?? [];
+                var baselineSet = target?.Set ?? baseline.BaselineSet ?? baseline.FirstSet;
+                var baselineResults = target is not null && target.Project != request.Project
+                    ? baseline.Results?.ToList() ?? []
+                    : baseline.Filter([tag], excludeTags)?.ToList() ?? [];
                 baselineResult = baseline.AggregateSet(baselineSet, baselineResults);
                 AddDerivedGroup(
                     derivedGroups,

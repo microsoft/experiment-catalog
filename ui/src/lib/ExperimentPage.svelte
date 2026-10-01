@@ -3,7 +3,8 @@
   import ComparisonTable from "./ComparisonTable.svelte";
   import DataAccessModal from "./DataAccessModal.svelte";
   import MeaningfulTags from "./MeaningfulTags.svelte";
-  import type { ViewConfig } from "./Tools";
+  import SelectComparisonTargetModal from "./SelectComparisonTargetModal.svelte";
+  import type { ComparisonTarget, ViewConfig } from "./Tools";
   import {
     useProjectBaseline,
     setAsProjectBaseline as apiSetAsProjectBaseline,
@@ -49,10 +50,12 @@
   let showWin: boolean = $state(true);
   let showTie: boolean = $state(false);
   let showStatistics: boolean = $state(true);
+  let showProjectBaseline: boolean = $state(true);
   let showImportantOnly: boolean = $state(false);
   let hasImportantMetrics: boolean = $state(false);
   let ready: boolean = $state(false);
   let dataAccessOpen: boolean = $state(false);
+  let targetModalOpen = $state(false);
 
   // Initialize from config on mount
   onMount(() => {
@@ -68,6 +71,7 @@
     showWin = config.show_win ?? true;
     showTie = config.show_tie ?? false;
     showStatistics = config.show_stats ?? true;
+    showProjectBaseline = config.show_project_baseline ?? true;
     showImportantOnly = config.show_important_only ?? uiSettings.show_only_important_metrics_by_default ?? false;
     ready = true;
   });
@@ -135,6 +139,11 @@
     } else {
       delete newConfig.show_stats;
     }
+    if (!showProjectBaseline) {
+      newConfig.show_project_baseline = false;
+    } else {
+      delete newConfig.show_project_baseline;
+    }
     // Always persist show_important_only once user has toggled it
     newConfig.show_important_only = showImportantOnly;
     onchangeConfig?.(newConfig);
@@ -164,6 +173,17 @@
 
   const onToggleChange = () => {
     emitConfigChange();
+  };
+
+  const selectTarget = (target: ComparisonTarget) => {
+    targetModalOpen = false;
+    onchangeConfig?.({ ...config, comparison_target: target });
+  };
+
+  const resetTarget = () => {
+    const newConfig = { ...config };
+    delete newConfig.comparison_target;
+    onchangeConfig?.(newConfig);
   };
 
   const useTheProjectBaseline = async () => {
@@ -212,7 +232,12 @@
   <div class="toolbar-divider"></div>
   <div class="toolbar-group">
     <span class="toolbar-label">Actions</span>
-    <button class="btn" onclick={computeStatistics}>
+    <button
+      class="btn"
+      onclick={computeStatistics}
+      disabled={!!config.comparison_target}
+      title={config.comparison_target ? "Reset the comparison to calculate experiment-baseline statistics." : undefined}
+    >
       compute statistics
     </button>
     <button
@@ -230,18 +255,30 @@
     </button>
   </div>
 </div>
-
 <DataAccessModal
   isOpen={dataAccessOpen}
   projectName={project.name}
   experimentName={experiment.name}
   onclose={() => (dataAccessOpen = false)}
 />
+{#if targetModalOpen}
+  <SelectComparisonTargetModal
+    currentProject={project.name}
+    currentExperiment={experiment.name}
+    target={config.comparison_target}
+    onselect={selectTarget}
+    onclose={() => (targetModalOpen = false)}
+  />
+{/if}
 
 <section class="page-content">
   <div class="meta-row">
     <span class="meta-label">Hypothesis</span>
     <span>{experiment.hypothesis}</span>
+  </div>
+  <div class="meta-row">
+    <span class="meta-label">GRND TRUTH</span>
+    <span>{project.ground_truth || "Unknown"}</span>
   </div>
   <div class="meta-row">
     <span class="meta-label">Created</span>
@@ -266,11 +303,21 @@
   {/if}
   <div class="meta-row">
     <span class="meta-label">Tag Impact</span>
-    <MeaningfulTags {project} {experiment} />
+    {#key JSON.stringify(config.comparison_target)}
+    <MeaningfulTags {project} {experiment} target={config.comparison_target} />
+    {/key}
   </div>
   <div class="meta-row">
     <span class="meta-label">Show</span>
     <div class="toggles">
+      <label class="toggle-label">
+        <input
+          type="checkbox"
+          bind:checked={showProjectBaseline}
+          onchange={onToggleChange}
+        />
+        Project Baseline
+      </label>
       <label class="toggle-label">
         <input
           type="checkbox"
@@ -411,6 +458,7 @@
 
 <div class="table">
   {#if ready}
+    {#key JSON.stringify(config.comparison_target)}
     <ComparisonTable
       {project}
       {experiment}
@@ -427,18 +475,23 @@
       {showWin}
       {showTie}
       {showStatistics}
+      {showProjectBaseline}
       {showImportantOnly}
+      target={config.comparison_target}
       bind:this={comparisonTable}
+      onchooseTarget={() => (targetModalOpen = true)}
+      onresetTarget={resetTarget}
       ondrilldown={selectSet}
       onchangeSetList={changeSetList}
       onchangeChecked={changeChecked}
       onchangeTags={changeTags}
       onimportantMetricsDetected={(has) => { hasImportantMetrics = has; }}
     />
+    {/key}
   {:else}
     <div>Loading...</div>
     <div>
-      <img class="loading" alt="loading" src="/spinner.gif" />
+      <img class="loading" alt="loading" src="./spinner.gif" />
     </div>
   {/if}
 </div>

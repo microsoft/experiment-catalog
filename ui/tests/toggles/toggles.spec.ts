@@ -13,6 +13,7 @@ test.describe('Show/hide toggles on experiment page', () => {
   test('toggles are ordered and use expected defaults', async ({ mockedPage: page }) => {
     const toggles = page.locator('.toggles');
     await expect(toggles.locator('label')).toHaveText([
+      'Project Baseline',
       'Metric Desc',
       'Value',
       'Diff',
@@ -34,6 +35,39 @@ test.describe('Show/hide toggles on experiment page', () => {
     await expect(toggles.getByLabel('Win')).toBeChecked();
     await expect(toggles.getByLabel('Tie')).not.toBeChecked();
     await expect(toggles.getByLabel('Statistics')).toBeChecked();
+    await expect(toggles.getByLabel('Project Baseline')).toBeChecked();
+  });
+
+  test('project baseline toggle hides only its column and restores it', async ({ mockedPage: page }) => {
+    const table = page.locator('table');
+    const toggle = page.locator('.toggles').getByLabel('Project Baseline');
+    const header = table.getByText('Project Baseline', { exact: true });
+    const accuracyRow = table.locator('tbody tr').filter({ has: page.locator('td.label', { hasText: 'accuracy' }) });
+
+    await expect(header).toBeVisible();
+    await expect(accuracyRow).toBeVisible();
+    const originalColumnCount = await accuracyRow.locator('td').count();
+    await toggle.uncheck();
+
+    await expect(header).toHaveCount(0);
+    await expect(accuracyRow.locator('td')).toHaveCount(originalColumnCount - 1);
+    await expect(table.getByText('Experiment Baseline', { exact: true })).toBeVisible();
+    await expect(table.getByRole('button', { name: 'set-a' })).toBeVisible();
+    await expect(page.locator('.metric-description-row')).toHaveCount(0);
+
+    await toggle.check();
+    await expect(header).toBeVisible();
+    await expect(accuracyRow.locator('td')).toHaveCount(originalColumnCount);
+  });
+
+  test('hidden project baseline persists in URL and after reload', async ({ mockedPage: page }) => {
+    await page.locator('.toggles').getByLabel('Project Baseline').uncheck();
+    const config = JSON.parse(atob(new URL(page.url()).searchParams.get('config')!));
+    expect(config.show_project_baseline).toBe(false);
+
+    await page.reload();
+    await expect(page.locator('.toggles').getByLabel('Project Baseline')).not.toBeChecked();
+    await expect(page.locator('table').getByText('Project Baseline', { exact: true })).toHaveCount(0);
   });
 
   test('checking Metric Desc shows italic descriptions below metric rows', async ({ mockedPage: page }) => {

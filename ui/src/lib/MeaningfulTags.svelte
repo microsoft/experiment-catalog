@@ -2,13 +2,15 @@
   import { onMount } from "svelte";
   import { sortMetrics } from "./Tools";
   import { getComparison, listTags, getMeaningfulTags } from "./api";
+  import type { ComparisonTarget } from "./Tools";
 
   interface Props {
     project: Project;
     experiment: Experiment;
+    target?: ComparisonTarget;
   }
 
-  let { project, experiment }: Props = $props();
+  let { project, experiment, target }: Props = $props();
 
   type MeaningfulTagsComparisonMode = "Baseline" | "Zero" | "Average";
 
@@ -45,7 +47,7 @@
     if (initialized) return;
     try {
       loading = true;
-      const comparison = await getComparison(project.name, experiment.name);
+      const comparison = await getComparison(project.name, experiment.name, undefined, target);
       const allMetrics = [
         ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
         ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
@@ -99,6 +101,7 @@
         set: selectedSet,
         metric: selectedMetric,
         compare_to: selectedCompareTo,
+        comparison_target: selectedCompareTo === "Baseline" ? target : undefined,
         exclude_tags: selectedExcludeTag ? [selectedExcludeTag] : undefined,
       });
       results = data?.tags ?? [];
@@ -150,7 +153,7 @@
     <label>
       Compare
       <select class="dropdown" bind:value={selectedCompareTo}>
-        <option value="Baseline">Baseline</option>
+        <option value="Baseline">{target ? "Comparison Target" : "Baseline"}</option>
         <option value="Zero">Zero</option>
         <option value="Average">Average</option>
       </select>

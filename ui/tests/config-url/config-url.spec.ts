@@ -26,6 +26,18 @@ test.describe('URL config encoding and decoding', () => {
     await expect(page.locator('.toggles').getByLabel('Win')).toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Tie')).not.toBeChecked();
     await expect(page.locator('.toggles').getByLabel('Statistics')).toBeChecked();
+    await expect(page.locator('.toggles').getByLabel('Project Baseline')).toBeChecked();
+  });
+
+  test('navigating with show_project_baseline=false hides its column', async ({ mockedPage: page }) => {
+    const config = encodeConfig({ show_project_baseline: false, show_desc: true });
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+
+    await expect(page.locator('.toggles').getByLabel('Project Baseline')).not.toBeChecked();
+    const table = page.locator('table');
+    await expect(table.getByText('Project Baseline', { exact: true })).toHaveCount(0);
+    await expect(table.getByText('Experiment Baseline', { exact: true })).toBeVisible();
+    await expect(table.locator('.metric-description-row').first().locator('td.metric-description')).toHaveAttribute('colspan', '4');
   });
 
   test('navigating with show_cv=false and show_range=true pre-sets the new toggles', async ({ mockedPage: page }) => {

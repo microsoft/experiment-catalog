@@ -15,6 +15,9 @@ public class Comparison
     [JsonProperty("experiment_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public ComparisonEntity? ExperimentBaseline { get; set; }
 
+    [JsonProperty("comparison_target", NullValueHandling = NullValueHandling.Ignore)]
+    public ComparisonEntity? ComparisonTarget { get; set; }
+
     [JsonProperty("sets", NullValueHandling = NullValueHandling.Ignore)]
     public IEnumerable<ComparisonEntity>? Sets { get; set; }
 }
