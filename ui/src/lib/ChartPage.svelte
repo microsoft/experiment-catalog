@@ -2,14 +2,16 @@
   import { onMount } from "svelte";
   import DistributionChart from "./charts/DistributionChart.svelte";
   import { getSets, getSetResults, getComparison } from "./api";
+  import type { ViewConfig } from "./Tools";
 
   interface Props {
     project: Project;
     experiment: Experiment;
+    config?: ViewConfig;
     onback?: () => void;
   }
 
-  let { project, experiment, onback }: Props = $props();
+  let { project, experiment, config = {}, onback }: Props = $props();
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let allMetrics: string[] = $state([]);
@@ -42,19 +44,21 @@
       loadingState = "loading";
 
       // Get metric definitions from comparison
-      const comparison = await getComparison(project.name, experiment.name);
+      const comparison = await getComparison(project.name, experiment.name, undefined, config.comparison_target);
       metricDefinitions = comparison.metric_definitions ?? {};
 
-      // Get ordered set list: project baseline, experiment baseline, then remaining sets
+      // Get ordered set list: project baseline, active comparison, then remaining sets
       const allSets = await getSets(project.name, experiment.name);
       const projBaseline = comparison.project_baseline;
       const expBaseline = comparison.experiment_baseline;
+      const target = comparison.comparison_target;
 
       setOrder = [];
       resultsBySet = new Map();
 
       // Determine if project and experiment baselines point to the same set
       const sameBaseline =
+        !target &&
         projBaseline?.set &&
         expBaseline?.set &&
         projBaseline.project === expBaseline.project &&
@@ -85,7 +89,7 @@
         }
 
         // Fetch experiment baseline
-        if (expBaseline?.set) {
+        if (!target && expBaseline?.set) {
           const label = `experiment-baseline: ${expBaseline.set}`;
           setOrder.push(label);
           const results = await getSetResults(
@@ -97,8 +101,27 @@
         }
       }
 
+      if (target?.set) {
+        const setName = target.set;
+        const label = `comparison-target: ${target.project}/${target.experiment}/${setName}`;
+        setOrder.push(label);
+        resultsBySet.set(label, await getSetResults(
+          target.project, target.experiment, setName,
+          target.project === project.name ? undefined : project.name,
+        ));
+      }
+
       // Add remaining sets (skip any that are already shown as a baseline)
-      const baselineSets = new Set<string | undefined>([projBaseline?.set, expBaseline?.set]);
+      const baselineSets = new Set<string | undefined>();
+      if (!target) {
+        baselineSets.add(projBaseline?.set);
+        baselineSets.add(expBaseline?.set);
+      } else if (projBaseline?.project === project.name && projBaseline.experiment === experiment.name) {
+        baselineSets.add(projBaseline.set);
+      }
+      if (target?.project === project.name && target.experiment === experiment.name) {
+        baselineSets.add(target.set);
+      }
       for (const s of allSets) {
         if (!baselineSets.has(s)) {
           setOrder.push(s);
@@ -199,11 +222,14 @@
 <button class="btn" onclick={onback}>&larr; back</button>
 <h1>PROJECT: {project.name}</h1>
 <h2>EXPERIMENT: {experiment.name}</h2>
+{#if config.comparison_target}
+  <p>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</p>
+{/if}
 
 {#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/spinner.gif" />
+    <img class="loading" alt="loading" src="./spinner.gif" />
   </div>
 {:else if loadingState === "error"}
   <div>Error loading data.</div>

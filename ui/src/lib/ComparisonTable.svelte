@@ -9,6 +9,7 @@
     listTags,
   } from "./api";
   import { sanitizeProjectTagQuerystring } from "./Tools";
+  import type { ComparisonTarget } from "./Tools";
   import {
     extractSortedMetrics,
     buildSelectedEntities,
@@ -32,7 +33,11 @@
     showWin?: boolean;
     showTie?: boolean;
     showStatistics?: boolean;
+    showProjectBaseline?: boolean;
     showImportantOnly?: boolean;
+    target?: ComparisonTarget;
+    onchooseTarget?: () => void;
+    onresetTarget?: () => void;
     ondrilldown?: (set: string) => void;
     onchangeSetList?: (setList: string) => void;
     onchangeChecked?: (checked: string) => void;
@@ -56,7 +61,11 @@
     showWin = true,
     showTie = false,
     showStatistics = true,
+    showProjectBaseline = true,
     showImportantOnly = false,
+    target,
+    onchooseTarget,
+    onresetTarget,
     ondrilldown,
     onchangeSetList,
     onchangeChecked,
@@ -133,6 +142,7 @@
   };
 
   let comparison: Comparison | undefined = $state();
+  let activeBaseline = $derived(comparison?.comparison_target ?? comparison?.experiment_baseline);
   let metrics: string[] = $state([]);
   let tagFilters: string = $state("");
   let initialized = $state(false);
@@ -182,6 +192,7 @@
         project.name,
         experiment.name,
         tagFilters || undefined,
+        target,
       );
 
       // get a list of metrics
@@ -266,29 +277,43 @@
 {#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/spinner.gif" />
+    <img class="loading" alt="loading" src="./spinner.gif" />
   </div>
 {:else if loadingState === "error"}
   <div>Error loading comparison.</div>
+  {#if target && onresetTarget}
+    <button class="btn" onclick={onresetTarget}>reset</button>
+  {/if}
 {:else if comparison}
   <table>
     <thead>
       <tr>
         <th class="checkbox-column"></th>
         <th></th>
-        <th>
+        {#if showProjectBaseline}
+          <th>
+            <ComparisonTableHeader
+              title="Project Baseline"
+              entity={comparison.project_baseline}
+              currentProject={project.name}
+              currentExperiment={experiment.name}
+              showExperiment
+              clickable={false}
+              onaddAnnotation={addAnnotation}
+            />
+          </th>
+        {/if}
+        <th class:active-target={!!comparison.comparison_target} class:default-baseline={!comparison.comparison_target}>
           <ComparisonTableHeader
-            title="Project Baseline"
-            entity={comparison.project_baseline}
+            title={comparison.comparison_target ? "Comparison Target" : "Experiment Baseline"}
+            entity={activeBaseline}
+            currentProject={project.name}
+            currentExperiment={experiment.name}
+            showExperiment
+            tone={comparison.comparison_target ? "target" : "baseline"}
             clickable={false}
-            onaddAnnotation={addAnnotation}
-          />
-        </th>
-        <th>
-          <ComparisonTableHeader
-            title="Experiment Baseline"
-            entity={comparison.experiment_baseline}
-            clickable={false}
+            onchooseTarget={comparison.comparison_target ? undefined : onchooseTarget}
+            onresetTarget={comparison.comparison_target ? onresetTarget : undefined}
             onaddAnnotation={addAnnotation}
           />
         </th>
@@ -318,10 +343,29 @@
             />
           </td>
           <td class="label">{metric}</td>
+          {#if showProjectBaseline}
+            <td
+              ><ComparisonTableMetric
+                result={comparison.project_baseline?.result}
+                baseline={activeBaseline?.result}
+                requireBaselineForDiff={!!comparison.comparison_target}
+                {metric}
+                definition={comparison.metric_definitions[metric]}
+                {showValue}
+                {showDiff}
+                {showCoefficientOfVariation}
+                {showStdDev}
+                {showRange}
+                {showCount}
+                {showWin}
+                {showTie}
+                {showStatistics}
+              /></td
+            >
+          {/if}
           <td
             ><ComparisonTableMetric
-              result={comparison.project_baseline?.result}
-              baseline={comparison.experiment_baseline?.result}
+              result={activeBaseline?.result}
               {metric}
               definition={comparison.metric_definitions[metric]}
               {showValue}
@@ -330,33 +374,18 @@
               {showStdDev}
               {showRange}
               {showCount}
-              {showWin}
-              {showTie}
-              {showStatistics}
-            /></td
-          >
-          <td
-            ><ComparisonTableMetric
-              result={comparison.experiment_baseline?.result}
-              {metric}
-              definition={comparison.metric_definitions[metric]}
-              {showValue}
-              {showDiff}
-              {showCoefficientOfVariation}
-              {showStdDev}
-              {showRange}
-              {showCount}
-              {showWin}
-              {showTie}
-              {showStatistics}
-            /></td
-          >
+              showWin={comparison.comparison_target ? false : showWin}
+              showTie={comparison.comparison_target ? false : showTie}
+              showStatistics={comparison.comparison_target ? false : showStatistics}
+              /></td
+            >
           {#each selected as entity, index}
             <td
               ><ComparisonTableMetric
                 bind:this={controls[index]}
                 result={entity?.result}
-                baseline={comparison.experiment_baseline?.result}
+                baseline={activeBaseline?.result}
+                requireBaselineForDiff={!!comparison.comparison_target}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
                 {showValue}
@@ -380,7 +409,7 @@
             <td></td>
             <td
               class="metric-description"
-              colspan={selected.length + 3}
+              colspan={selected.length + (showProjectBaseline ? 3 : 2)}
             >
               <em>{comparison.metric_definitions[metric].description}</em>
             </td>
@@ -403,6 +432,18 @@
     text-align: left;
     vertical-align: bottom;
     border-bottom: 1px solid #ddd;
+  }
+
+  th.active-target {
+    background-color: #302b1f;
+    border: 1px solid #b78536;
+    border-top: 4px solid #b78536;
+  }
+
+  th.default-baseline {
+    background-color: #243326;
+    border: 1px solid #518c5d;
+    border-top: 4px solid #518c5d;
   }
 
   td {

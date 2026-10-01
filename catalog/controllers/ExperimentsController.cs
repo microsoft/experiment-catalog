@@ -57,6 +57,18 @@ public class ExperimentsController : ControllerBase
         return Ok(sets);
     }
 
+    [HttpPut("{experimentName}/sets/{setName}/hidden")]
+    public async Task<IActionResult> HideSet(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
+        [FromRoute, Required, ValidName] string setName,
+        CancellationToken cancellationToken)
+    {
+        await storageService.HideSetAsync(projectName, experimentName, setName, cancellationToken);
+        return Ok();
+    }
+
     [HttpPost]
     public async Task<IActionResult> Add(
         [FromServices] IStorageService storageService,
@@ -74,8 +86,29 @@ public class ExperimentsController : ControllerBase
             return BadRequest("an experiment name and hypothesis are required.");
         }
 
+        if (experiment.Emoji is not null || experiment.Note is not null)
+        {
+            return BadRequest("experiment display fields must be updated using the display endpoint.");
+        }
+
         await storageService.AddExperimentAsync(projectName, experiment, cancellationToken);
         return Ok();
+    }
+
+    [HttpPut("{experimentName}/display")]
+    public async Task<ActionResult<Experiment>> UpdateDisplay(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromRoute, Required, ValidName, ValidExperimentName] string experimentName,
+        [FromBody, Required] CardDisplay display,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || display is null)
+        {
+            return BadRequest("a project name, experiment name, and display are required.");
+        }
+
+        return Ok(await storageService.SetExperimentDisplayAsync(projectName, experimentName, display, cancellationToken));
     }
 
     [HttpPatch("{experimentName}/baseline")]
@@ -123,14 +156,24 @@ public class ExperimentsController : ControllerBase
         CancellationToken cancellationToken,
         [FromQuery(Name = "sets")] string sets = "",
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
-        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "",
+        [FromQuery(Name = "compare-project"), ValidProjectName] string? compareProject = null,
+        [FromQuery(Name = "compare-experiment"), ValidExperimentName] string? compareExperiment = null,
+        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
         {
             return BadRequest("a project name and experiment name are required.");
         }
 
-        var comparison = await experimentService.CompareAsync(projectName, experimentName, includeTagsStr, excludeTagsStr, cancellationToken);
+        if ((compareProject is not null || compareExperiment is not null || compareSet is not null) &&
+            (string.IsNullOrWhiteSpace(compareProject) || string.IsNullOrWhiteSpace(compareExperiment) || string.IsNullOrWhiteSpace(compareSet)))
+        {
+            return BadRequest("compare-project, compare-experiment and compare-set must all be provided.");
+        }
+
+        var target = compareProject is null ? null : new ComparisonTarget(compareProject, compareExperiment!, compareSet!);
+        var comparison = await experimentService.CompareAsync(projectName, experimentName, includeTagsStr, excludeTagsStr, cancellationToken, target);
         return Ok(comparison);
     }
 
@@ -147,14 +190,24 @@ public class ExperimentsController : ControllerBase
         [FromRoute, Required, ValidName] string setName,
         CancellationToken cancellationToken,
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
-        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "",
+        [FromQuery(Name = "compare-project"), ValidProjectName] string? compareProject = null,
+        [FromQuery(Name = "compare-experiment"), ValidExperimentName] string? compareExperiment = null,
+        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || string.IsNullOrEmpty(setName))
         {
             return BadRequest("a project name, experiment name, and set name are required.");
         }
 
-        var comparison = await experimentService.CompareByRefAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken);
+        if ((compareProject is not null || compareExperiment is not null || compareSet is not null) &&
+            (string.IsNullOrWhiteSpace(compareProject) || string.IsNullOrWhiteSpace(compareExperiment) || string.IsNullOrWhiteSpace(compareSet)))
+        {
+            return BadRequest("compare-project, compare-experiment and compare-set must all be provided.");
+        }
+
+        var target = compareProject is null ? null : new ComparisonTarget(compareProject, compareExperiment!, compareSet!);
+        var comparison = await experimentService.CompareByRefAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken, target);
         return Ok(comparison);
     }
 
@@ -166,9 +219,10 @@ public class ExperimentsController : ControllerBase
         [FromRoute, Required, ValidName] string setName,
         CancellationToken cancellationToken,
         [FromQuery(Name = "include-tags")] string includeTagsStr = "",
-        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "")
+        [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "",
+        [FromQuery(Name = "metric-project"), ValidProjectName] string? metricProject = null)
     {
-        var results = await experimentService.GetNamedSetAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken);
+        var results = await experimentService.GetNamedSetAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken, metricProject);
         return Ok(results);
     }
 

@@ -174,7 +174,13 @@ public class AnalysisServiceTests
         public Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<Project> GetProjectAsync(string projectName, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task AddProjectAsync(Project project, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task<Project> SetProjectDisplayAsync(string projectName, ProjectDisplay display, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task AddTagAsync(
@@ -200,6 +206,13 @@ public class AnalysisServiceTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<Experiment> SetExperimentDisplayAsync(
+            string projectName,
+            string experimentName,
+            CardDisplay display,
+            CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task SetExperimentAsBaselineAsync(
             string projectName,
             string experimentName,
@@ -218,6 +231,9 @@ public class AnalysisServiceTests
             string experimentName,
             Result result,
             CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task HideSetAsync(string projectName, string experimentName, string setName, CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
         public Task AddStatisticsAsync(

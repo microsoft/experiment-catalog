@@ -43,6 +43,14 @@ describe("extractSortedMetrics", () => {
         expect(new Set(result).size).toBe(4);
     });
 
+    it("excludes metrics unique to a replaced experiment baseline", () => {
+        const comparison = makeComparison({
+            experiment_baseline: makeEntity("baseline", ["old"]),
+            comparison_target: makeEntity("target", ["new"]),
+        });
+        expect(extractSortedMetrics(comparison)).toEqual(["new"]);
+    });
+
     it("sorts by metric_definitions order", () => {
         const comparison = makeComparison({
             metric_definitions: {

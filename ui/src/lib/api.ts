@@ -6,6 +6,7 @@
  * directly, which makes the code easier to test, refactor, and change.
  */
 import { apiPrefix } from "./config";
+import type { ComparisonTarget } from "./Tools";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -82,6 +83,9 @@ async function fetchJson<T>(path: string): Promise<T> {
         window.location.href = getLoginUrl(returnUrl);
         throw new Error("Authentication required");
     }
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
     return response.json() as Promise<T>;
 }
 
@@ -91,11 +95,33 @@ export async function listProjects(): Promise<Project[]> {
     return fetchJson<Project[]>("/api/projects");
 }
 
+export async function getProject(projectName: string): Promise<Project> {
+    return fetchJson<Project>(`/api/projects/${encodeURIComponent(projectName)}`);
+}
+
 export async function createProject(name: string): Promise<Response> {
     return fetch(url("/api/projects"), {
         method: "POST",
         headers: JSON_HEADERS,
         body: JSON.stringify({ name }),
+        credentials: "include",
+    });
+}
+
+export interface ProjectDisplayUpdate {
+    emoji: string | null;
+    note: string | null;
+    ground_truth: string | null;
+}
+
+export async function updateProjectDisplay(
+    projectName: string,
+    display: ProjectDisplayUpdate,
+): Promise<Response> {
+    return fetch(url(`/api/projects/${encodeURIComponent(projectName)}/display`), {
+        method: "PUT",
+        headers: JSON_HEADERS,
+        body: JSON.stringify(display),
         credentials: "include",
     });
 }
@@ -130,6 +156,23 @@ export async function createExperiment(
         body: JSON.stringify({ name, hypothesis }),
         credentials: "include",
     });
+}
+
+export async function updateExperimentDisplay(
+    projectName: string,
+    experimentName: string,
+    emoji: string | null,
+    note: string | null,
+): Promise<Response> {
+    return fetch(
+        url(`/api/projects/${encodeURIComponent(projectName)}/experiments/${encodeURIComponent(experimentName)}/display`),
+        {
+            method: "PUT",
+            headers: JSON_HEADERS,
+            body: JSON.stringify({ emoji, note }),
+            credentials: "include",
+        },
+    );
 }
 
 // ── Download ────────────────────────────────────────────────────────────────
@@ -172,11 +215,14 @@ export async function getComparison(
     projectName: string,
     experimentName: string,
     tagFilters?: string,
+    target?: ComparisonTarget,
 ): Promise<Comparison> {
-    const qs = tagFilters ? `?${tagFilters}` : "";
-    return fetchJson<Comparison>(
+    const qs = comparisonQuery(tagFilters, target);
+    const comparison = await fetchJson<Comparison>(
         `/api/projects/${projectName}/experiments/${experimentName}/compare${qs}`,
     );
+    assertComparisonTarget(target, comparison.comparison_target);
+    return comparison;
 }
 
 export async function getComparisonByRef(
@@ -184,11 +230,36 @@ export async function getComparisonByRef(
     experimentName: string,
     setName: string,
     tagFilters?: string,
+    target?: ComparisonTarget,
 ): Promise<ComparisonByRef> {
-    const qs = tagFilters ? `?${tagFilters}` : "";
-    return fetchJson<ComparisonByRef>(
+    const qs = comparisonQuery(tagFilters, target);
+    const comparison = await fetchJson<ComparisonByRef>(
         `/api/projects/${projectName}/experiments/${experimentName}/sets/${setName}/compare-by-ref${qs}`,
     );
+    assertComparisonTarget(target, comparison.comparison_target);
+    return comparison;
+}
+
+function assertComparisonTarget(
+    target?: ComparisonTarget,
+    actual?: { project: string; experiment: string; set?: string },
+): void {
+    if (target && (!actual ||
+        target.project !== actual.project ||
+        target.experiment !== actual.experiment ||
+        target.set !== actual.set)) {
+        throw new Error("Comparison response does not match the selected target.");
+    }
+}
+
+function comparisonQuery(tagFilters?: string, target?: ComparisonTarget): string {
+    if (!target) return tagFilters ? `?${tagFilters}` : "";
+    const params = new URLSearchParams({
+        "compare-project": target.project,
+        "compare-experiment": target.experiment,
+        "compare-set": target.set,
+    });
+    return `?${tagFilters ? `${tagFilters}&` : ""}${params}`;
 }
 
 // ── Sets / Results ──────────────────────────────────────────────────────────
@@ -202,13 +273,28 @@ export async function getSets(
     );
 }
 
+export async function hideSet(
+    projectName: string,
+    experimentName: string,
+    setName: string,
+): Promise<Response> {
+    return fetch(url(
+        `/api/projects/${encodeURIComponent(projectName)}/experiments/${encodeURIComponent(experimentName)}/sets/${encodeURIComponent(setName)}/hidden`,
+    ), {
+        method: "PUT",
+        credentials: "include",
+    });
+}
+
 export async function getSetResults(
     projectName: string,
     experimentName: string,
     setName: string,
+    definitionProject?: string,
 ): Promise<Result[]> {
+    const qs = definitionProject ? `?metric-project=${encodeURIComponent(definitionProject)}` : "";
     return fetchJson<Result[]>(
-        `/api/projects/${projectName}/experiments/${experimentName}/sets/${setName}`,
+        `/api/projects/${projectName}/experiments/${experimentName}/sets/${setName}${qs}`,
     );
 }
 
@@ -287,6 +373,7 @@ export interface MeaningfulTagsRequest {
     metric: string;
     compare_to: string;
     exclude_tags?: string[];
+    comparison_target?: ComparisonTarget;
 }
 
 export interface MeaningfulTagsResponse {

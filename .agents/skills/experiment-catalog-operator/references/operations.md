@@ -39,11 +39,16 @@ REST:
 
 ```http
 GET /api/projects
+GET /api/projects/{project}
 POST /api/projects
 Content-Type: application/json
 
 {"name":"project-example"}
 ```
+
+Use the single-project GET when a project name is already known; it returns
+the same project fields, including `ground_truth`, without listing every
+project. Use the collection route or `ListProjects()` when discovering projects.
 
 Project names must be valid catalog names. Keep one project aligned to one stable ground-truth set, metric set, and evaluation configuration.
 

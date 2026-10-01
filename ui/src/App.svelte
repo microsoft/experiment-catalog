@@ -1,6 +1,6 @@
 <script lang="ts">
   import { updateURL, decodeConfig, type ViewConfig } from "./lib/Tools";
-  import { getAuthStatus, getLoginUrl, getExperiment, getUiSettings } from "./lib/api";
+  import { getAuthStatus, getLoginUrl, getExperiment, getProject, getUiSettings } from "./lib/api";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
   import SetPage from "./lib/SetPage.svelte";
@@ -64,24 +64,24 @@
 
   const selectProject = (selectedProject: Project) => {
     project = selectedProject;
-    updateURL(project.name);
+    updateURL(project.name, null, null, config);
   };
 
   const unselectProject = () => {
     project = undefined;
     setList = undefined;
-    updateURL();
+    updateURL(null, null, null, config);
   };
 
   const selectExperiment = (selectedExperiment: Experiment) => {
     experiment = selectedExperiment;
-    updateURL(project!.name, experiment.name);
+    updateURL(project!.name, experiment.name, null, config);
   };
 
   const unselectExperiment = () => {
     experiment = undefined;
     setList = undefined;
-    updateURL(project!.name);
+    updateURL(project!.name, null, null, config);
   };
 
   const selectSet = (selectedSet: string) => {
@@ -145,6 +145,9 @@
       const qpage = params.get("page");
       const qconfig = params.get("config");
       const qchecked = params.get("checked"); // backward compatibility
+      if (qproject) {
+        project = await getProject(qproject);
+      }
 
       // Parse config from URL or fall back to legacy "checked" param
       if (qconfig) {
@@ -159,11 +162,9 @@
         setName = qpage.slice(4);
         viewMode = "table";
         experiment = await getExperiment(qproject, qexperiment);
-        project = { name: qproject };
       } else if (qproject && qexperiment && qpage && qpage === "chart") {
         viewMode = "chart";
         experiment = await getExperiment(qproject, qexperiment);
-        project = { name: qproject };
       } else if (
         qproject &&
         qexperiment &&
@@ -172,14 +173,11 @@
       ) {
         setList = qpage.slice(5);
         experiment = await getExperiment(qproject, qexperiment);
-        project = { name: qproject };
       } else if (qproject && qexperiment) {
         experiment = await getExperiment(qproject, qexperiment);
-        project = { name: qproject };
-      } else if (qproject) {
-        project = { name: qproject };
       }
-    } catch {
+    } catch (error) {
+      console.error(error);
       setName = undefined;
       experiment = undefined;
       project = undefined;
@@ -202,7 +200,7 @@
   {#if loadingState === "loading"}
     <div>Loading...</div>
     <div>
-      <img class="loading" alt="loading" src="/spinner.gif" />
+      <img class="loading" alt="loading" src="./spinner.gif" />
     </div>
   {:else if authRequired}
     <div class="auth-container">
@@ -223,6 +221,7 @@
       onback={showTable}
       {project}
       {experiment}
+      {config}
     />
   {:else if project && experiment}
     <ExperimentPage

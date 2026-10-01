@@ -1,4 +1,5 @@
 import { test, expect } from '../fixtures';
+import * as data from '../mocks/data';
 
 test.describe('Experiment page data display', () => {
   test.beforeEach(async ({ mockedPage: page }) => {
@@ -7,6 +8,28 @@ test.describe('Experiment page data display', () => {
     await expect(
       page.getByRole('heading', { name: /EXPERIMENT: exp-001/ }),
     ).toBeVisible();
+  });
+
+  test('shows the project ground truth after the hypothesis, or Unknown when unset', async ({ mockedPage: page }) => {
+    const groundTruth = page.locator('.meta-row').filter({ hasText: 'GRND TRUTH' });
+    await expect(groundTruth).toContainText('Unknown');
+    await page.route('**/api/projects/alpha-project', (route) =>
+      route.fulfill({
+        json: { name: 'alpha-project', ground_truth: 'GT v2' },
+      }),
+    );
+    await page.reload();
+    await expect(groundTruth).toContainText('GT v2');
+    await expect(groundTruth).not.toContainText('Unknown');
+    const hypothesis = page.locator('.meta-row').filter({ hasText: 'Hypothesis' });
+    const hypothesisBounds = await hypothesis.boundingBox();
+    const groundTruthBounds = await groundTruth.boundingBox();
+    const createdBounds = await page.locator('.meta-row').filter({ hasText: 'Created' }).boundingBox();
+    expect(groundTruthBounds!.y).toBeGreaterThan(hypothesisBounds!.y);
+    expect(groundTruthBounds!.y).toBeLessThan(createdBounds!.y);
+    const hypothesisValue = await hypothesis.locator('span').nth(1).boundingBox();
+    const groundTruthValue = await groundTruth.locator('span').nth(1).boundingBox();
+    expect(groundTruthValue!.x).toBe(hypothesisValue!.x);
   });
 
   test('renders comparison table with metric rows', async ({ mockedPage: page }) => {
@@ -25,8 +48,12 @@ test.describe('Experiment page data display', () => {
     await expect(table).toBeVisible();
 
     // Column headers (use exact match to avoid matching button text like "use the project baseline")
-    await expect(page.getByText('Project Baseline', { exact: true })).toBeVisible();
+    await expect(table.getByText('Project Baseline', { exact: true })).toBeVisible();
     await expect(page.getByText('Experiment Baseline', { exact: true })).toBeVisible();
+    await expect(table.locator('thead th').filter({ hasText: 'Project Baseline' })
+      .getByText('experiment: exp-baseline')).toBeVisible();
+    await expect(table.locator('thead th').filter({ hasText: 'Experiment Baseline' })
+      .getByText('experiment: exp-001')).toBeVisible();
   });
 
   test('renders set comparison columns', async ({ mockedPage: page }) => {

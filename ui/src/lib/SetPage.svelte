@@ -11,6 +11,7 @@
     getSetResults,
     listTags,
     setAsExperimentBaseline as apiSetAsExperimentBaseline,
+    hideSet as apiHideSet,
   } from "./api";
   import {
     buildRefMap,
@@ -39,6 +40,8 @@
   }: Props = $props();
 
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
+  let hiding = $state(false);
+  let hideError = $state("");
 
   const unselectSet = () => {
     onunselectSet?.();
@@ -49,6 +52,14 @@
   let baselineResults: Result[] | undefined = $state();
   let showBaselineResults = $state(false);
   let comparison: ComparisonByRef | undefined = $state();
+  let comparisonTarget = $derived(comparison?.comparison_target ?? comparison?.experiment_baseline);
+  let isBaselineSet = $derived(
+    [comparison?.project_baseline, comparison?.experiment_baseline].some((entity) =>
+      entity?.project === project.name &&
+      entity.experiment === experiment.name &&
+      entity.set === setName,
+    ),
+  );
   let masterRefs: string[] = $state([]);
   let filteredRefs: string[] = $state([]);
   let metrics: string[] = $state([]);
@@ -116,6 +127,7 @@
         experiment.name,
         setName,
         tagFilters || undefined,
+        config.comparison_target,
       );
 
       // get a list of all refs in the chosen results
@@ -166,11 +178,12 @@
     try {
       loadingState = "loading";
       showBaselineResults = !showBaselineResults;
-      if (!baselineResults && comparison.experiment_baseline?.set) {
+      if (!baselineResults && comparisonTarget?.set) {
         baselineResults = await getSetResults(
-          comparison.experiment_baseline.project,
-          comparison.experiment_baseline.experiment,
-          comparison.experiment_baseline.set,
+          comparisonTarget.project,
+          comparisonTarget.experiment,
+          comparisonTarget.set,
+          comparisonTarget.project === project.name ? undefined : project.name,
         );
         baselineResultsByRef = buildRefMap(baselineResults);
       }
@@ -209,6 +222,26 @@
     }
   };
 
+  const hideSet = async () => {
+    if (!window.confirm(`Permanently hide "${setName}" from set lists? Its results will remain available through direct links.`)) {
+      return;
+    }
+    hiding = true;
+    hideError = "";
+    try {
+      const response = await apiHideSet(project.name, experiment.name, setName);
+      if (!response.ok) {
+        const message = await response.text();
+        throw new Error(`HTTP ${response.status}: ${message || response.statusText}`);
+      }
+      unselectSet();
+    } catch (error) {
+      hideError = error instanceof Error ? error.message : "Could not hide set";
+    } finally {
+      hiding = false;
+    }
+  };
+
   let initialized = $state(false);
 
   // Called when metrics filter changes
@@ -239,10 +272,21 @@
   <button class="btn" onclick={setAsExperimentBaseline}>
     set this permutation as the experiment baseline
   </button>
+  <button
+    class="btn"
+    onclick={hideSet}
+    disabled={hiding || isBaselineSet}
+    title={isBaselineSet ? "Choose another baseline before hiding this set." : undefined}
+  >hide this set</button>
 </div>
+{#if hideError}<p role="alert" class="hide-error">{hideError}</p>{/if}
 <div class="meta-row">
   <span class="meta-label">Hypothesis</span>
   <span>{experiment.hypothesis}</span>
+</div>
+<div class="meta-row">
+  <span class="meta-label">GRND TRUTH</span>
+  <span>{project.ground_truth || "Unknown"}</span>
 </div>
 <div class="meta-row">
   <span class="meta-label">Created</span>
@@ -267,7 +311,7 @@
   <button
     class="btn"
     onclick={fetchBaselineDetails}
-    disabled={loadingState === "loading"}>toggle baseline iterations</button
+    disabled={loadingState === "loading"}>toggle {config.comparison_target ? "comparison target" : "baseline"} iterations</button
   >
 </h3>
 
@@ -297,11 +341,17 @@
 {#if loadingState === "loading"}
   <div>Loading...</div>
   <div>
-    <img class="loading" alt="loading" src="/spinner.gif" />
+    <img class="loading" alt="loading" src="./spinner.gif" />
   </div>
 {:else if loadingState === "error"}
   <div>Error loading data.</div>
 {:else if comparison}
+  {#if config.comparison_target}
+    <div class="comparison-override" role="status">
+      <strong>Comparison override active</strong>
+      <span>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</span>
+    </div>
+  {/if}
   <table>
     <thead>
       <tr>
@@ -327,7 +377,8 @@
               <ComparisonTableMetric
                 result={comparison.project_baseline?.results?.[ref]}
                 {metric}
-                baseline={comparison.experiment_baseline?.results?.[ref]}
+                baseline={comparisonTarget?.results?.[ref]}
+                requireBaselineForDiff={!!comparison.comparison_target}
                 definition={comparison.metric_definitions[metric]}
                 showRange={true}
                 showUniqueRefs={false}
@@ -340,7 +391,7 @@
         <tr class="project-baseline">
           <td
             ><nobr
-              >Experiment Baseline / {comparison.experiment_baseline?.set ??
+              >{comparison.comparison_target ? "Comparison Target" : "Experiment Baseline"} / {comparisonTarget?.set ??
                 "-"}</nobr
             ></td
           >
@@ -348,14 +399,16 @@
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
-                result={comparison.experiment_baseline?.results?.[ref]}
+                result={comparisonTarget?.results?.[ref]}
                 {metric}
                 definition={comparison.metric_definitions[metric]}
                 showRange={true}
                 showUniqueRefs={false}
+                showDiff={!comparison.comparison_target}
                 showWin={false}
                 showTie={false}
-              ></ComparisonTableMetric>
+                showStatistics={!comparison.comparison_target}
+              />
             </td>
           {/each}
         </tr>
@@ -363,7 +416,7 @@
           {#each baselineResultsByRef.get(ref) ?? [] as result}
             <tr>
               <td>
-                <nobr>Baseline / {result.set}</nobr>
+                <nobr>{config.comparison_target ? "Comparison Target" : "Baseline"} / {result.set}</nobr>
                 {#if result.ground_truth_uri}
                   <button
                     class="link"
@@ -393,7 +446,8 @@
                   <ComparisonTableMetric
                     {result}
                     {metric}
-                    baseline={comparison.experiment_baseline?.results?.[ref]}
+                    baseline={comparisonTarget?.results?.[ref]}
+                    requireBaselineForDiff={!!comparison.comparison_target}
                     showCoefficientOfVariation={false}
                     showStdDev={false}
                     showRange={false}
@@ -418,7 +472,8 @@
               <ComparisonTableMetric
                 result={comparison.experiment_set?.results?.[ref]}
                 {metric}
-                baseline={comparison.experiment_baseline?.results?.[ref]}
+                baseline={comparisonTarget?.results?.[ref]}
+                requireBaselineForDiff={!!comparison.comparison_target}
                 definition={comparison.metric_definitions[metric]}
                 showRange={true}
                 showUniqueRefs={false}
@@ -474,7 +529,8 @@
                   <ComparisonTableMetric
                     {result}
                     {metric}
-                    baseline={comparison.experiment_baseline?.results?.[ref]}
+                    baseline={comparisonTarget?.results?.[ref]}
+                    requireBaselineForDiff={!!comparison.comparison_target}
                     showCoefficientOfVariation={false}
                     showStdDev={false}
                     showRange={false}
@@ -493,6 +549,10 @@
 {/if}
 
 <style>
+  .hide-error {
+    color: #ffaaaa;
+  }
+
   h3 {
     display: flex;
     align-items: center;
@@ -563,5 +623,25 @@
   .selection {
     width: 100em;
     margin-bottom: 1em;
+  }
+
+  .comparison-override {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin: 1rem 0 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #b78536;
+    border-left: 4px solid #b78536;
+    border-radius: 4px;
+    background-color: #302b1f;
+    overflow-wrap: anywhere;
+  }
+
+  .comparison-override strong {
+    color: #ffd27f;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 </style>

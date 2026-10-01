@@ -27,6 +27,28 @@ results through the catalog API or Python client.
 - Convert to internal typed models (`catalog/models/`) before crossing module boundaries.
 - Keep boundary transformation logic centralized and testable.
 - Storage records use `StorageRecord` for serialization to Azure Blob storage.
+- An `x: "X"` record with a `set` name is an append-only set tombstone.
+  `AzureBlobStorageService` parses it separately from result (`R`) and
+  statistics (`P`) records; `Experiment.Sets` excludes tombstoned names while
+  retaining the underlying results for direct access and raw downloads.
+- Project and experiment card emoji IDs and short notes are mutable
+  presentation fields stored in project container and experiment append-blob
+  metadata respectively, not in JSONL records. Their REST display endpoints
+  validate them; `AzureBlobStorageService` encodes Unicode notes as base64
+  UTF-8, preserves baseline and unrelated metadata, and includes them in list
+  responses. Blob updates use conditional ETags; container metadata does not
+  support If-Match, so project updates are serialized within an API instance
+  but concurrent writers across instances can still race. Editing experiment
+  metadata changes the blob ETag, so full-content caches keyed by ETag may
+  need to download the experiment again.
+- A project's optional `ground_truth` is stored as base64 UTF-8 under the
+  existing `ground_truth_name_b64` container metadata key alongside its card
+  emoji and note, preserving previously saved values. Project listing and
+  `GET /api/projects/{projectName}` map it onto the same `Project` model, also
+  used by the MCP `ListProjects` tool. Direct UI links fetch one project;
+  selection from the project list reuses its existing record. A single project
+  display update requires all three fields and preserves the project's
+  baseline and unrelated metadata.
 - `MetricDefinition` includes optional presentation metadata such as
   `description`. This metadata travels with `metric_definitions` for UI
   rendering, but it is not required for result submission and does not
@@ -37,7 +59,13 @@ results through the catalog API or Python client.
 - `ExperimentService.CompareAsync`,
   `ExperimentService.CompareByRefAsync`, and
   `AnalysisService.GetMeaningfulTagsAsync` apply include/exclude filters before
-  building runtime custom aggregate groups.
+  building runtime custom aggregate groups. An explicit cross-project comparison
+  target is the exception: target results are not filtered with the current
+  project's tags, but are aggregated with its metric definitions.
+- The optional comparison target is a validated project/experiment/set triple
+  in read-only API requests and the UI's encoded URL configuration. It does not
+  modify stored baseline designations or statistics; overridden comparisons do
+  not attach stored baseline statistics.
 - Aggregate comparison metric DTOs can include response-only metadata fields
   such as `unique_refs`, `wins`, and `ties`.
 - `DerivedMetricService` serializes each raw result row for Python as
@@ -52,7 +80,7 @@ results through the catalog API or Python client.
   runtime custom metrics count refs supplied to the Python function because its
   internal row usage is opaque to the catalog.
 - `wins` and `ties` are computed only after the main comparison aggregates are
-  built. They pair per-ref candidate and experiment-baseline aggregates by
+  built. They pair per-ref candidate and active-comparison-target aggregates by
   shared ref, require numeric values on both sides, respect the
   `lower-is-better` metric-definition tag, and treat equality as exact in v1.
 
@@ -98,9 +126,9 @@ results through the catalog API or Python client.
    request.
 6. Comparison annotation: For the main experiment comparison flow,
    `ComparisonMetricCalculator` compares per-ref candidate aggregates against
-   the experiment baseline and annotates aggregate metric DTOs with response-only
-   `wins` and `ties` counts. The experiment baseline itself remains the
-   comparison target and does not receive those counts.
+   the selected target (or the experiment baseline by default) and annotates
+   aggregate metric DTOs with response-only `wins` and `ties` counts. The
+   active comparison target does not receive those counts.
 7. Persistence/output: `AzureBlobStorageService` reads/writes JSON blobs;
    results or push reports are returned to the caller. Runtime custom aggregate
    values and aggregate comparison metadata are merged into response DTOs only
