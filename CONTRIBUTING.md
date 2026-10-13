@@ -49,6 +49,10 @@ Run the standard harness commands from the repository root.
 
 Run `make setup` after cloning and `make ci` before opening a pull request.
 
+UI browser tests use Docker when available, with the Playwright image version
+matched to the installed `@playwright/test` package. Without Docker, the harness
+installs Chromium and runs the tests natively.
+
 ### Component-specific docs
 
 - See [catalog/README.md](./catalog/README.md) for catalog API configuration and usage.

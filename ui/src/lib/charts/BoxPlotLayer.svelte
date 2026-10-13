@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getLayerCakeContext } from "layercake";
   import type { BoxStats } from "./distributionData";
 
   interface Props {
@@ -10,10 +10,10 @@
 
   let { boxStats, colorForGroup, labels }: Props = $props();
 
-  const { yScale, width } = getContext("LayerCake") as any;
+  const chart = getLayerCakeContext();
 
   function bandWidth(): number {
-    return $width / labels.length;
+    return chart.width / labels.length;
   }
 
   // Box plot sits on the RIGHT portion of each band
@@ -36,8 +36,8 @@
     <line
       x1={cx}
       x2={cx}
-      y1={$yScale(stats.whiskerHigh)}
-      y2={$yScale(stats.whiskerLow)}
+      y1={chart.yScale(stats.whiskerHigh)}
+      y2={chart.yScale(stats.whiskerLow)}
       stroke={color}
       stroke-width="2"
     />
@@ -46,8 +46,8 @@
     <line
       x1={cx - capW}
       x2={cx + capW}
-      y1={$yScale(stats.whiskerHigh)}
-      y2={$yScale(stats.whiskerHigh)}
+      y1={chart.yScale(stats.whiskerHigh)}
+      y2={chart.yScale(stats.whiskerHigh)}
       stroke={color}
       stroke-width="2"
     />
@@ -56,8 +56,8 @@
     <line
       x1={cx - capW}
       x2={cx + capW}
-      y1={$yScale(stats.whiskerLow)}
-      y2={$yScale(stats.whiskerLow)}
+      y1={chart.yScale(stats.whiskerLow)}
+      y2={chart.yScale(stats.whiskerLow)}
       stroke={color}
       stroke-width="2"
     />
@@ -65,9 +65,9 @@
     <!-- Box (Q1 to Q3) -->
     <rect
       x={cx - halfW}
-      y={$yScale(stats.q3)}
+      y={chart.yScale(stats.q3)}
       width={boxW}
-      height={$yScale(stats.q1) - $yScale(stats.q3)}
+      height={chart.yScale(stats.q1) - chart.yScale(stats.q3)}
       fill={color}
       fill-opacity="0.3"
       stroke={color}
@@ -78,8 +78,8 @@
     <line
       x1={cx - halfW}
       x2={cx + halfW}
-      y1={$yScale(stats.median)}
-      y2={$yScale(stats.median)}
+      y1={chart.yScale(stats.median)}
+      y2={chart.yScale(stats.median)}
       stroke={color}
       stroke-width="3"
     />
@@ -87,11 +87,10 @@
     {@const cx = boxCenterX(i)}
     <circle
       cx={cx}
-      cy={$yScale(stats.values[0])}
+      cy={chart.yScale(stats.values[0])}
       r="6"
       fill={colorForGroup(i)}
       opacity="0.8"
     />
   {/if}
 {/each}
-
