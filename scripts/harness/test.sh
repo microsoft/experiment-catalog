@@ -24,11 +24,10 @@ echo "==> Test: running UI Playwright tests..."
 if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
   cd ui
 
-  # Use the Playwright Docker image for consistent cross-platform rendering.
-  # Update the tag when upgrading @playwright/test in package.json.
-  PW_IMAGE="mcr.microsoft.com/playwright:v1.62.1-noble"
-
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    # Match the image's browsers to the installed Playwright version.
+    playwright_version=$(node -p "require('@playwright/test/package.json').version")
+    PW_IMAGE="mcr.microsoft.com/playwright:v${playwright_version}-noble"
     npm_registry=$(npm config get registry)
     echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
     docker run --rm \

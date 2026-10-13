@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getLayerCakeContext } from "layercake";
   import { deterministicJitter } from "./distributionData";
 
   interface SetGroup {
@@ -14,11 +14,11 @@
 
   let { groups, colorForGroup }: Props = $props();
 
-  const { yScale, width } = getContext("LayerCake") as any;
+  const chart = getLayerCakeContext();
 
   // Beeswarm dots sit on the LEFT portion of each band
   function getX(groupIndex: number, pointIndex: number, total: number): number {
-    const bandWidth = $width / groups.length;
+    const bandWidth = chart.width / groups.length;
     const beeswarmCenter = groupIndex * bandWidth + bandWidth * 0.3;
     const jitter = deterministicJitter(pointIndex, total) * bandWidth * 0.22;
     return beeswarmCenter + jitter;
@@ -29,12 +29,11 @@
   {#each group.values as value, pi}
     <circle
       cx={getX(gi, pi, group.values.length)}
-      cy={$yScale(value)}
+      cy={chart.yScale(value)}
       r="4"
       fill={colorForGroup(gi)}
       opacity="0.75"
     />
   {/each}
 {/each}
-
 

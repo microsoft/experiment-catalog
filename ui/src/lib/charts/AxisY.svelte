@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getLayerCakeContext } from "layercake";
   import { formatMetricValue } from "../metricFormatters";
 
   interface Props {
@@ -8,11 +8,11 @@
 
   let { metricDefinition }: Props = $props();
 
-  const { yScale, width } = getContext("LayerCake") as any;
+  const chart = getLayerCakeContext();
 
   // Generate nice tick values
-  function getTicks(scale: any): number[] {
-    const [min, max] = scale.domain();
+  function getTicks(domain: number[]): number[] {
+    const [min, max] = domain;
     const range = max - min;
     const step = niceStep(range / 5);
     const ticks: number[] = [];
@@ -49,20 +49,20 @@
   }
 </script>
 
-{#each getTicks($yScale) as tick}
+{#each getTicks(chart.yScale.domain()) as tick}
   <!-- Grid line spanning full width -->
   <line
     x1={0}
-    x2={$width}
-    y1={$yScale(tick)}
-    y2={$yScale(tick)}
+    x2={chart.width}
+    y1={chart.yScale(tick)}
+    y2={chart.yScale(tick)}
     stroke="#334155"
     stroke-width="1"
   />
   <!-- Tick label -->
   <text
     x={-12}
-    y={$yScale(tick)}
+    y={chart.yScale(tick)}
     text-anchor="end"
     dominant-baseline="middle"
     fill="#94a3b8"
