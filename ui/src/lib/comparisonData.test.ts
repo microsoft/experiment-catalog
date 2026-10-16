@@ -4,6 +4,7 @@ import {
     buildSelectedEntities,
     filterImportantMetrics,
     sanitizeCheckedMetrics,
+    extractComparisonFilterOptions,
 } from "./comparisonData";
 
 // Minimal stubs matching the global Comparison / ComparisonEntity types
@@ -30,6 +31,35 @@ function makeEntity(set: string, metricNames: string[]): ComparisonEntity {
 describe("extractSortedMetrics", () => {
     it("returns empty array when there are no metrics", () => {
         expect(extractSortedMetrics(makeComparison())).toEqual([]);
+    });
+
+    describe("extractComparisonFilterOptions", () => {
+        it("shares all source metrics across sets, including metrics absent from a selected set", () => {
+            const comparison = makeComparison({
+                metric_definitions: {
+                    latency: { order: 1 } as MetricDefinition,
+                    accuracy: { order: 2 } as MetricDefinition,
+                },
+                project_baseline: makeEntity("project-baseline", ["project-only"]),
+                experiment_baseline: makeEntity("baseline", ["baseline-only"]),
+                comparison_target: makeEntity("target", ["target-only"]),
+                sets: [
+                    makeEntity("partial", ["accuracy"]),
+                    makeEntity("complete", ["accuracy", "latency"]),
+                ],
+            });
+            expect(extractComparisonFilterOptions(comparison)).toEqual({
+                sets: ["partial", "complete"],
+                metrics: ["latency", "accuracy", "baseline-only", "project-only"],
+            });
+        });
+
+        it("returns empty options when no sets or metrics are available", () => {
+            expect(extractComparisonFilterOptions(makeComparison())).toEqual({
+                sets: [],
+                metrics: [],
+            });
+        });
     });
 
     it("deduplicates metrics across baselines and sets", () => {

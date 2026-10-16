@@ -81,6 +81,14 @@ The application consists of several main components:
 
 - Use the metrics filter to show or hide specific metrics in comparison views
 - Use the tags filter to select ground truths by tags extracted from source data
+- Use **Ref Filter** (below **Tag Impact**) to select a set and metric, then
+  **apply** to compare only refs with that metric in that set. This makes partial
+  runs comparable: tag filters can narrow this boundary but never expand it.
+  **clear** removes the boundary. The selection is saved in the URL and carries
+  into set drilldowns and charts; full-dataset statistics are hidden while active.
+  An amber warning at the tag controls identifies the active ref boundary.
+  Ref filters belong to the project and experiment where they were applied;
+  leaving that experiment clears the filter, while drilldowns and charts retain it.
 - Use the free filter to write custom expressions that find specific results
 
 #### Free Filter Examples

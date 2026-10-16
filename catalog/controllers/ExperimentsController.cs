@@ -159,7 +159,9 @@ public class ExperimentsController : ControllerBase
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "",
         [FromQuery(Name = "compare-project"), ValidProjectName] string? compareProject = null,
         [FromQuery(Name = "compare-experiment"), ValidExperimentName] string? compareExperiment = null,
-        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null)
+        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null,
+        [FromQuery(Name = "ref-set"), ValidName] string? refSet = null,
+        [FromQuery(Name = "ref-metric")] string? refMetric = null)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName))
         {
@@ -172,8 +174,15 @@ public class ExperimentsController : ControllerBase
             return BadRequest("compare-project, compare-experiment and compare-set must all be provided.");
         }
 
+        if ((refSet is not null || refMetric is not null) &&
+            (string.IsNullOrWhiteSpace(refSet) || string.IsNullOrWhiteSpace(refMetric)))
+        {
+            return BadRequest("ref-set and ref-metric must both be provided.");
+        }
+
         var target = compareProject is null ? null : new ComparisonTarget(compareProject, compareExperiment!, compareSet!);
-        var comparison = await experimentService.CompareAsync(projectName, experimentName, includeTagsStr, excludeTagsStr, cancellationToken, target);
+        var refFilter = refSet is null ? null : new RefFilter(refSet, refMetric!);
+        var comparison = await experimentService.CompareAsync(projectName, experimentName, includeTagsStr, excludeTagsStr, cancellationToken, target, refFilter);
         return Ok(comparison);
     }
 
@@ -193,7 +202,9 @@ public class ExperimentsController : ControllerBase
         [FromQuery(Name = "exclude-tags")] string excludeTagsStr = "",
         [FromQuery(Name = "compare-project"), ValidProjectName] string? compareProject = null,
         [FromQuery(Name = "compare-experiment"), ValidExperimentName] string? compareExperiment = null,
-        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null)
+        [FromQuery(Name = "compare-set"), ValidName] string? compareSet = null,
+        [FromQuery(Name = "ref-set"), ValidName] string? refSet = null,
+        [FromQuery(Name = "ref-metric")] string? refMetric = null)
     {
         if (string.IsNullOrEmpty(projectName) || string.IsNullOrEmpty(experimentName) || string.IsNullOrEmpty(setName))
         {
@@ -206,8 +217,15 @@ public class ExperimentsController : ControllerBase
             return BadRequest("compare-project, compare-experiment and compare-set must all be provided.");
         }
 
+        if ((refSet is not null || refMetric is not null) &&
+            (string.IsNullOrWhiteSpace(refSet) || string.IsNullOrWhiteSpace(refMetric)))
+        {
+            return BadRequest("ref-set and ref-metric must both be provided.");
+        }
+
         var target = compareProject is null ? null : new ComparisonTarget(compareProject, compareExperiment!, compareSet!);
-        var comparison = await experimentService.CompareByRefAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken, target);
+        var refFilter = refSet is null ? null : new RefFilter(refSet, refMetric!);
+        var comparison = await experimentService.CompareByRefAsync(projectName, experimentName, setName, includeTagsStr, excludeTagsStr, cancellationToken, target, refFilter);
         return Ok(comparison);
     }
 

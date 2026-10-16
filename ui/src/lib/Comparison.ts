@@ -3,5 +3,6 @@ interface Comparison {
     project_baseline?: ComparisonEntity;
     experiment_baseline?: ComparisonEntity;
     comparison_target?: ComparisonEntity;
+    ref_filter_refs?: string[];
     sets?: ComparisonEntity[];
 }

@@ -70,7 +70,9 @@ test.describe('Comparison target override', () => {
     await dialog.getByLabel('Project').selectOption(target.project);
     await expect(dialog.getByRole('alert')).toContainText('ground truth, metrics, and metric definitions may differ');
     await dialog.getByLabel('Experiment').selectOption(target.experiment);
-    await dialog.getByLabel('Set').selectOption(target.set);
+    await dialog.getByLabel('Set', { exact: true }).click();
+    await dialog.locator('.dropdown-menu .dropdown-button')
+      .filter({ has: page.locator('.title', { hasText: /^set-a$/ }) }).click();
 
     const request = page.waitForRequest((req) =>
       req.url().includes('/compare?') && req.url().includes('compare-project=beta-project'));
@@ -152,6 +154,106 @@ test.describe('Comparison target override', () => {
     await dialog.getByRole('button', { name: 'Cancel' }).click();
     await expect(dialog).toHaveCount(0);
   });
+
+  test('baseline set menu shows annotations and supports keyboard selection without None', async ({ mockedPage: page }) => {
+    await page.locator('table thead th').filter({ hasText: 'Experiment Baseline' })
+      .getByRole('button', { name: 'select', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Choose comparison target' });
+    const selector = dialog.getByLabel('Set', { exact: true });
+    await expect(selector).toHaveText('set-a');
+    await selector.focus();
+    await selector.press('Enter');
+    const menu = dialog.locator('.dropdown-menu');
+    await expect(menu.getByText('Run note for set-a', { exact: true })).toBeVisible();
+    await expect(menu.getByRole('button', { name: 'None', exact: true })).toHaveCount(0);
+    const annotatedSet = menu.getByRole('button', { name: 'set-a Run note for set-a', exact: true });
+    await expect(annotatedSet).toBeFocused();
+    await annotatedSet.press('Escape');
+    await expect(menu).toHaveCount(0);
+    await expect(dialog).toBeVisible();
+    await expect(selector).toBeFocused();
+
+    await selector.press('Enter');
+    const plainSet = menu.getByRole('button', { name: 'set-b', exact: true });
+    await plainSet.focus();
+    await plainSet.press('Enter');
+    await expect(menu).toHaveCount(0);
+    await expect(selector).toHaveText('set-b');
+    await expect(selector).toBeFocused();
+    const request = page.waitForRequest((req) =>
+      req.url().includes('/compare?') && req.url().includes('compare-set=set-b'));
+    await dialog.getByRole('button', { name: 'Compare', exact: true }).click();
+    const params = new URL((await request).url()).searchParams;
+    expect(params.get('compare-project')).toBe('alpha-project');
+    expect(params.get('compare-experiment')).toBe('exp-001');
+    expect(params.get('compare-set')).toBe('set-b');
+  });
+
+  test('baseline set annotations follow the selected project and experiment', async ({ mockedPage: page }) => {
+    await page.route('**/api/projects/*/experiments/*/compare', (route) => {
+      const [, project, experiment] = new URL(route.request().url()).pathname
+        .match(/\/projects\/([^/]+)\/experiments\/([^/]+)\/compare$/)!;
+      return route.fulfill({
+        json: {
+          ...data.comparison,
+          sets: [{
+            ...data.comparison.sets[0],
+            project,
+            experiment,
+            result: {
+              ...data.setAResult,
+              annotations: [{ text: `${project} / ${experiment}`, uri: null }],
+            },
+          }],
+        },
+      });
+    });
+    await page.locator('table thead th').filter({ hasText: 'Experiment Baseline' })
+      .getByRole('button', { name: 'select', exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'Choose comparison target' });
+    const selector = dialog.getByLabel('Set', { exact: true });
+    const menu = dialog.locator('.dropdown-menu');
+    await selector.click();
+    await expect(menu.getByText('alpha-project / exp-001', { exact: true })).toBeVisible();
+
+    const experimentRequest = page.waitForRequest('**/api/projects/alpha-project/experiments/exp-002/compare');
+    await dialog.getByLabel('Experiment').selectOption('exp-002');
+    expect(new URL((await experimentRequest).url()).search).toBe('');
+    await expect(menu).toHaveCount(0);
+    await expect(selector).toBeEnabled();
+    await selector.click();
+    await expect(menu.getByText('alpha-project / exp-002', { exact: true })).toBeVisible();
+    await expect(menu.getByText('alpha-project / exp-001', { exact: true })).toHaveCount(0);
+
+    const projectRequest = page.waitForRequest('**/api/projects/beta-project/experiments/exp-002/compare');
+    await dialog.getByLabel('Project').selectOption('beta-project');
+    expect(new URL((await projectRequest).url()).search).toBe('');
+    await expect(menu).toHaveCount(0);
+    await expect(selector).toBeEnabled();
+    await selector.click();
+    await expect(menu.getByText('beta-project / exp-002', { exact: true })).toBeVisible();
+    await expect(menu.getByText('alpha-project / exp-002', { exact: true })).toHaveCount(0);
+  });
+
+  for (const failure of ['empty', 'error'] as const) {
+    test(`baseline set menu disables comparison when metadata is ${failure}`, async ({ mockedPage: page }) => {
+      await page.route('**/api/projects/*/experiments/*/compare', (route) =>
+        failure === 'empty'
+          ? route.fulfill({ json: { ...data.comparison, sets: [] } })
+          : route.fulfill({ status: 500, json: { error: 'Metadata unavailable' } }),
+      );
+      await page.locator('table thead th').filter({ hasText: 'Experiment Baseline' })
+        .getByRole('button', { name: 'select', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'Choose comparison target' });
+      if (failure === 'empty') {
+        await expect(dialog.getByText('No sets are available for this experiment.')).toBeVisible();
+      } else {
+        await expect(dialog.getByRole('alert')).toContainText('Could not load sets:');
+      }
+      await expect(dialog.getByLabel('Set', { exact: true })).toBeDisabled();
+      await expect(dialog.getByRole('button', { name: 'Compare', exact: true })).toBeDisabled();
+    });
+  }
 
   test('shows the experiment even when the target comes from the current experiment', async ({ mockedPage: page }) => {
     const sameExperimentTarget = { project: 'alpha-project', experiment: 'exp-001', set: 'set-a' };

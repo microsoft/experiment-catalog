@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getSets, listExperiments, listProjects } from "./api";
+  import { getComparison, listExperiments, listProjects } from "./api";
   import ComparisonTargetWarning from "./ComparisonTargetWarning.svelte";
+  import SetSelector from "./SetSelector.svelte";
   import type { ComparisonTarget } from "./Tools";
 
   interface Props {
@@ -15,10 +16,11 @@
   let { currentProject, currentExperiment, target, onselect, onclose }: Props = $props();
   let projects: Project[] = $state([]);
   let experiments: Experiment[] = $state([]);
-  let sets: string[] = $state([]);
+  let sets: ComparisonEntity[] = $state([]);
   let selectedProject = $state("");
   let selectedExperiment = $state("");
   let selectedSet = $state("");
+  let selectedEntity = $derived(sets.find((item) => item.set === selectedSet) ?? null);
   let loading = $state(true);
   let error = $state("");
   let requestId = 0;
@@ -31,10 +33,10 @@
       return;
     }
     try {
-      const available = await getSets(selectedProject, selectedExperiment);
+      const comparison = await getComparison(selectedProject, selectedExperiment);
       if (id !== requestId) return;
-      sets = available;
-      if (!sets.includes(selectedSet)) selectedSet = sets[0] ?? "";
+      sets = comparison.sets ?? [];
+      if (!sets.some((item) => item.set === selectedSet)) selectedSet = sets[0]?.set ?? "";
     } catch (e) {
       if (id !== requestId) return;
       error = `Could not load sets: ${String(e)}`;
@@ -126,11 +128,15 @@
       {/each}
     </select>
     <label for="target-set">Set</label>
-    <select id="target-set" bind:value={selectedSet} disabled={loading || sets.length === 0}>
-      {#each sets as item}
-        <option value={item}>{item}</option>
-      {/each}
-    </select>
+    <SetSelector
+      id="target-set"
+      entity={selectedEntity}
+      entities={sets}
+      disabled={loading || sets.length === 0}
+      allowNone={false}
+      fullWidth
+      onselect={(entity) => (selectedSet = entity?.set ?? "")}
+    />
     {#if error}
       <p class="error" role="alert">{error}</p>
     {:else if !loading && sets.length === 0}
@@ -165,6 +171,9 @@
     border-radius: 8px;
     padding: 1.5rem;
     width: min(28rem, 90vw);
+    max-height: 90vh;
+    overflow-y: auto;
+    box-sizing: border-box;
   }
   h3 { margin-top: 0; }
   label { display: block; margin-top: 1rem; }
