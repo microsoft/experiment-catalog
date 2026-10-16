@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { updateURL, decodeConfig, type ViewConfig } from "./lib/Tools";
+  import { updateURL, decodeConfig, scopeRefFilterConfig, type ViewConfig } from "./lib/Tools";
   import { getAuthStatus, getLoginUrl, getExperiment, getProject, getUiSettings } from "./lib/api";
   import ExperimentsList from "./lib/ExperimentsList.svelte";
   import ExperimentPage from "./lib/ExperimentPage.svelte";
@@ -64,23 +64,27 @@
 
   const selectProject = (selectedProject: Project) => {
     project = selectedProject;
+    config = scopeRefFilterConfig(config, project.name);
     updateURL(project.name, null, null, config);
   };
 
   const unselectProject = () => {
     project = undefined;
     setList = undefined;
+    config = scopeRefFilterConfig(config);
     updateURL(null, null, null, config);
   };
 
   const selectExperiment = (selectedExperiment: Experiment) => {
     experiment = selectedExperiment;
+    config = scopeRefFilterConfig(config, project!.name, experiment.name);
     updateURL(project!.name, experiment.name, null, config);
   };
 
   const unselectExperiment = () => {
     experiment = undefined;
     setList = undefined;
+    config = scopeRefFilterConfig(config, project!.name);
     updateURL(project!.name, null, null, config);
   };
 
@@ -117,7 +121,7 @@
   };
 
   const changeConfig = (newConfig: ViewConfig) => {
-    config = newConfig;
+    config = scopeRefFilterConfig(newConfig, project!.name, experiment!.name);
     if (setName) {
       updateURL(project!.name, experiment!.name, `set:${setName}`, config);
     } else if (setList) {
@@ -156,6 +160,11 @@
         config = { checked_metrics: qchecked };
       } else {
         config = {};
+      }
+      const scopedConfig = scopeRefFilterConfig(config, qproject, qexperiment);
+      if (scopedConfig !== config) {
+        config = scopedConfig;
+        updateURL(qproject, qexperiment, qpage, config, true);
       }
 
       if (qproject && qexperiment && qpage && qpage.startsWith("set:")) {

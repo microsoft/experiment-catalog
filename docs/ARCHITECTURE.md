@@ -66,6 +66,17 @@ results through the catalog API or Python client.
   in read-only API requests and the UI's encoded URL configuration. It does not
   modify stored baseline designations or statistics; overridden comparisons do
   not attach stored baseline statistics.
+- Aggregate and per-ref comparison requests accept paired `ref-set` and
+  `ref-metric` parameters. `ExperimentService` resolves their refs from the
+  current experiment's untagged set (including runtime custom per-ref metrics).
+  `Experiment.Filter` intersects results with that boundary before tag
+  include/exclude logic, including for baselines and cross-project targets.
+  An empty boundary stays empty, and stored full-dataset statistics are omitted.
+  The UI persists the selection as `ref_filter` in URL configuration; aggregate
+  responses expose `ref_filter_refs` so charts can restrict raw iterations too.
+  URL `ref_filter` values include their owning `project` and `experiment`.
+  The UI removes mismatched, malformed, or legacy unscoped ref filters on URL
+  load and navigation, without resetting other display options or tag filters.
 - Aggregate comparison metric DTOs can include response-only metadata fields
   such as `unique_refs`, `wins`, and `ties`.
 - `DerivedMetricService` serializes each raw result row for Python as
@@ -119,7 +130,8 @@ results through the catalog API or Python client.
    and `POST /api/analysis/meaningful-tags`.
 5. Request-scoped Python execution: After filtering, `ExperimentService` or
    `AnalysisService` batches all aggregate groups for the request and invokes
-   one fresh Python subprocess through `DerivedMetricService`.
+   one fresh Python subprocess through `DerivedMetricService`. A ref boundary
+   is resolved first with a separate per-ref batch for its source set.
    `catalog/aggregate-runtime/aggregate_runner.py` loads every non-underscore file from
    `CUSTOM_AGGREGATE_FUNCTIONS_PATH`, exposes the folder on `sys.path` so helper
    modules can be imported, and enforces the shared hard timeout for the full

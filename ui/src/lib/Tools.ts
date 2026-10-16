@@ -4,9 +4,17 @@ export interface ComparisonTarget {
     set: string;
 }
 
+export interface RefFilter {
+    project: string;
+    experiment: string;
+    set: string;
+    metric: string;
+}
+
 // ViewConfig holds display/filter state that can be encoded in the URL
 export interface ViewConfig {
     comparison_target?: ComparisonTarget;
+    ref_filter?: RefFilter;
     checked_metrics?: string;   // metric highlighting (comma-separated)
     metrics?: string[];         // which metrics to display
     tags?: string;              // tag filter querystring
@@ -31,6 +39,7 @@ export function encodeConfig(config: ViewConfig): string | null {
     if (config.metrics?.length) cleanConfig.metrics = config.metrics;
     if (config.tags) cleanConfig.tags = config.tags;
     if (config.comparison_target) cleanConfig.comparison_target = config.comparison_target;
+    if (config.ref_filter) cleanConfig.ref_filter = config.ref_filter;
     if (config.show_desc !== undefined) cleanConfig.show_desc = config.show_desc;
     if (config.show_val !== undefined) cleanConfig.show_val = config.show_val;
     if (config.show_diff !== undefined) cleanConfig.show_diff = config.show_diff;
@@ -59,6 +68,25 @@ export function decodeConfig(encoded: string): ViewConfig {
     } catch {
         return {};
     }
+}
+
+export function scopeRefFilterConfig(
+    config: ViewConfig,
+    project?: string | null,
+    experiment?: string | null,
+): ViewConfig {
+    const filter = config.ref_filter;
+    if (!filter || (
+        project && experiment &&
+        filter.project === project && filter.experiment === experiment &&
+        typeof filter.set === "string" && filter.set.length > 0 &&
+        typeof filter.metric === "string" && filter.metric.length > 0
+    )) {
+        return config;
+    }
+    const scopedConfig = { ...config };
+    delete scopedConfig.ref_filter;
+    return scopedConfig;
 }
 
 export function sanitizeTagQuerystring(
@@ -95,7 +123,7 @@ function filterQueryTags(value: string | null, availableTags: Set<string>): stri
     return value.split(",").filter((tag) => tag && availableTags.has(tag));
 }
 
-export function updateURL(project?: string | null, experiment?: string | null, page?: string | null, config?: ViewConfig | null) {
+export function updateURL(project?: string | null, experiment?: string | null, page?: string | null, config?: ViewConfig | null, replace = false) {
     let url = `${window.location.pathname}`;
     var parts: string[] = [];
     if (project) parts.push(`project=${project}`);
@@ -104,7 +132,11 @@ export function updateURL(project?: string | null, experiment?: string | null, p
     const encodedConfig = config ? encodeConfig(config) : null;
     if (encodedConfig) parts.push(`config=${encodedConfig}`);
     if (parts.length > 0) url += `?${parts.join("&")}`;
-    window.history.pushState(null, '', url);
+    if (replace) {
+        window.history.replaceState(null, '', url);
+    } else {
+        window.history.pushState(null, '', url);
+    }
 }
 
 export function sortMetrics(
