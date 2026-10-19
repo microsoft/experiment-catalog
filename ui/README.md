@@ -1,5 +1,16 @@
 # Catalog UI
 
+## Type Checking
+
+`npm run check` runs `svelte-check --tsgo` with TypeScript 7.0.2, installed
+under the `@typescript/native` npm alias. TypeScript 6 remains installed as
+`typescript` for Svelte tooling that uses its JavaScript API and declares
+TypeScript 5/6 peer compatibility. Do not replace that package with TypeScript 7
+or bypass peer checks. The generated `.svelte-check/` cache is ignored.
+
+Playwright is pinned to stable 1.63.0 rather than the registry's prerelease
+`latest` tag. Update its test package and browser image together.
+
 ## Card Display
 
 Project cards always show a compact **GROUND TRUTH** label above the emoji and
@@ -86,6 +97,9 @@ Important details:
   the Experiment Baseline column (and its set-detail row and chart group); its
   header always shows the source experiment and shows the project when it
   differs from the current view.
+  The modal's set menu shows annotations beneath each set name, just like the
+  comparison-column set menu. Options are loaded without tag or ref filters
+  from the project and experiment selected in the modal.
   **Reset** replaces **Select** while the override is active.
   The selection is an override in the shared URL `config` (`comparison_target`)
   and remains active across project and experiment navigation until **Reset**

@@ -6,7 +6,7 @@
  * directly, which makes the code easier to test, refactor, and change.
  */
 import { apiPrefix } from "./config";
-import type { ComparisonTarget } from "./Tools";
+import type { ComparisonTarget, RefFilter } from "./Tools";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -216,8 +216,9 @@ export async function getComparison(
     experimentName: string,
     tagFilters?: string,
     target?: ComparisonTarget,
+    refFilter?: RefFilter,
 ): Promise<Comparison> {
-    const qs = comparisonQuery(tagFilters, target);
+    const qs = comparisonQuery(tagFilters, target, refFilter);
     const comparison = await fetchJson<Comparison>(
         `/api/projects/${projectName}/experiments/${experimentName}/compare${qs}`,
     );
@@ -231,8 +232,9 @@ export async function getComparisonByRef(
     setName: string,
     tagFilters?: string,
     target?: ComparisonTarget,
+    refFilter?: RefFilter,
 ): Promise<ComparisonByRef> {
-    const qs = comparisonQuery(tagFilters, target);
+    const qs = comparisonQuery(tagFilters, target, refFilter);
     const comparison = await fetchJson<ComparisonByRef>(
         `/api/projects/${projectName}/experiments/${experimentName}/sets/${setName}/compare-by-ref${qs}`,
     );
@@ -252,14 +254,18 @@ function assertComparisonTarget(
     }
 }
 
-function comparisonQuery(tagFilters?: string, target?: ComparisonTarget): string {
-    if (!target) return tagFilters ? `?${tagFilters}` : "";
-    const params = new URLSearchParams({
+function comparisonQuery(tagFilters?: string, target?: ComparisonTarget, refFilter?: RefFilter): string {
+    const params = new URLSearchParams(target ? {
         "compare-project": target.project,
         "compare-experiment": target.experiment,
         "compare-set": target.set,
-    });
-    return `?${tagFilters ? `${tagFilters}&` : ""}${params}`;
+    } : undefined);
+    if (refFilter) {
+        params.set("ref-set", refFilter.set);
+        params.set("ref-metric", refFilter.metric);
+    }
+    const query = [tagFilters, params.toString()].filter(Boolean).join("&");
+    return query ? `?${query}` : "";
 }
 
 // ── Sets / Results ──────────────────────────────────────────────────────────
