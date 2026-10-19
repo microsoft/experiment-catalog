@@ -4,21 +4,39 @@
   interface Props {
     entity: ComparisonEntity | null;
     entities?: ComparisonEntity[];
+    id?: string;
+    disabled?: boolean;
+    allowNone?: boolean;
+    fullWidth?: boolean;
     onselect?: (entity: ComparisonEntity | null) => void;
   }
 
-  let { entity = $bindable(), entities = [], onselect }: Props = $props();
+  let {
+    entity = $bindable(),
+    entities = [],
+    id,
+    disabled = false,
+    allowNone = true,
+    fullWidth = false,
+    onselect,
+  }: Props = $props();
 
   let isOpen = $state(false);
   let dropdownMenu: HTMLElement | undefined = $state();
+  let dropdownHeader: HTMLButtonElement | undefined = $state();
+
+  $effect(() => {
+    if (disabled) isOpen = false;
+  });
 
   const toggleDropdown = async () => {
     isOpen = !isOpen;
     if (isOpen) {
       await tick();
-      const selectedElement = dropdownMenu?.querySelector(".selected");
+      const selectedElement = dropdownMenu?.querySelector<HTMLButtonElement>(".selected");
       if (selectedElement) {
         selectedElement.scrollIntoView({ block: "nearest" });
+        selectedElement.focus();
       }
     }
   };
@@ -26,7 +44,17 @@
   const select = (selected: ComparisonEntity | null) => {
     entity = selected;
     isOpen = false;
+    dropdownHeader?.focus();
     onselect?.(selected);
+  };
+
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.key === "Escape" && isOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      isOpen = false;
+      dropdownHeader?.focus();
+    }
   };
 
   function clickOutside(node: HTMLElement) {
@@ -46,26 +74,37 @@
   }
 </script>
 
-<div class="dropdown-container" use:clickOutside>
-  <button class="dropdown-header" onclick={toggleDropdown}
+<div class="dropdown-container" class:full-width={fullWidth} use:clickOutside>
+  <button
+    {id}
+    class="dropdown-header"
+    {disabled}
+    aria-expanded={isOpen}
+    bind:this={dropdownHeader}
+    onclick={toggleDropdown}
+    onkeydown={handleKeydown}
     >{entity ? entity.set : "None"}</button
   >
   {#if isOpen}
     <div class="dropdown-menu" bind:this={dropdownMenu}>
-      <button
-        class="dropdown-button"
-        class:selected={!entity}
-        onclick={() => select(null)}
-      >
-        <div class="dropdown-item">
-          <div class="title">None</div>
-        </div>
-      </button>
+      {#if allowNone}
+        <button
+          class="dropdown-button"
+          class:selected={!entity}
+          onclick={() => select(null)}
+          onkeydown={handleKeydown}
+        >
+          <div class="dropdown-item">
+            <div class="title">None</div>
+          </div>
+        </button>
+      {/if}
       {#each entities as e}
         <button
           class="dropdown-button"
           class:selected={entity === e}
           onclick={() => select(e)}
+          onkeydown={handleKeydown}
         >
           <div class="dropdown-item">
             <div class="title">{e.set}</div>
@@ -90,6 +129,16 @@
     width: 14rem;
   }
 
+  .dropdown-container.full-width {
+    width: 100%;
+  }
+
+  .full-width .dropdown-menu {
+    position: static;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
   .dropdown-header {
     width: 100%;
     text-align: left;
@@ -104,6 +153,11 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none' stroke='black' stroke-width='1.5'%3E%3Cpath d='M1 1l4 4 4-4'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
     background-position: right 0.5rem center;
+  }
+
+  .dropdown-header:disabled {
+    cursor: default;
+    opacity: 0.6;
   }
 
   .dropdown-menu {
