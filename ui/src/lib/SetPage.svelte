@@ -4,6 +4,7 @@
   import Annotations from "./Annotations.svelte";
   import MetricsFilter from "./MetricsFilter.svelte";
   import TagsFilter from "./TagsFilter.svelte";
+  import RefFilterWarning from "./RefFilterWarning.svelte";
   import FreeFilter from "./FreeFilter.svelte";
   import { sanitizeProjectTagQuerystring, type ViewConfig } from "./Tools";
   import {
@@ -128,6 +129,7 @@
         setName,
         tagFilters || undefined,
         config.comparison_target,
+        config.ref_filter,
       );
 
       // get a list of all refs in the chosen results
@@ -323,11 +325,14 @@
       onchange={onMetricsChange}
     />
     <br />
-    <TagsFilter
-      {project}
-      bind:querystring={tagFilters}
-      onapply={onTagFiltersChange}
-    />
+    <div class="tag-filters">
+      <RefFilterWarning filter={config.ref_filter} />
+      <TagsFilter
+        {project}
+        bind:querystring={tagFilters}
+        onapply={onTagFiltersChange}
+      />
+    </div>
     <br />
     <FreeFilter
       onfilter={filter}
@@ -623,6 +628,13 @@
   .selection {
     width: 100em;
     margin-bottom: 1em;
+  }
+
+  .tag-filters {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
   }
 
   .comparison-override {

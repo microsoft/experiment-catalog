@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import DistributionChart from "./charts/DistributionChart.svelte";
+  import RefFilterWarning from "./RefFilterWarning.svelte";
   import { getSets, getSetResults, getComparison } from "./api";
   import type { ViewConfig } from "./Tools";
 
@@ -44,7 +45,7 @@
       loadingState = "loading";
 
       // Get metric definitions from comparison
-      const comparison = await getComparison(project.name, experiment.name, undefined, config.comparison_target);
+      const comparison = await getComparison(project.name, experiment.name, undefined, config.comparison_target, config.ref_filter);
       metricDefinitions = comparison.metric_definitions ?? {};
 
       // Get ordered set list: project baseline, active comparison, then remaining sets
@@ -141,6 +142,13 @@
         });
       await Promise.all(fetches);
 
+      if (comparison.ref_filter_refs) {
+        const refs = new Set(comparison.ref_filter_refs);
+        for (const [label, results] of resultsBySet) {
+          resultsBySet.set(label, results.filter((result) => result.ref && refs.has(result.ref)));
+        }
+      }
+
       // Extract all metric names
       const metricSet = new Set<string>();
       for (const results of resultsBySet.values()) {
@@ -225,6 +233,7 @@
 {#if config.comparison_target}
   <p>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</p>
 {/if}
+<RefFilterWarning filter={config.ref_filter} />
 
 {#if loadingState === "loading"}
   <div>Loading...</div>

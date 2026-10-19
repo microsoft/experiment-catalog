@@ -36,6 +36,12 @@ img.loading {
   width: 5rem;
 }
 
+.comparison-filter-dropdown {
+  font-size: 1rem;
+  line-height: 1.2;
+  margin-left: 0.35rem;
+}
+
 .btn {
   background: #333;
   border: 1px solid #4a4a4a;

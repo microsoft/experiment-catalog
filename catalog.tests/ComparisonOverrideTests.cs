@@ -103,6 +103,196 @@ public class ComparisonOverrideTests
     }
 
     [Fact]
+    public async Task CompareAsync_RefFilterBoundsAllEntitiesBeforeTagUnion()
+    {
+        var service = CreateService(out var storage);
+        var experiment = await storage.GetExperimentAsync("current", "experiment");
+        experiment.Baseline = "baseline";
+        experiment.Results!.AddRange(
+        [
+            Row("partial", "a", 7),
+            new Result { Set = "partial", Ref = "b", Metrics = new() { ["latency"] = new Metric { Value = 10 } } },
+            new Result { Set = "partial", Ref = "c", Annotations = [new Annotation { Text = "unfinished" }] },
+            new Result { Set = "partial", Metrics = new() { ["score"] = new Metric { Value = 100 } } },
+            Row("partial", "a", 9),
+        ]);
+
+        var comparison = await service.CompareAsync(
+            "current", "experiment", "focus,outside",
+            target: new ComparisonTarget("foreign", "other", "reference"),
+            refFilter: new RefFilter("partial", "score"));
+
+        Assert.Equal("a", Assert.Single(comparison.RefFilterRefs!));
+        Assert.Equal(1m, comparison.ProjectBaseline!.Result!.Metrics!["score"].Value);
+        Assert.Equal(1m, comparison.ExperimentBaseline!.Result!.Metrics!["score"].Value);
+        Assert.Equal(2m, comparison.ComparisonTarget!.Result!.Metrics!["score"].Value);
+        var candidate = comparison.Sets!.First(x => x.Set == "candidate").Result!.Metrics!["score"];
+        Assert.Equal(3m, candidate.Value);
+        Assert.Equal(1, candidate.UniqueRefs);
+        Assert.Equal(1, candidate.Wins);
+        var partial = comparison.Sets!.First(x => x.Set == "partial").Result!;
+        Assert.Equal(8m, partial.Metrics!["score"].Value);
+        Assert.Equal(2, partial.Metrics["score"].Count);
+        Assert.False(partial.Metrics.ContainsKey("latency"));
+        Assert.Null(partial.Annotations);
+    }
+
+    [Fact]
+    public async Task CompareAsync_RefFilterOmitsFullDatasetStatisticsAndCanBeRemoved()
+    {
+        var service = CreateService(out var storage);
+        var experiment = await storage.GetExperimentAsync("current", "experiment");
+        experiment.Results!.Add(Row("partial", "a", 7));
+
+        var filtered = await service.CompareAsync(
+            "current", "experiment", refFilter: new RefFilter("partial", "score"));
+        var metric = filtered.Sets!.First(x => x.Set == "candidate").Result!.Metrics!["score"];
+        Assert.Equal(3m, metric.Value);
+        Assert.Null(metric.PValue);
+        Assert.Null(metric.CILower);
+        Assert.Null(metric.CIUpper);
+
+        var unfiltered = await service.CompareAsync("current", "experiment");
+        Assert.Null(unfiltered.RefFilterRefs);
+        Assert.Equal(4m, unfiltered.Sets!.First(x => x.Set == "candidate").Result!.Metrics!["score"].Value);
+    }
+
+    [Fact]
+    public async Task CompareByRefAsync_RefFilterCannotBeExpandedByTagsOrTargets()
+    {
+        var service = CreateService(out var storage);
+        var experiment = await storage.GetExperimentAsync("current", "experiment");
+        experiment.Results!.Add(Row("partial", "b", 7));
+        var filter = new RefFilter("partial", "score");
+
+        var comparison = await service.CompareByRefAsync(
+            "current", "experiment", "candidate", "focus,outside",
+            target: new ComparisonTarget("foreign", "other", "reference"), refFilter: filter);
+        Assert.Equal("b", Assert.Single(comparison.ProjectBaseline!.Results!).Key);
+        Assert.Equal("b", Assert.Single(comparison.ExperimentBaseline!.Results!).Key);
+        Assert.Equal("b", Assert.Single(comparison.ComparisonTarget!.Results!).Key);
+        Assert.Equal("b", Assert.Single(comparison.ExperimentSet!.Results!).Key);
+
+        var excluded = await service.CompareByRefAsync(
+            "current", "experiment", "candidate", excludeTagsStr: "outside", refFilter: filter);
+        Assert.Empty(excluded.ExperimentSet!.Results!);
+    }
+
+    [Fact]
+    public async Task CompareAsync_EmptyRefBoundaryDoesNotFallBackToUnfilteredResults()
+    {
+        var service = CreateService(out _);
+        var filter = new RefFilter("candidate", "missing-metric");
+        var comparison = await service.CompareAsync(
+            "current", "experiment", "focus,outside", refFilter: filter);
+        Assert.Empty(comparison.RefFilterRefs!);
+        Assert.All(comparison.Sets!, entity => Assert.Empty(entity.Result!.Metrics!));
+        Assert.Empty(comparison.ProjectBaseline!.Result!.Metrics!);
+
+        var byRef = await service.CompareByRefAsync(
+            "current", "experiment", "candidate", refFilter: filter);
+        Assert.Empty(byRef.ExperimentSet!.Results!);
+        await Assert.ThrowsAsync<HttpException>(() => service.CompareAsync(
+            "current", "experiment", refFilter: new RefFilter("missing-set", "score")));
+        await Assert.ThrowsAsync<HttpException>(() => service.CompareAsync(
+            "current", "experiment", refFilter: new RefFilter("candidate", "")));
+    }
+
+    [Fact]
+    public async Task CompareAsync_RefFilterSupportsRuntimeDerivedMetrics()
+    {
+        var service = CreateService(out var storage, new ScoreDerivedMetrics());
+        var experiment = await storage.GetExperimentAsync("current", "experiment");
+        experiment.Results!.AddRange(
+        [
+            Row("partial", "a", 7),
+            new Result { Set = "partial", Ref = "b", Metrics = new() { ["latency"] = new Metric { Value = 10 } } },
+        ]);
+        var comparison = await service.CompareAsync(
+            "current", "experiment", refFilter: new RefFilter("partial", "derived-score"));
+        Assert.Equal("a", Assert.Single(comparison.RefFilterRefs!));
+        Assert.Equal(3m, comparison.Sets!.First(x => x.Set == "candidate").Result!.Metrics!["score"].Value);
+    }
+
+    [Theory]
+    [InlineData("cat", "bear", "", "B,C")]
+    [InlineData("cat", "", "", "B,C")]
+    [InlineData("cat", "bird", "", "")]
+    [InlineData("cat", "mouse", "", "B")]
+    [InlineData("cat", "fish", "", "C")]
+    [InlineData("cat", "bird,mouse", "", "B")]
+    [InlineData("cat", "bear,fox", "", "B,C")]
+    [InlineData("cat", "bear", "mouse", "C")]
+    [InlineData("cat", "bear", "bear", "")]
+    [InlineData("cat", "", "bird", "B,C")]
+    [InlineData("cat", "", "fox", "B")]
+    [InlineData("cat", "empty", "", "")]
+    [InlineData("cat", "mouse", "mouse", "")]
+    [InlineData("cat", "mouse,fox", "fish", "B")]
+    [InlineData("cat", "bear", "mouse,fish", "")]
+    [InlineData("dog", "bear", "", "A,B,C")]
+    [InlineData(null, "bear", "", "A,B,C")]
+    [InlineData(null, "bear", "mouse", "A,C")]
+    public async Task Compare_CatAndDogRefBoundariesIntersectIncludeAndExcludeTags(
+        string? filterSet,
+        string includeTags,
+        string excludeTags,
+        string expectedRefs)
+    {
+        var service = CreateService(out var storage);
+        var experiment = await storage.GetExperimentAsync("current", "experiment");
+        experiment.Baseline = "dog";
+        experiment.Results =
+        [
+            Row("cat", "B", 2), Row("cat", "C", 4),
+            Row("dog", "A", 1), Row("dog", "B", 3), Row("dog", "C", 5),
+        ];
+        storage.TagRefs["bear"] = ["A", "B", "C"];
+        storage.TagRefs["bird"] = ["A"];
+        storage.TagRefs["mouse"] = ["B"];
+        storage.TagRefs["fish"] = ["C"];
+        storage.TagRefs["fox"] = ["C", "D"];
+        storage.TagRefs["empty"] = [];
+        var filter = filterSet is null ? null : new RefFilter(filterSet, "score");
+        var expected = expectedRefs.Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+        var byRef = await service.CompareByRefAsync(
+            "current", "experiment", "dog", includeTags, excludeTags, refFilter: filter);
+        Assert.Equal(expected, byRef.ExperimentSet!.Results!.Keys.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Equal(expected, byRef.ProjectBaseline!.Results!.Keys.OrderBy(x => x, StringComparer.Ordinal));
+        Assert.Equal(expected, byRef.ExperimentBaseline!.Results!.Keys.OrderBy(x => x, StringComparer.Ordinal));
+
+        var aggregate = await service.CompareAsync(
+            "current", "experiment", includeTags, excludeTags, refFilter: filter);
+        if (filterSet is null)
+        {
+            Assert.Null(aggregate.RefFilterRefs);
+        }
+        else
+        {
+            var boundary = filterSet == "cat" ? new[] { "B", "C" } : new[] { "A", "B", "C" };
+            Assert.Equal(boundary, aggregate.RefFilterRefs!.OrderBy(x => x, StringComparer.Ordinal));
+        }
+
+        var dog = aggregate.Sets!.Single(x => x.Set == "dog");
+        foreach (var entity in new[] { dog, aggregate.ProjectBaseline!, aggregate.ExperimentBaseline! })
+        {
+            if (expected.Length == 0)
+            {
+                Assert.Empty(entity.Result!.Metrics!);
+                continue;
+            }
+            var metric = entity.Result!.Metrics!["score"];
+            Assert.Equal(expected.Length, metric.Count);
+            Assert.Equal(expected.Length, metric.UniqueRefs);
+            var expectedValue = experiment.Results
+                .Where(x => x.Set == "dog" && expected.Contains(x.Ref))
+                .Average(x => x.Metrics!["score"].Value);
+            Assert.Equal(expectedValue, metric.Value);
+        }
+    }
+
+    [Fact]
     public void MeaningfulTagsRequest_DeserializesComparisonTarget()
     {
         var request = JsonConvert.DeserializeObject<MeaningfulTagsRequest>(
@@ -110,7 +300,7 @@ public class ComparisonOverrideTests
         Assert.Equal(new ComparisonTarget("foreign", "other", "reference"), request!.ComparisonTarget);
     }
 
-    private static ExperimentService CreateService(out TestStorage storage)
+    private static ExperimentService CreateService(out TestStorage storage, IDerivedMetricService? derivedMetrics = null)
     {
         var baseline = new Experiment
         {
@@ -145,7 +335,7 @@ public class ComparisonOverrideTests
             NullLogger<ExperimentService>.Instance,
             storage,
             new TestConfigFactory(),
-            new NoDerivedMetrics());
+            derivedMetrics ?? new NoDerivedMetrics());
     }
 
     private static Result Row(string set, string reference, decimal value) => new()
@@ -169,9 +359,32 @@ public class ComparisonOverrideTests
             CancellationToken cancellationToken = default) => Task.CompletedTask;
     }
 
+    private sealed class ScoreDerivedMetrics : IDerivedMetricService
+    {
+        public Task ApplyAsync(
+            IReadOnlyCollection<DerivedMetricGroup> groups,
+            IReadOnlyDictionary<string, MetricDefinition> definitions,
+            CancellationToken cancellationToken = default)
+        {
+            foreach (var group in groups)
+            {
+                if (group.Target.Metrics?.TryGetValue("score", out var score) == true)
+                {
+                    group.Target.Metrics["derived-score"] = new Metric { Value = score.Value };
+                }
+            }
+            return Task.CompletedTask;
+        }
+    }
+
     private sealed class TestStorage(Experiment baseline, Experiment other) : IStorageService
     {
         public List<string> MetricProjects { get; } = [];
+        public Dictionary<string, List<string>> TagRefs { get; } = new()
+        {
+            ["focus"] = ["a"],
+            ["outside"] = ["b"],
+        };
         public Task<Experiment> GetExperimentAsync(string project, string experiment, bool includeResults = true, CancellationToken cancellationToken = default) =>
             Task.FromResult(experiment == "other" ? other : baseline);
         public Task<Experiment> GetProjectBaselineAsync(string project, CancellationToken cancellationToken = default) =>
@@ -183,7 +396,7 @@ public class ComparisonOverrideTests
                 [new MetricDefinition { Name = "score", AggregateFunction = AggregateFunctions.Average, Min = 0, Max = 10 }]);
         }
         public Task<IList<Tag>> GetTagsAsync(string project, IEnumerable<string> names, CancellationToken cancellationToken = default) =>
-            Task.FromResult<IList<Tag>>(names.Select(name => new Tag { Name = name, Refs = ["a"] }).ToList());
+            Task.FromResult<IList<Tag>>(names.Select(name => new Tag { Name = name, Refs = TagRefs[name] }).ToList());
         public bool TryValidProjectName(string? name, out string? error) => throw new NotSupportedException();
         public bool TryValidExperimentName(string? name, out string? error) => throw new NotSupportedException();
         public Task<IList<Project>> GetProjectsAsync(CancellationToken cancellationToken = default) => throw new NotSupportedException();

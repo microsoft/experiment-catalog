@@ -25,6 +25,18 @@ export function extractSortedMetrics(
     );
 }
 
+export function extractComparisonFilterOptions(
+    comparison: Comparison,
+): { sets: string[]; metrics: string[] } {
+    return {
+        sets: (comparison.sets ?? [])
+            .map((entity) => entity.set)
+            .filter((set): set is string => Boolean(set)),
+        // Filter choices describe source data, not an overridden comparison target.
+        metrics: extractSortedMetrics({ ...comparison, comparison_target: undefined }),
+    };
+}
+
 /**
  * Filter metrics to only those marked as important.
  * Returns all metrics if showImportantOnly is false, or if no metrics
