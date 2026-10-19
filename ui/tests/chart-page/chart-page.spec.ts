@@ -127,6 +127,30 @@ test.describe('Chart page', () => {
     await expect(svg).toBeVisible();
   });
 
+  test('ref boundary restricts raw chart values and an empty boundary stays empty', async ({ mockedPage: page }) => {
+    let refs = ['ref-0'];
+    await page.route('**/api/projects/*/experiments/*/compare?**', (route) =>
+      route.fulfill({ json: { ...data.comparison, ref_filter_refs: refs } }));
+    const config = btoa(JSON.stringify({
+      ref_filter: { project: 'alpha-project', experiment: 'exp-001', set: 'set-a', metric: 'accuracy' },
+    }));
+    const request = page.waitForRequest((req) => req.url().includes('/compare?'));
+    await page.goto(`${chartUrl}&config=${config}`);
+    expect(new URL((await request).url()).searchParams.get('ref-set')).toBe('set-a');
+    await expect(page.locator('.chart-container circle[r="4"]')).toHaveCount(4);
+    const warning = page.locator('.ref-filter-warning');
+    await expect(warning).toHaveAttribute('role', 'status');
+    await expect(warning).toContainText('Ref filter active.');
+    await expect(warning).toHaveCSS('color', 'rgb(255, 210, 127)');
+    await expect(warning).toHaveCSS('background-color', 'rgb(48, 43, 31)');
+    await expect(warning).toHaveCSS('border-left-width', '4px');
+
+    refs = [];
+    await page.reload();
+    await expect(page.locator('.no-data')).toBeVisible();
+    await expect(page.locator('.chart-container')).toHaveCount(0);
+  });
+
   test('renders x-axis labels for each group', async ({ mockedPage: page }) => {
     const svg = page.locator('.chart-container svg');
 

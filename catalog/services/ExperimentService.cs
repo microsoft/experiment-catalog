@@ -67,7 +67,8 @@ public class ExperimentService(
         string includeTagsStr = "",
         string excludeTagsStr = "",
         CancellationToken cancellationToken = default,
-        ComparisonTarget? target = null)
+        ComparisonTarget? target = null,
+        RefFilter? refFilter = null)
     {
         var comparison = new Comparison();
         var derivedGroups = new List<DerivedMetricGroup>();
@@ -77,13 +78,17 @@ public class ExperimentService(
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
+        var refs = await ResolveRefFilterAsync(experiment, refFilter, cancellationToken);
+        comparison.RefFilterRefs = refs;
 
         // get the project baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags)?.ToList() ?? [];
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
             var baselineSetResults = baselineFiltered
                 .Where(result => result.Set == baselineSet)
                 .ToList();
@@ -116,9 +121,8 @@ public class ExperimentService(
         var config = await configFactory.GetAsync(cancellationToken);
 
         // get the experiment baseline
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags)?.ToList() ?? [];
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
         var experimentBaselineResults = experimentFiltered
             .Where(result => result.Set == experimentBaselineSet)
             .ToList();
@@ -158,7 +162,7 @@ public class ExperimentService(
         if (target is not null)
         {
             var (targetExperiment, targetResults) = await LoadTargetAsync(
-                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken);
+                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken, refs);
             comparison.ComparisonTarget = new ComparisonEntity
             {
                 Project = target.Project,
@@ -181,7 +185,7 @@ public class ExperimentService(
                     .Where(result => result.Set == x.Set)
                     .ToList();
                 // find matching statistics
-                var statistics = target is null ? experiment.Statistics?.LastOrDefault(y =>
+                var statistics = target is null && refFilter is null ? experiment.Statistics?.LastOrDefault(y =>
                 {
                     if (y.Set != x.Set) return false;
                     if (y.BaselineExperiment != comparison.ExperimentBaseline?.Experiment) return false;
@@ -289,19 +293,23 @@ public class ExperimentService(
         string includeTagsStr = "",
         string excludeTagsStr = "",
         CancellationToken cancellationToken = default,
-        ComparisonTarget? target = null)
+        ComparisonTarget? target = null,
+        RefFilter? refFilter = null)
     {
         var comparison = new ComparisonByRef();
         var derivedGroups = new List<DerivedMetricGroup>();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
+        var refs = await ResolveRefFilterAsync(experiment, refFilter, cancellationToken);
 
         // get the project baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags)?.ToList() ?? [];
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonByRefEntity
             {
@@ -321,8 +329,7 @@ public class ExperimentService(
         }
 
         // get the experiment info
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags)?.ToList() ?? [];
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
         experiment.MetricDefinitions = comparison.MetricDefinitions;
 
         // get the experiment baseline
@@ -348,7 +355,7 @@ public class ExperimentService(
         if (target is not null)
         {
             var (targetExperiment, targetResults) = await LoadTargetAsync(
-                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken);
+                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken, refs);
             comparison.ComparisonTarget = new ComparisonByRefEntity
             {
                 Project = target.Project,
@@ -387,7 +394,8 @@ public class ExperimentService(
         IList<Tag> includeTags,
         IList<Tag> excludeTags,
         Dictionary<string, MetricDefinition> metricDefinitions,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? refs = null)
     {
         var experiment = target.Project == currentProject && target.Experiment == currentExperiment.Name
             ? currentExperiment
@@ -399,9 +407,34 @@ public class ExperimentService(
         }
         experiment.MetricDefinitions = metricDefinitions;
         var results = target.Project == currentProject
-            ? experiment.Filter(includeTags, excludeTags)?.ToList() ?? []
-            : experiment.Results?.ToList() ?? [];
+            ? experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? []
+            : experiment.Filter(null, null, refs)?.ToList() ?? [];
         return (experiment, results);
+    }
+
+    private async Task<IReadOnlySet<string>?> ResolveRefFilterAsync(
+        Experiment experiment,
+        RefFilter? filter,
+        CancellationToken cancellationToken)
+    {
+        if (filter is null) return null;
+        if (string.IsNullOrWhiteSpace(filter.Set) || string.IsNullOrWhiteSpace(filter.Metric))
+        {
+            throw new HttpException(400, "ref-set and ref-metric must both be provided.");
+        }
+        if (!experiment.Sets.Contains(filter.Set))
+        {
+            throw new HttpException(404, "ref filter set not found.");
+        }
+        var results = experiment.Results?.Where(x => x.Set == filter.Set).ToList() ?? [];
+        var byRef = experiment.AggregateSetByRef(filter.Set, results);
+        var groups = new List<DerivedMetricGroup>();
+        AddDerivedGroupsByRef(groups, byRef, filter.Set, results);
+        await derivedMetricService.ApplyAsync(groups, experiment.MetricDefinitions!, cancellationToken);
+        return byRef?
+            .Where(x => x.Value.Metrics?.ContainsKey(filter.Metric) == true)
+            .Select(x => x.Key)
+            .ToHashSet(StringComparer.Ordinal) ?? [];
     }
 
     /// <summary>

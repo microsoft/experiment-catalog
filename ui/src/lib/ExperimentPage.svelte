@@ -3,8 +3,9 @@
   import ComparisonTable from "./ComparisonTable.svelte";
   import DataAccessModal from "./DataAccessModal.svelte";
   import MeaningfulTags from "./MeaningfulTags.svelte";
+  import RefFilterControls from "./RefFilterControls.svelte";
   import SelectComparisonTargetModal from "./SelectComparisonTargetModal.svelte";
-  import type { ComparisonTarget, ViewConfig } from "./Tools";
+  import type { ComparisonTarget, RefFilter, ViewConfig } from "./Tools";
   import {
     useProjectBaseline,
     setAsProjectBaseline as apiSetAsProjectBaseline,
@@ -186,6 +187,16 @@
     onchangeConfig?.(newConfig);
   };
 
+  const applyRefFilter = (filter: RefFilter | undefined) => {
+    const newConfig = { ...config };
+    if (filter) {
+      newConfig.ref_filter = filter;
+    } else {
+      delete newConfig.ref_filter;
+    }
+    onchangeConfig?.(newConfig);
+  };
+
   const useTheProjectBaseline = async () => {
     const response = await useProjectBaseline(project.name, experiment.name);
     if (response.ok) {
@@ -235,8 +246,10 @@
     <button
       class="btn"
       onclick={computeStatistics}
-      disabled={!!config.comparison_target}
-      title={config.comparison_target ? "Reset the comparison to calculate experiment-baseline statistics." : undefined}
+      disabled={!!config.comparison_target || !!config.ref_filter}
+      title={config.comparison_target
+        ? "Reset the comparison to calculate experiment-baseline statistics."
+        : config.ref_filter ? "Clear the ref filter to calculate full-dataset statistics." : undefined}
     >
       compute statistics
     </button>
@@ -306,6 +319,10 @@
     {#key JSON.stringify(config.comparison_target)}
     <MeaningfulTags {project} {experiment} target={config.comparison_target} />
     {/key}
+  </div>
+  <div class="meta-row">
+    <span class="meta-label">Ref Filter</span>
+    <RefFilterControls {project} {experiment} applied={config.ref_filter} onapply={applyRefFilter} />
   </div>
   <div class="meta-row">
     <span class="meta-label">Show</span>
@@ -458,7 +475,7 @@
 
 <div class="table">
   {#if ready}
-    {#key JSON.stringify(config.comparison_target)}
+    {#key JSON.stringify([config.comparison_target, config.ref_filter])}
     <ComparisonTable
       {project}
       {experiment}
@@ -478,6 +495,7 @@
       {showProjectBaseline}
       {showImportantOnly}
       target={config.comparison_target}
+      refFilter={config.ref_filter}
       bind:this={comparisonTable}
       onchooseTarget={() => (targetModalOpen = true)}
       onresetTarget={resetTarget}

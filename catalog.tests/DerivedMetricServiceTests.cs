@@ -111,8 +111,10 @@ public class DerivedMetricServiceTests
         Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
     }
 
-    [Fact]
-    public async Task ApplyAsync_TerminatesChildrenHoldingOutputPipesAtConfiguredTimeout()
+    [Theory]
+    [InlineData(0)]
+    [InlineData(500)]
+    public async Task ApplyAsync_TerminatesChildrenHoldingOutputPipesAtConfiguredTimeout(int startupDelayMilliseconds)
     {
         if (OperatingSystem.IsWindows()) return;
 
@@ -129,6 +131,7 @@ public class DerivedMetricServiceTests
             import sys
             import time
 
+            time.sleep({{startupDelayMilliseconds}} / 1000)
             CHILD_PID_PATH = "{{escapedChildPidPath}}"
 
             def aggregate(results):
@@ -155,13 +158,13 @@ public class DerivedMetricServiceTests
                     new Dictionary<string, MetricDefinition>(),
                     functions.Path,
                     "python3",
-                    TimeSpan.FromMilliseconds(250)));
+                    TimeSpan.FromSeconds(2)));
 
             stopwatch.Stop();
+            childPid = int.Parse(await File.ReadAllTextAsync(childPidPath));
             Assert.Contains("exceeded", exception.Message);
             Assert.True(stopwatch.Elapsed < TimeSpan.FromSeconds(5));
 
-            childPid = int.Parse(await File.ReadAllTextAsync(childPidPath));
             for (var attempt = 0; attempt < 20 && IsProcessRunning(childPid.Value); attempt++)
             {
                 await Task.Delay(50);

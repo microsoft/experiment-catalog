@@ -84,7 +84,7 @@ test.describe('Tags filter', () => {
     );
 
     // Click apply
-    await page.getByRole('button', { name: 'apply' }).click();
+    await page.getByRole('button', { name: 'apply', exact: true }).click();
 
     const req = await comparisonRequest;
     expect(req.url()).toContain('include-tags=model:gpt-4');
@@ -108,7 +108,7 @@ test.describe('Tags filter', () => {
       req.url().includes('/compare') && !req.url().includes('compare-by-ref'),
     );
 
-    await page.getByRole('button', { name: 'apply' }).click();
+    await page.getByRole('button', { name: 'apply', exact: true }).click();
 
     const req = await comparisonRequest;
     expect(req.url()).toContain('include-tags=model:gpt-4');

@@ -601,12 +601,18 @@ public class Experiment()
     }
 
 # pragma warning disable S3776 // Cognitive Complexity of this method is not too high
-    public IEnumerable<Result>? Filter(IEnumerable<Tag>? includeTags, IEnumerable<Tag>? excludeTags)
+    public IEnumerable<Result>? Filter(
+        IEnumerable<Tag>? includeTags,
+        IEnumerable<Tag>? excludeTags,
+        IReadOnlySet<string>? refs = null)
     {
+        var results = refs is null
+            ? this.Results
+            : this.Results?.Where(x => x.Ref is not null && refs.Contains(x.Ref));
         var hasIncludeTags = includeTags is not null && includeTags.Any();
         var hasExcludeTags = excludeTags is not null && excludeTags.Any();
-        if (!hasIncludeTags && !hasExcludeTags) return this.Results;
-        return this.Results?
+        if (!hasIncludeTags && !hasExcludeTags) return results;
+        return results?
             .Where(x =>
             {
                 var hasAnnotations = x.Annotations is not null && x.Annotations.Count > 0;

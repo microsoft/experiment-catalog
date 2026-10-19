@@ -3,13 +3,14 @@
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
+  import RefFilterWarning from "./RefFilterWarning.svelte";
   import {
     getComparison,
     addAnnotation as apiAddAnnotation,
     listTags,
   } from "./api";
   import { sanitizeProjectTagQuerystring } from "./Tools";
-  import type { ComparisonTarget } from "./Tools";
+  import type { ComparisonTarget, RefFilter } from "./Tools";
   import {
     extractSortedMetrics,
     buildSelectedEntities,
@@ -36,6 +37,7 @@
     showProjectBaseline?: boolean;
     showImportantOnly?: boolean;
     target?: ComparisonTarget;
+    refFilter?: RefFilter;
     onchooseTarget?: () => void;
     onresetTarget?: () => void;
     ondrilldown?: (set: string) => void;
@@ -64,6 +66,7 @@
     showProjectBaseline = true,
     showImportantOnly = false,
     target,
+    refFilter,
     onchooseTarget,
     onresetTarget,
     ondrilldown,
@@ -193,6 +196,7 @@
         experiment.name,
         tagFilters || undefined,
         target,
+        refFilter,
       );
 
       // get a list of metrics
@@ -246,6 +250,7 @@
 
 {#if comparison}
   <div class="filter-row">
+    <RefFilterWarning filter={refFilter} />
     <TagsFilter
       {project}
       bind:querystring={tagFilters}
@@ -477,8 +482,8 @@
 
   .filter-row {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
   }
@@ -488,4 +493,5 @@
     text-align: right;
     margin-bottom: 0.75rem;
   }
+
 </style>

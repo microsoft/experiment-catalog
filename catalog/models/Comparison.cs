@@ -18,6 +18,9 @@ public class Comparison
     [JsonProperty("comparison_target", NullValueHandling = NullValueHandling.Ignore)]
     public ComparisonEntity? ComparisonTarget { get; set; }
 
+    [JsonProperty("ref_filter_refs", NullValueHandling = NullValueHandling.Ignore)]
+    public IReadOnlySet<string>? RefFilterRefs { get; set; }
+
     [JsonProperty("sets", NullValueHandling = NullValueHandling.Ignore)]
     public IEnumerable<ComparisonEntity>? Sets { get; set; }
 }

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { sortMetrics } from "./Tools";
+  import { extractComparisonFilterOptions } from "./comparisonData";
   import { getComparison, listTags, getMeaningfulTags } from "./api";
   import type { ComparisonTarget } from "./Tools";
 
@@ -48,19 +48,7 @@
     try {
       loading = true;
       const comparison = await getComparison(project.name, experiment.name, undefined, target);
-      const allMetrics = [
-        ...Object.keys(comparison.project_baseline?.result?.metrics ?? {}),
-        ...Object.keys(comparison.experiment_baseline?.result?.metrics ?? {}),
-        ...(comparison.sets ?? []).flatMap((entity) =>
-          Object.keys(entity.result?.metrics ?? {}),
-        ),
-      ];
-      metrics = [...new Set(allMetrics)].sort((a, b) =>
-        sortMetrics(comparison.metric_definitions, a, b),
-      );
-      sets = (comparison.sets ?? [])
-        .map((entity) => entity.set)
-        .filter((set): set is string => Boolean(set));
+      ({ metrics, sets } = extractComparisonFilterOptions(comparison));
 
       try {
         excludeTags = await listTags(project.name);
@@ -126,7 +114,7 @@
   <span class="controls">
     <label>
       Set
-      <select class="dropdown" bind:value={selectedSet}>
+      <select class="comparison-filter-dropdown" bind:value={selectedSet}>
         {#if sets.length === 0}
           <option value="">{loading ? "Loading sets..." : "No sets"}</option>
         {:else}
@@ -138,7 +126,7 @@
     </label>
     <label>
       Metric
-      <select class="dropdown" bind:value={selectedMetric}>
+      <select class="comparison-filter-dropdown" bind:value={selectedMetric}>
         {#if metrics.length === 0}
           <option value=""
             >{loading ? "Loading metrics..." : "No metrics"}</option
@@ -152,7 +140,7 @@
     </label>
     <label>
       Compare
-      <select class="dropdown" bind:value={selectedCompareTo}>
+      <select class="comparison-filter-dropdown" bind:value={selectedCompareTo}>
         <option value="Baseline">{target ? "Comparison Target" : "Baseline"}</option>
         <option value="Zero">Zero</option>
         <option value="Average">Average</option>
@@ -160,7 +148,7 @@
     </label>
     <label>
       Exclude tag
-      <select class="dropdown" bind:value={selectedExcludeTag}>
+      <select class="comparison-filter-dropdown" bind:value={selectedExcludeTag}>
         <option value="">None</option>
         {#each excludeTags as tagName}
           <option value={tagName}>{tagName}</option>
@@ -244,12 +232,6 @@
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
-  }
-
-  .dropdown {
-    font-size: 1rem;
-    line-height: 1.2;
-    margin-left: 0.35rem;
   }
 
   .modal-backdrop {

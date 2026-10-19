@@ -7,30 +7,26 @@
     "dev": "vite --port 6020",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "svelte-check --tsconfig ./tsconfig.json",
+    "check": "svelte-check --tsgo --tsconfig ./tsconfig.json",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest"
   },
   "devDependencies": {
-    "@playwright/test": "^1.63.0",
+    "@playwright/test": "1.64.1",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@tsconfig/svelte": "^5.0.8",
-    "@typescript-eslint/types": "^8.71.1",
+    "@typescript/native": "npm:typescript@7.0.2",
+    "@typescript-eslint/types": "^8.71.2",
     "svelte": "^5.57.2",
-    "svelte-check": "^4.7.6",
+    "svelte-check": "^4.7.7",
     "tslib": "^2.8.0",
     "typescript": "^6.0.3",
-    "vite": "^8.3.3",
-    "vitest": "^5.0.3"
+    "vite": "^8.3.4",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "layercake": "^11.0.0"
-  },
-  "overrides": {
-    "layercake": {
-      "typescript": "$typescript"
-    }
   }
 }
