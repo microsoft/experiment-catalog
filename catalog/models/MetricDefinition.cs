@@ -11,6 +11,9 @@ public class MetricDefinition
     [Required, ValidName]
     public required string Name { get; set; }
 
+    [JsonProperty("description", NullValueHandling = NullValueHandling.Ignore)]
+    public string? Description { get; set; }
+
     [JsonProperty("min", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? Min { get; set; }
 

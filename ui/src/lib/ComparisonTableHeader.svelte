@@ -8,6 +8,12 @@
     entity?: ComparisonEntity | null;
     entities?: ComparisonEntity[];
     clickable?: boolean;
+    currentProject?: string;
+    currentExperiment?: string;
+    showExperiment?: boolean;
+    tone?: "baseline" | "target";
+    onchooseTarget?: () => void;
+    onresetTarget?: () => void;
     index?: number;
     ondrilldown?: (set: string) => void;
     onselect?: (data: { index: number; entity: ComparisonEntity | null }) => void;
@@ -24,6 +30,12 @@
     entity,
     entities = [],
     clickable = true,
+    currentProject,
+    currentExperiment,
+    showExperiment = false,
+    tone,
+    onchooseTarget,
+    onresetTarget,
     index = -1,
     ondrilldown,
     onselect,
@@ -67,7 +79,20 @@
   };
 </script>
 
-<div class="title">{title}</div>
+<div class="title" class:baseline={tone === "baseline"} class:target={tone === "target"}>
+  <span>{title}</span>
+  {#if onresetTarget}
+    <button class="btn" onclick={onresetTarget}>reset</button>
+  {:else if onchooseTarget}
+    <button class="btn" onclick={onchooseTarget}>select</button>
+  {/if}
+</div>
+{#if entity?.project && currentProject && entity.project !== currentProject}
+  <div class="identity">project: {entity.project}</div>
+{/if}
+{#if entity?.experiment && (showExperiment || (currentExperiment && entity.experiment !== currentExperiment))}
+  <div class="identity">experiment: {entity.experiment}</div>
+{/if}
 <div class="set">
   {#if clickable}
     <button class="btn" onclick={drilldown}>set:</button>
@@ -97,9 +122,36 @@
 
 <style>
   .title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
     font-size: 1.2rem;
     font-weight: bold;
     color: #ccc;
+  }
+
+  .title.baseline {
+    color: #b8e7bd;
+  }
+
+  .title.baseline .btn {
+    border-color: #80c990;
+    color: #b8e7bd;
+  }
+
+  .title.target {
+    color: #ffd27f;
+  }
+
+  .title.target .btn {
+    border-color: #e5b55e;
+    color: #ffd27f;
+  }
+
+  .title .btn:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
   }
 
   .set {
@@ -108,6 +160,10 @@
     align-items: center;
     flex-wrap: nowrap;
     gap: 0.25rem;
+  }
+
+  .identity {
+    font-size: 1rem;
   }
 
   .runtime-row {

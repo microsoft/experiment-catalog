@@ -59,6 +59,22 @@ describe("extractByRefMetrics", () => {
         const metrics = extractByRefMetrics(comparison);
         expect(new Set(metrics).size).toBe(3);
     });
+
+    it("excludes metrics unique to a replaced experiment baseline", () => {
+        const comparison = makeByRef({
+            experiment_baseline: {
+                project: "current",
+                experiment: "exp",
+                results: { r1: { ...makeResult("r1", "baseline"), metrics: { old: { tags: [] } } } },
+            },
+            comparison_target: {
+                project: "other",
+                experiment: "exp",
+                results: { r1: { ...makeResult("r1", "target"), metrics: { new: { tags: [] } } } },
+            },
+        });
+        expect(extractByRefMetrics(comparison)).toEqual(["new"]);
+    });
 });
 
 // ── filterRefs ──────────────────────────────────────────────────────────────
@@ -80,14 +96,20 @@ describe("filterRefs", () => {
 // ── extractMetricDefinitions ────────────────────────────────────────────────
 
 describe("extractMetricDefinitions", () => {
-    it("returns definitions for known metrics, skipping unknown", () => {
+    it("returns definitions for known metrics and synthesizes missing definitions", () => {
         const comparison = makeByRef({
             metric_definitions: {
-                a: { order: 1 } as MetricDefinition,
+                a: { name: "a", order: 1 } as MetricDefinition,
             } as any,
         });
         const defs = extractMetricDefinitions(comparison, ["a", "unknown"]);
-        expect(defs).toHaveLength(1);
+        expect(defs).toHaveLength(2);
+        expect(defs[1]).toMatchObject({
+            name: "unknown",
+            aggregate_function: "Default",
+            order: Number.MAX_SAFE_INTEGER,
+            tags: [],
+        });
     });
 });
 

@@ -42,6 +42,12 @@ To configure the solution, you must provide the following environment variables.
 
 - **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference, evaluation, and ground truth output files. Use `{0}` as a placeholder for the URI. When running on localhost, it is common to set this to `http://localhost:6010/api/download?url={0}`. When running deployed, it is common to set this to `/api/download?url={0}`. Either of these options will give you a JSON download of the file when you click on the link in the UI. However, if you want to create your own visualization and analysis of the inference, evaluation, and ground truth output files, you can set this to a different URL that will allow you to do that.
 
+- **CUSTOM_AGGREGATE_FUNCTIONS_PATH** [OPTIONAL, DEFAULT: unset/disabled]: Local folder containing administrator-deployed trusted `.py` files for runtime custom aggregate metrics. When this setting is empty, custom aggregate execution is disabled.
+
+- **CUSTOM_AGGREGATE_PYTHON_EXECUTABLE** [DEFAULT: python3]: Python executable used to run runtime custom aggregate functions. The host must have this executable available. The published `catalog.Dockerfile` runtime image installs `python3`.
+
+- **CUSTOM_AGGREGATE_TIMEOUT_SECONDS** [DEFAULT: 30, RANGE: 1-3600]: Hard timeout shared by all custom aggregate functions and aggregate groups within one comparison or meaningful-tags request. If the timeout is exceeded, the catalog terminates the full Python subprocess tree and fails the request.
+
 - **AZURE_STORAGE_ACCOUNT_NAME_FOR_SUPPORT_DOCS** [OPTIONAL]: The name of a separate Azure Storage account for support documents. Defaults to the main storage account if ENABLE_DOWNLOAD is true.
 
 - **AZURE_STORAGE_ACCOUNT_CONNSTRING_FOR_SUPPORT_DOCS** [OPTIONAL]: The connection string for the support documents storage account.
@@ -110,6 +116,37 @@ The catalog is organized around the following concepts:
 
 - **Ref**: A ref is a reference to a entity that is being evaluated. Almost always this should be a reference to the ground truth. It is common that you might run multiple iterations of the same ground truth, using a ref is a way to aggregate those as well as compare the performance of ground truths across evaluation runs.
 
+## Publish with the CLI or Python API
+
+The repository includes a Python 3.10+ client for the supported publishing
+workflow: create a project, create an experiment, and push metrics from CSV or
+notebook data.
+The API base URL must include `/api`. Run this example from the repository root:
+
+```bash
+python3 -m venv cli/.venv
+cli/.venv/bin/python -m pip install -e ./cli
+source cli/.venv/bin/activate
+export EXPERIMENT_CATALOG_BASE_URL=http://localhost:6010/api
+
+experiment-catalog create-project sprint-42
+experiment-catalog create-experiment \
+  --project sprint-42 notebook-test \
+  --hypothesis "The candidate prompt improves answer correctness."
+experiment-catalog push ./cli/examples/notebook-results.csv \
+  --project sprint-42 \
+  --experiment notebook-test \
+  --set candidate-a \
+  --dry-run
+```
+
+The Python `Catalog.push_metrics` API uses the same validation and result
+publishing path as the CLI. Metric definitions are optional and are not part of
+the CSV contract. Pushes append one result at a time and are not atomic; a
+failure can leave partial data. See the
+[CLI and Python API guide](../cli/README.md) for the exact CSV format, notebook
+examples, dry-run behavior, and recovery limitations.
+
 ## Web UI
 
 The UI for the catalog is written in Svelte in the [ui](../ui) folder. Generally, the UI is hosted inside the catalog and that means the UI must be built and copied into the catalog project. To build and copy the UI:
@@ -130,6 +167,35 @@ curl -i -X POST -H "Content-Type: application/json" -d '{ "name": "project-examp
 ```
 
 This will create a container in Azure Blob Storage of the specified name. The container will have a metadata property of "exp_catalog_type": "project".
+
+To read one project, including its emoji, note, and `ground_truth`, without
+listing every project:
+
+```bash
+curl -i http://localhost:6010/api/projects/project-example
+```
+
+`GET /api/projects/{projectName}` returns the same project representation as
+`GET /api/projects` and returns 404 when the project does not exist.
+
+Project cards can show one of 16 optional emojis, a note of up to 40 characters,
+and a ground truth name of up to 40 characters. Choose an emoji directly from
+the card's icon/pulldown, or edit all three fields together with the card's
+edit button or the display API. Ground truth and note are only editable in
+the dialog. Use the emoji IDs listed
+under [Create an experiment](#create-an-experiment); send `null` to clear a field.
+All three fields must be present in the update payload:
+
+```bash
+curl -i -X PUT -H "Content-Type: application/json" \
+  -d '{ "emoji": "target", "note": "New project", "ground_truth": "Evaluation set v2" }' \
+  http://localhost:6010/api/projects/project-example/display
+```
+
+These fields live in project container metadata. The ground truth name is
+returned as `ground_truth` by the project list and detail endpoints and the
+MCP `ListProjects` tool. Text is stored as base64-encoded UTF-8 so non-ASCII
+values work. Display edits preserve project baseline and unrelated metadata.
 
 ## Create a baseline
 
@@ -157,7 +223,31 @@ You can also include optional URIs to inference, evaluation, and ground truth ou
 curl -i -X POST -d '{ "ref": "q1", "set": "baseline-0", "inference_uri": "path/to/inference.json", "evaluation_uri": "path/to/evaluation.json", "ground_truth_uri": "path/to/ground-truth.json", "metrics": { "gpt-coherence": 2, "gpt-relevance": 3 } }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments/project-baseline/results
 ```
 
-You do not have to pre-define any metrics, anything you want to send into the catalog will be accepted.
+Numeric metrics do not need to be pre-defined. Classification and retrieval
+metrics must either have a compatible metric definition or use a name from
+which the catalog can infer a supported aggregate.
+
+Metrics may be numeric, classification labels (`t+`, `t-`, `f+`, or `f-`), or
+structured retrieval values:
+
+```json
+{
+  "metrics": {
+    "retrieval": {
+      "found": ["doc-1", "doc-3"],
+      "expected": ["doc-1", "doc-2"]
+    }
+  }
+}
+```
+
+A retrieval value must contain exactly the `found` and `expected` arrays. Each
+array may contain at most 10,000 unique, case-sensitive string IDs; IDs must be
+non-empty, non-whitespace, and at most 500 characters. Precision, recall, and
+F1 aggregates derive confusion counts from set membership in these arrays.
+Without a metric definition, classification labels are accepted when the metric
+name contains `accuracy`, `precision`, `recall`, or `f1` (case-insensitive);
+retrieval values require `precision`, `recall`, or `f1`.
 
 ## Create an experiment
 
@@ -166,6 +256,26 @@ After you have a baseline, you will create some experiments. For example, you mi
 ```bash
 curl -i -X POST -d '{ "name": "experiment-000", "hypothesis": "I believe decreasing the temperature will give better results." }' -H "Content-Type: application/json" http://localhost:6010/api/projects/project-example/experiments
 ```
+
+To make a crowded experiment list easier to scan, an experiment can have an
+optional emoji and a note of up to 40 characters. Choose an emoji directly
+from its card's icon/pulldown, or use the card's edit button to update the emoji
+and note together in a dialog. Notes are only editable in the dialog. Both
+paths update the same `PUT` endpoint (use `null` to clear either field):
+
+```bash
+curl -i -X PUT -H "Content-Type: application/json" \
+  -d '{ "emoji": "rocket", "note": "Faster candidate" }' \
+  http://localhost:6010/api/projects/project-example/experiments/experiment-000/display
+```
+
+Emoji IDs supported by the picker and API are `star`, `rocket`, `bulb`,
+`flask`, `chart`, `search`, `flag`, `warning`, `target`, `lightning`, `puzzle`,
+`compass`, `robot`, `check`, `seedling`, and `trophy`. These display fields live
+in the experiment blob's metadata, not its JSONL content. The note is stored as
+base64-encoded UTF-8 to support Unicode in Azure Blob metadata; changing either
+field updates the blob ETag and can invalidate a cached download. Metadata
+edits retain the designated baseline and other existing metadata.
 
 Then to record results for that experiment, you can do it exactly like the baseline...
 
@@ -185,6 +295,24 @@ Alternatively, you can set the experiment baseline to the project baseline like 
 curl -i -X PATCH http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/:project/baseline
 ```
 
+### Hide a set
+
+From a set detail page, **hide this set** asks for confirmation and then
+appends a permanent `{"x":"X","set":"my-set"}` tombstone to the experiment
+JSONL. The same action is available through:
+
+```bash
+curl -i -X PUT \
+  http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-set/hidden
+```
+
+Hidden sets disappear from set lists, comparison candidates, charts, and
+automatic statistics, including when more results arrive later. Existing
+results are not deleted; known direct set URLs and the raw experiment download
+remain available. The API refuses to hide an active experiment or project
+baseline (choose a different baseline first), and refuses to designate a
+hidden set as an experiment baseline. Repeating the request is a no-op.
+
 ## Compare
 
 Once you have some results for your experiment, you can compare them like this...
@@ -193,11 +321,41 @@ Once you have some results for your experiment, you can compare them like this..
 curl -i http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare
 ```
 
-You can filter the comparison to specific sets or filter by tags:
+This endpoint returns one aggregate result per set in the experiment, plus the
+project and experiment baselines when available. Include/exclude tag filters are
+applied before the catalog calculates built-in and runtime custom aggregate
+metrics.
+
+Aggregate metric objects in this response can also include response-only
+comparison metadata: `count`, `unique_refs`, `wins`, and `ties`. See
+[Aggregate Comparison Metadata](#aggregate-comparison-metadata).
+
+You can filter the comparison by tags:
 
 ```bash
-curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?sets=set1,set2&include-tags=tag1,tag2&exclude-tags=tag3"
+curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?include-tags=tag1,tag2&exclude-tags=tag3"
 ```
+
+To compare against a particular set without changing any baseline designation,
+pass all three `compare-project`, `compare-experiment`, and `compare-set`
+parameters to `compare` or `sets/{set}/compare-by-ref`. The response retains
+the project and experiment baseline fields and adds `comparison_target`.
+Differences and win/tie counts use that target. Stored p-values and confidence
+intervals are not included for overridden comparisons.
+
+```bash
+curl -i "http://localhost:6010/api/projects/project-example/experiments/experiment-000/compare?compare-project=another-project&compare-experiment=run-2&compare-set=baseline"
+```
+
+The current project's metric definitions are used to aggregate both sides.
+When the target is in another project, include/exclude tag filters apply only
+to the current experiment and are ignored for the imported target. The
+ground-truth refs, metric names, and evaluation definitions may differ across
+projects, so interpret cross-project comparisons with care. The named-set
+endpoint accepts `metric-project` when fetching imported iterations for
+comparison using the current project's definitions. Meaningful-tags requests
+can include `comparison_target: { "project": "...", "experiment": "...",
+"set": "..." }` when `compare_to` is `Baseline`.
 
 ## Annotate
 
@@ -239,6 +397,7 @@ Add metric definitions to a project:
 curl -i -X PUT -d '[
   {
     "name": "gpt-coherence",
+    "description": "LLM-judged answer coherence on a 0-5 scale.",
     "min": 0,
     "max": 5,
     "aggregate_function": "Average",
@@ -251,15 +410,233 @@ curl -i -X PUT -d '[
 
 Metric definition fields:
 
-| Field                | Type     | Required | Description                                                                                             |
-| -------------------- | -------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `name`               | string   | yes      | Metric name (must be a valid identifier).                                                               |
-| `min`                | number   | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                      |
-| `max`                | number   | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                      |
-| `aggregate_function` | string   | no       | One of `Default`, `Average`, `Recall`, `Precision`, `Accuracy`, `Count`, `Cost`. Defaults to `Default`. |
-| `order`              | integer  | no       | Display order in the UI (lower numbers appear first).                                                   |
-| `is_important`       | boolean  | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                  |
-| `tags`               | string[] | no       | Tags for categorization (e.g., `lower-is-better`).                                                      |
+| Field                | Type     | Required | Description                                                                                                                                                                                                                 |
+| -------------------- | -------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`               | string   | yes      | Metric name (must be a valid identifier).                                                                                                                                                                                   |
+| `description`        | string   | no       | Human-readable presentation text that users can reveal below metric rows in the comparison UI. This is optional metadata only; it is not required to submit metrics and does not change aggregation or stored result rows. |
+| `min`                | number   | no       | Minimum possible value. Used with `max` for normalization and chart y-axis bounds.                                                                                                                                          |
+| `max`                | number   | no       | Maximum possible value. Used with `min` for normalization and chart y-axis bounds.                                                                                                                                          |
+| `aggregate_function` | string   | no       | `Default`, `Average`, `AverageByRef`, `Precision`, `Recall`, `F1`, `MicroPrecision`, `MicroRecall`, `MicroF1`, `MacroPrecision`, `MacroRecall`, `MacroF1`, `Accuracy`, `Count`, or `Cost`. Defaults to `Default`.                  |
+| `order`              | integer  | no       | Display order in the UI (lower numbers appear first).                                                                                                                                                                       |
+| `is_important`       | boolean  | no       | When `true`, the metric is highlighted in the UI. Defaults to `false`.                                                                                                                                                      |
+| `tags`               | string[] | no       | Tags controlling categorization and display. For example, `lower-is-better`, `no-p`, and `elapsed_time`; `elapsed_time` means that stored numeric values are milliseconds.                                                    |
+
+Metric-definition descriptions are optional presentation metadata. They are
+returned with `metric_definitions`, but result submission does not require
+them, and the catalog does not read them during aggregation, comparison,
+statistics, filtering semantics, or export generation.
+
+Aggregation behavior:
+
+- `Average` averages all numeric observations. `AverageByRef` first averages
+  each ref's numeric observations, then gives every ref equal weight. Its
+  summary count and variation describe refs, not raw iterations. Observations
+  without a ref are excluded, and aggregation fails when no referenced numeric
+  observations remain.
+- `Precision`, `Recall`, and `F1` pool confusion counts across all observations.
+  `MicroPrecision`, `MicroRecall`, and `MicroF1` are explicit aliases for the
+  same pooled behavior.
+- `MacroPrecision`, `MacroRecall`, and `MacroF1` pool observations within each
+  ref, calculate that ref's score, and then average the ref scores equally.
+  Observations without a ref are excluded.
+- Precision, recall, and F1 variants accept either classification labels or
+  structured retrieval values. Do not mix retrieval values with classification
+  or numeric values for one metric in a set. `Accuracy` remains
+  classification-only. For backward compatibility, numeric history alongside
+  classification values is retained but does not contribute confusion counts.
+- With `Default`, metric names containing `precision`, `recall`, `f1`, or
+  `accuracy` infer the corresponding classification/retrieval aggregate when
+  compatible values are present; other numeric metrics average.
+- Statistics (paired permutation p-values and bootstrap confidence intervals)
+  are calculated only for `Average` and `AverageByRef` metrics, excluding
+  metrics tagged `no-p`. Pairing is by ref and still requires the configured
+  minimum number of paired observations.
+
+### Aggregate Comparison Metadata
+
+Aggregate comparison responses add metadata fields to each aggregate metric
+object without changing stored experiment data:
+
+| Field | Meaning |
+| --- | --- |
+| `count` | Number of metric observations represented by the aggregate. |
+| `unique_refs` | Number of distinct non-null refs represented by that aggregate metric. Built-in metrics apply aggregate-function-specific value eligibility; runtime custom metrics count the refs supplied to the Python function. |
+| `wins` | Number of shared refs where this set's per-ref aggregate strictly beats the experiment baseline's per-ref aggregate. |
+| `ties` | Number of shared refs where this set's per-ref aggregate exactly equals the experiment baseline's per-ref aggregate. |
+
+Important details:
+
+- `wins` and `ties` are comparison metadata only. They are computed for the
+  main aggregate comparison response and are not persisted back to the
+  experiment, exported in raw metrics, or used in the statistics pipeline.
+- Pairing uses only refs shared by the candidate set and the experiment
+  baseline, and only when both per-ref aggregates expose numeric values for the
+  same metric. Unpaired refs are ignored.
+- Metric direction comes from the `lower-is-better` tag on the metric
+  definition. When the tag is present, a lower numeric value is a win;
+  otherwise, a higher numeric value is a win.
+- Ties require exact numeric equality. Version 1 does not apply an epsilon or
+  tolerance window.
+- The experiment baseline is the comparison target, so it omits `wins` and
+  `ties`. Its `count` and `unique_refs` fields still describe the aggregate
+  baseline metric itself.
+- `unique_refs`, `wins`, and `ties` are response-only comparison metadata.
+  Clients should treat them as display/analysis helpers rather than persisted
+  metric values.
+
+### Runtime Custom Aggregate Metrics
+
+The catalog can add trusted, runtime-only aggregate metrics during comparison
+and meaningful-tags requests. This feature is disabled unless
+`CUSTOM_AGGREGATE_FUNCTIONS_PATH` points to a local folder of
+administrator-deployed `.py` files.
+
+> [!WARNING]
+> Files in `CUSTOM_AGGREGATE_FUNCTIONS_PATH` execute as arbitrary Python code
+> inside the catalog process boundary. Only enable this for trusted,
+> administrator-managed code.
+
+- Each non-underscore `*.py` file in the configured folder contributes one
+  runtime metric. The filename stem becomes the metric name returned in API
+  responses, so `efficiency.py` produces `efficiency`.
+- Files whose names start with `_` are ignored for metric discovery but remain
+  importable from sibling modules because the configured folder is added to the
+  Python import path for each request.
+- Every discovered file must expose `aggregate(results)`. The catalog launches
+  one fresh, batched Python subprocess for each
+  `GET /api/projects/{project}/experiments/{experiment}/compare`,
+  `GET /api/projects/{project}/experiments/{experiment}/sets/{set}/compare-by-ref`,
+  and `POST /api/analysis/meaningful-tags` request. There is no cache or
+  persistent worker, so file changes apply on the next request.
+- `compare` builds one aggregate group per filtered set. `compare-by-ref` builds
+  one aggregate group per filtered ref within the requested set. Meaningful-tags
+  analysis builds filtered experiment tag-slice groups and, when needed, the
+  comparison average or baseline tag-slice groups used for the request.
+  Include/exclude filters are always applied before groups are built.
+- Each function sees only stored raw result rows for its group. Outputs from one
+  custom aggregate function are not fed into another, so derived-on-derived
+  inputs are not available.
+- Metric name collisions fail the entire request. If a runtime aggregate metric
+  name already exists on the aggregate output, the catalog returns an error
+  instead of overwriting the value.
+- Any `stdout` emitted while importing modules or running `aggregate(results)`
+  is redirected to the child process `stderr` so it cannot corrupt the JSON
+  protocol.
+- Returned values appear only in the response. They are not persisted, do not
+  appear in raw metric exports, and do not currently receive aggregate
+  statistics such as standard deviation, p-values, or confidence intervals.
+
+The `results` argument is a JSON-compatible list of raw result rows shaped like:
+
+```json
+[
+  {
+    "ref": "q1",
+    "set": "candidate-a",
+    "ground_truth_uri": "ground-truth/q1.json",
+    "inference_uri": "inference/q1.json",
+    "evaluation_uri": "evaluation/q1.json",
+    "metrics": {
+      "generation_correctness": 0.91,
+      "answer_accuracy": "t+",
+      "retrieval_recall": {
+        "found": ["doc-1", "doc-3"],
+        "expected": ["doc-1", "doc-2"]
+      }
+    }
+  }
+]
+```
+
+Within `metrics`, each value is passed through exactly as stored on the raw
+result: a numeric value, a classification string such as `t+`, or a retrieval
+object shaped as `{ "found": [...], "expected": [...] }`. `ref`, `set`,
+`ground_truth_uri`, `inference_uri`, and `evaluation_uri` are included when
+present on the stored result.
+
+`aggregate(results)` must return a finite `int` or `float`, or `None` to skip
+the metric for that group. Booleans, `NaN`, and infinities fail the entire
+request.
+
+The repository's [`user-defined-aggregates`](./user-defined-aggregates)
+folder is the recommended location for these functions during local
+development. It is not copied into the catalog application; configure or mount
+it explicitly. For example, start with
+`catalog/user-defined-aggregates/efficiency.py`:
+
+```python
+def aggregate(results):
+    correctness = [
+        result["metrics"]["generation_correctness"]
+        for result in results
+        if "generation_correctness" in result["metrics"]
+    ]
+    latency = [
+        result["metrics"]["meta_inference_time"]
+        for result in results
+        if "meta_inference_time" in result["metrics"]
+    ]
+    if not correctness or not latency:
+        return None
+    average_correctness = sum(correctness) / len(correctness)
+    average_latency = sum(latency) / len(latency)
+    if average_latency <= 0:
+        return None
+    return average_correctness / average_latency
+```
+
+This example reports average correctness per unit of average inference time, so
+higher values indicate better efficiency.
+
+Metric definitions are optional for custom aggregate metrics. If you create a
+definition whose `name` matches the Python filename stem, the catalog can
+normalize the returned value with `min` and `max`, control display order with
+`order`, mark it important with `is_important`, and apply tags such as
+`lower-is-better` or `elapsed_time`.
+
+### Export Raw Metrics
+
+Export experiment- or set-scoped raw metrics:
+
+```text
+GET /api/analysis/projects/{project}/experiments/{experiment}/metrics?format=json
+GET /api/analysis/projects/{project}/experiments/{experiment}/metrics?format=csv
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics?format=json
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics?format=csv
+```
+
+JSON returns rows shaped as `{set, ref, iteration, metrics}`. CSV is a wide
+table with `set`, `ref`, and `iteration` join keys followed by alphabetically
+ordered metric columns. Structured retrieval metrics use
+`<metric>.found` and `<metric>.expected` CSV columns containing JSON arrays.
+Metric names that collide with join keys are prefixed with `metric.`.
+
+`iteration` is the one-based source-order occurrence for each `(set, ref)`
+pair. It is assigned across all result records, so gaps are possible when a
+record has no exportable metrics. Records without both `set` and `ref`, and
+annotation-only or metricless records, are omitted. Exports contain raw values,
+not aggregate statistics, annotations, or runtime custom aggregate metrics.
+`format` accepts only `json` or `csv`.
+
+### Export Artifact Manifests
+
+Export manifests for the exact stored inference and evaluation URIs:
+
+```text
+GET /api/analysis/projects/{project}/experiments/{experiment}/artifacts?format=jsonl&types=inference,evaluation
+GET /api/analysis/projects/{project}/experiments/{experiment}/sets/{set}/artifacts?format=jsonl&types=inference
+```
+
+Use `format=json` for a JSON array or `format=jsonl` for one object per line.
+Each row is `{type, set, ref, iteration, uri}` and uses the same `(set, ref,
+iteration)` join key as raw metrics. `types` is a comma-separated list
+containing `inference`, `evaluation`, or both (the default).
+
+Manifests omit records without both `set` and `ref` and de-duplicate identical
+`(type, uri)` entries. The catalog returns the URI stored on the result as-is;
+it does not validate the URI, proxy blob contents, mint access tokens, or
+create ZIP archives. For Azure Blob URIs, clients download directly using an
+identity with blob access.
 
 ### Compare by Ref
 
@@ -268,6 +645,13 @@ Compare results grouped by reference (ground truth):
 ```bash
 curl -i http://localhost:6010/api/projects/project-example/experiments/experiment-000/sets/my-set/compare-by-ref
 ```
+
+This endpoint returns one aggregate result per ref within the requested set
+after include/exclude tag filters are applied.
+
+The main `compare` endpoint uses these per-ref aggregates internally to compute
+`wins` and `ties` for each set-level aggregate metric. Version 1 applies exact
+numeric comparison only; it does not use tolerance-based matching.
 
 ### Get Set Results
 
@@ -301,6 +685,10 @@ Analyze which tags have the most meaningful impact on a specific metric:
 curl -i -X POST -d '{ "project": "project-example", "experiment": "experiment-000", "set": "my-set", "metric": "gpt-relevance", "compareTo": "Average" }' -H "Content-Type: application/json" http://localhost:6010/api/analysis/meaningful-tags
 ```
 
+When runtime custom aggregates are enabled, `metric` may be either a built-in
+aggregate metric name or a custom aggregate metric name produced by the request
+described in [Runtime Custom Aggregate Metrics](#runtime-custom-aggregate-metrics).
+
 ### Download Support Documents
 
 Download a support document (requires `ENABLE_DOWNLOAD=true`):
@@ -317,18 +705,6 @@ The API includes Scalar documentation available at:
 http://localhost:6010/scalar/v1
 ```
 
-## Sample Data
-
-The [sample](sample) folder contains files you can use to populate a project with sample data. To use it, create a project and then upload the sample files directly into the project's Azure Blob Storage container. The sample includes:
-
-- **baseline.jsonl**: A baseline experiment with 1 set (`20251210152915`)
-- **inference_models.jsonl**: A single experiment with 3 permutations (`20251209170502`, `20251210092001`, `20251210094431`)
-- **metric_definitions.json**: Metric definitions covering retrieval metrics (accuracy, precision, recall, DCG, F1, MRR), generation metrics (correctness, faithfulness, factuality, should-answer accuracy), and meta metrics (inference/eval time, cost, tokens)
-- **tag_multiturn.json**: Tag for multi-turn ground truths
-- **tag_singleturn.json**: Tag for single-turn ground truths
-- **tag_source_GTC.json**: Tag for GTC-sourced ground truths
-- **tag_source_TQ.json**: Tag for TQ-sourced ground truths
-
 ## Docker
 
 To build the catalog service, you must be at the root and run...
@@ -338,3 +714,23 @@ docker build --rm -t exp-catalog:latest -f catalog.Dockerfile .
 ```
 
 This is necessary so that the UI can be built and injected into the catalog container in a single build command.
+
+To enable runtime custom aggregate metrics in the container, mount a trusted
+folder of Python files and set the related environment variables:
+
+```bash
+docker run \
+  -p 6010:6010 \
+  -e AZURE_STORAGE_ACCOUNT_CONNSTRING="<your-connection-string>" \
+  -e CUSTOM_AGGREGATE_FUNCTIONS_PATH=/app/user-defined-aggregates \
+  -e CUSTOM_AGGREGATE_PYTHON_EXECUTABLE=python3 \
+  -e CUSTOM_AGGREGATE_TIMEOUT_SECONDS=30 \
+  -v "$(pwd)/catalog/user-defined-aggregates:/app/user-defined-aggregates:ro" \
+  exp-catalog:latest
+```
+
+`catalog.Dockerfile` installs `python3` in the runtime image. The
+`catalog/aggregate-runtime` folder contains internal execution machinery, not
+user functions. Replace the example bind mount with your
+administrator-managed function folder before enabling the feature in shared
+environments.

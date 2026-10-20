@@ -7,6 +7,12 @@ cd "$root_dir"
 echo "==> Test: running .NET tests..."
 dotnet test experiment-catalog.sln --nologo --verbosity quiet
 
+echo "==> Test: running Experiment Catalog CLI tests..."
+PYTHONPATH=cli/src python3 -m unittest discover -s cli/tests -v
+
+echo "==> Test: running custom aggregate runner tests..."
+PYTHONPATH=catalog/aggregate-runtime python3 -m unittest discover -s catalog/aggregate-runtime/tests -v
+
 echo "==> Test: running UI unit tests..."
 if [ -d "ui" ] && [ -f "ui/vitest.config.ts" ]; then
   cd ui
@@ -18,19 +24,23 @@ echo "==> Test: running UI Playwright tests..."
 if [ -d "ui" ] && [ -f "ui/playwright.config.ts" ]; then
   cd ui
 
-  # Use the Playwright Docker image for consistent cross-platform rendering.
-  # Update the tag when upgrading @playwright/test in package.json.
-  PW_IMAGE="mcr.microsoft.com/playwright:v1.61.0-noble"
-
   if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+    # Match the image's browsers to the installed Playwright version.
+    playwright_version=$(node -p "require('@playwright/test/package.json').version")
+    PW_IMAGE="mcr.microsoft.com/playwright:v${playwright_version}-noble"
+    npm_registry=$(npm config get registry)
     echo "    Running Playwright tests inside Docker ($PW_IMAGE)..."
     docker run --rm \
+      --platform linux/amd64 \
       --ipc=host \
       -v "$root_dir":/work \
+      --tmpfs /work/ui/node_modules:exec \
       -w /work/ui \
       -e CI="${CI:-}" \
+      -e NPM_CONFIG_REGISTRY="$npm_registry" \
+      -e NPM_CONFIG_REPLACE_REGISTRY_HOST=npmjs \
       "$PW_IMAGE" \
-      bash -c "npm ci && npx playwright test"
+      bash -c "npm ci && npx --no-install playwright test"
   else
     echo "    [warn] Docker not available — running Playwright tests natively."
     npx playwright install --with-deps chromium

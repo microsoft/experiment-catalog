@@ -2,7 +2,11 @@
 
 ## Purpose
 
-Experiment Catalog is a platform for managing A/B experiments and their results. It provides a REST API and MCP server for creating projects, defining experiments with metric definitions, recording results, and performing statistical analysis. A Svelte SPA provides the user interface. A separate evaluator service orchestrates evaluation workflows.
+Experiment Catalog is a platform for managing A/B experiments and their
+results. It provides a REST API and MCP server for management and analysis, a
+Python CLI and notebook API for validated publishing, and a Svelte SPA for
+comparison. Evaluation runners remain external integrations that publish their
+results through the catalog API or Python client.
 
 ## Boundaries
 
@@ -11,11 +15,11 @@ Experiment Catalog is a platform for managing A/B experiments and their results.
 | REST API Layer     | HTTP request            | JSON response / DTO            | `catalog/controllers/`             |
 | MCP Tool Layer     | MCP tool invocation     | Tool result                    | `catalog/mcp/`                     |
 | Domain Services    | DTO / validated request | Domain model / computed result | `catalog/services/`                |
+| Runtime Custom Aggregates | Filtered comparison groups | Non-persisted aggregate metrics | `catalog/services/DerivedMetricService.cs` + `catalog/aggregate-runtime/aggregate_runner.py` |
 | Storage Layer      | Domain model            | Azure Blob JSON records        | `catalog/services/*StorageService` |
 | Configuration      | Environment variables   | Typed config object            | `catalog/config/`                  |
+| CLI / Notebook API | CSV or Python result rows | API requests / push report    | `cli/src/experiment_catalog/`      |
 | UI Build           | Svelte components       | Static HTML/JS/CSS bundle      | `ui/src/`                          |
-| Evaluator API      | HTTP request            | Evaluation result              | `evaluator/controllers/`           |
-| Evaluation Scripts | Python CLI args         | Evaluation scores              | `evaluation/`                      |
 
 ## Data Shape Contracts
 
@@ -23,6 +27,73 @@ Experiment Catalog is a platform for managing A/B experiments and their results.
 - Convert to internal typed models (`catalog/models/`) before crossing module boundaries.
 - Keep boundary transformation logic centralized and testable.
 - Storage records use `StorageRecord` for serialization to Azure Blob storage.
+- An `x: "X"` record with a `set` name is an append-only set tombstone.
+  `AzureBlobStorageService` parses it separately from result (`R`) and
+  statistics (`P`) records; `Experiment.Sets` excludes tombstoned names while
+  retaining the underlying results for direct access and raw downloads.
+- Project and experiment card emoji IDs and short notes are mutable
+  presentation fields stored in project container and experiment append-blob
+  metadata respectively, not in JSONL records. Their REST display endpoints
+  validate them; `AzureBlobStorageService` encodes Unicode notes as base64
+  UTF-8, preserves baseline and unrelated metadata, and includes them in list
+  responses. Blob updates use conditional ETags; container metadata does not
+  support If-Match, so project updates are serialized within an API instance
+  but concurrent writers across instances can still race. Editing experiment
+  metadata changes the blob ETag, so full-content caches keyed by ETag may
+  need to download the experiment again.
+- A project's optional `ground_truth` is stored as base64 UTF-8 under the
+  existing `ground_truth_name_b64` container metadata key alongside its card
+  emoji and note, preserving previously saved values. Project listing and
+  `GET /api/projects/{projectName}` map it onto the same `Project` model, also
+  used by the MCP `ListProjects` tool. Direct UI links fetch one project;
+  selection from the project list reuses its existing record. A single project
+  display update requires all three fields and preserves the project's
+  baseline and unrelated metadata.
+- `MetricDefinition` includes optional presentation metadata such as
+  `description`. This metadata travels with `metric_definitions` for UI
+  rendering, but it is not required for result submission and does not
+  participate in aggregation or storage of per-result metric values.
+- `cli/src/experiment_catalog/models.py` defines and validates the CSV and
+  in-memory result contracts before API writes begin; catalog-side result rules
+  can still reject individual rows.
+- `ExperimentService.CompareAsync`,
+  `ExperimentService.CompareByRefAsync`, and
+  `AnalysisService.GetMeaningfulTagsAsync` apply include/exclude filters before
+  building runtime custom aggregate groups. An explicit cross-project comparison
+  target is the exception: target results are not filtered with the current
+  project's tags, but are aggregated with its metric definitions.
+- The optional comparison target is a validated project/experiment/set triple
+  in read-only API requests and the UI's encoded URL configuration. It does not
+  modify stored baseline designations or statistics; overridden comparisons do
+  not attach stored baseline statistics.
+- Aggregate and per-ref comparison requests accept paired `ref-set` and
+  `ref-metric` parameters. `ExperimentService` resolves their refs from the
+  current experiment's untagged set (including runtime custom per-ref metrics).
+  `Experiment.Filter` intersects results with that boundary before tag
+  include/exclude logic, including for baselines and cross-project targets.
+  An empty boundary stays empty, and stored full-dataset statistics are omitted.
+  The UI persists the selection as `ref_filter` in URL configuration; aggregate
+  responses expose `ref_filter_refs` so charts can restrict raw iterations too.
+  URL `ref_filter` values include their owning `project` and `experiment`.
+  The UI removes mismatched, malformed, or legacy unscoped ref filters on URL
+  load and navigation, without resetting other display options or tag filters.
+- Aggregate comparison metric DTOs can include response-only metadata fields
+  such as `unique_refs`, `wins`, and `ties`.
+- `DerivedMetricService` serializes each raw result row for Python as
+  `{ref?, set?, ground_truth_uri?, inference_uri?, evaluation_uri?, metrics}`.
+  Metric values remain numeric, classification strings, or retrieval objects
+  shaped as `{found, expected}`.
+- Runtime custom aggregate functions receive only stored/raw metrics for their
+  group. Their outputs are appended to the response only, are not persisted,
+  and are not fed back into later aggregate functions.
+- `unique_refs` counts distinct non-null refs represented by an aggregate
+  metric. Built-in metrics apply aggregate-function-specific value eligibility;
+  runtime custom metrics count refs supplied to the Python function because its
+  internal row usage is opaque to the catalog.
+- `wins` and `ties` are computed only after the main comparison aggregates are
+  built. They pair per-ref candidate and active-comparison-target aggregates by
+  shared ref, require numeric values on both sides, respect the
+  `lower-is-better` metric-definition tag, and treat equality as exact in v1.
 
 ## Module Ownership Rules
 
@@ -33,20 +104,49 @@ Experiment Catalog is a platform for managing A/B experiments and their results.
 | `catalog/models/`      | Typed domain models and request/response DTOs  | Shared contracts |
 | `catalog/services/`    | Business logic, storage operations, statistics | Domain core      |
 | `catalog/config/`      | Configuration loading and validation           | Infrastructure   |
+| `catalog/aggregate-runtime/` | Internal runtime aggregate protocol      | Python boundary  |
+| `catalog/user-defined-aggregates/` | Administrator-provided aggregate functions | Deployment boundary |
 | `catalog/policies/`    | Policy evaluation (e.g., percent improvement)  | Domain logic     |
 | `catalog/extensions/`  | Validation attributes and helper extensions    | Cross-cutting    |
 | `catalog.tests/`       | Unit tests for catalog                         | Test boundary    |
-| `evaluator/`           | Evaluation orchestration service               | Separate service |
-| `evaluation/`          | Python evaluation scripts                      | External tooling |
+| `cli/`                 | CLI, notebook API, CSV parsing and validation  | Client boundary  |
 | `ui/`                  | Svelte SPA frontend                            | Client boundary  |
 
 ## Execution Flow
 
-1. Entry: HTTP request arrives at Kestrel (catalog/Program.cs) or MCP tool invocation.
-2. Boundary parse/validate: Controllers validate via model binding + custom attributes; MCP tools use `McpValidationHelper`.
-3. Core execution: Services perform business logic (experiment management, statistics calculation, analysis).
-4. Persistence/output: `AzureBlobStorageService` reads/writes JSON blobs; results returned as JSON responses.
-5. Event/log emission: OpenTelemetry traces exported to Azure Monitor; structured logging via `ILogger`.
+1. Entry: HTTP request arrives at Kestrel (`catalog/Program.cs`), an MCP tool is
+   invoked, or a caller uses the CLI/Python `Catalog` client.
+2. Boundary parse/validate: Controllers validate through model binding and
+   custom attributes, MCP tools use `McpValidationHelper`, and the Python client
+   validates complete CSV or in-memory result sets before contacting the API.
+3. Client orchestration: A push verifies the target experiment and appends each
+   result. These calls are sequential and are not one atomic server
+   transaction.
+4. Core execution: Services perform business logic (experiment management,
+   statistics calculation, and analysis). Runtime custom aggregate execution is
+   request-scoped for
+   `GET /api/projects/{project}/experiments/{experiment}/compare`,
+   `GET /api/projects/{project}/experiments/{experiment}/sets/{set}/compare-by-ref`,
+   and `POST /api/analysis/meaningful-tags`.
+5. Request-scoped Python execution: After filtering, `ExperimentService` or
+   `AnalysisService` batches all aggregate groups for the request and invokes
+   one fresh Python subprocess through `DerivedMetricService`. A ref boundary
+   is resolved first with a separate per-ref batch for its source set.
+   `catalog/aggregate-runtime/aggregate_runner.py` loads every non-underscore file from
+   `CUSTOM_AGGREGATE_FUNCTIONS_PATH`, exposes the folder on `sys.path` so helper
+   modules can be imported, and enforces the shared hard timeout for the full
+   request.
+6. Comparison annotation: For the main experiment comparison flow,
+   `ComparisonMetricCalculator` compares per-ref candidate aggregates against
+   the selected target (or the experiment baseline by default) and annotates
+   aggregate metric DTOs with response-only `wins` and `ties` counts. The
+   active comparison target does not receive those counts.
+7. Persistence/output: `AzureBlobStorageService` reads/writes JSON blobs;
+   results or push reports are returned to the caller. Runtime custom aggregate
+   values and aggregate comparison metadata are merged into response DTOs only
+   and do not modify stored results or statistics jobs.
+8. Event/log emission: OpenTelemetry traces are exported to Azure Monitor;
+   structured logging uses `ILogger`.
 
 ## Refactor Checklist
 

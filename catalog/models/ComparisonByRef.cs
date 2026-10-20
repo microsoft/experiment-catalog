@@ -14,6 +14,9 @@ public class ComparisonByRef
     [JsonProperty("experiment_baseline", NullValueHandling = NullValueHandling.Ignore)]
     public ComparisonByRefEntity? ExperimentBaseline { get; set; }
 
+    [JsonProperty("comparison_target", NullValueHandling = NullValueHandling.Ignore)]
+    public ComparisonByRefEntity? ComparisonTarget { get; set; }
+
     [JsonProperty("experiment_set", NullValueHandling = NullValueHandling.Ignore)]
     public ComparisonByRefEntity? ExperimentSet { get; set; }
 }

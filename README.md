@@ -1,20 +1,20 @@
 ---
 title: Experiment Catalog
 description: Catalog, compare, and analyze experiment runs with a .NET API, Svelte UI, and deterministic development harness.
-ms.date: 2026-05-20
+ms.date: 2026-09-02
 ms.topic: overview
 ---
 
 ## Experiment Catalog
 
-A comprehensive tool for cataloging, comparing, and analyzing experiment results. The Experiment Catalog enables teams to track evaluation runs across projects, compare metrics against baselines, and identify performance regressions or improvements in AI/ML experimentation workflows.
+A tool for cataloging, comparing, and analyzing experiment results. The Experiment Catalog enables teams to track evaluation runs across projects, compare metrics against baselines, and identify performance regressions or improvements in AI/ML experimentation workflows.
 
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/microsoft/experiment-catalog/badge)](https://scorecard.dev/viewer/?uri=github.com/microsoft/experiment-catalog)
 [![CodeQL](https://github.com/microsoft/experiment-catalog/actions/workflows/codeql.yml/badge.svg)](https://github.com/microsoft/experiment-catalog/actions/workflows/codeql.yml)
 
 ## Overview
 
-The Experiment Catalog is designed for teams running iterative experiments—particularly useful for AI evaluation pipelines where you need to:
+The Experiment Catalog is designed for teams running iterative experiments. It is particularly useful for AI evaluation pipelines where you need to:
 
 - Track results across multiple evaluation runs
 - Compare experiment metrics against established baselines
@@ -22,52 +22,74 @@ The Experiment Catalog is designed for teams running iterative experiments—par
 - Filter and drill down into specific ground-truth results
 - Annotate experiments with links to commits, configurations, or documentation
 
-There are some videos you can watch:
+Watch these walkthroughs:
 
-- [Installation](https://youtu.be/KHsnsHpdq00?si=XsN7gJrInF1GvrO-).............6:08
-- [Usage](https://youtu.be/CFwjwU7okl0?si=007W84sZ3tyVRWI6)..................30:56
-- [Configuration](https://youtu.be/-ZjgL27pGNk?si=WFFrDMWxGrQK3EZn).......16:36
+- [Installation](https://youtu.be/KHsnsHpdq00?si=XsN7gJrInF1GvrO-) (6:08)
+- [Usage](https://youtu.be/CFwjwU7okl0?si=007W84sZ3tyVRWI6) (30:56)
+- [Configuration](https://youtu.be/-ZjgL27pGNk?si=WFFrDMWxGrQK3EZn) (16:36)
 
 ## Architecture
 
 The application consists of several main components:
 
-| Component      | Description                                                                                     |
-| -------------- | ----------------------------------------------------------------------------------------------- |
-| **catalog**    | C# .NET backend that stores experiment data in Azure Blob Storage                               |
-| **ui**         | Svelte-based frontend for visualizing and comparing experiments                                 |
-| **evaluator**  | An evaluation runner that can execute inference and evaluation then send results to the catalog |
-| **evaluation** | An example evaluation script                                                                    |
+| Component         | Description                                                                       |
+| ----------------- | --------------------------------------------------------------------------------- |
+| **catalog**       | ASP.NET Core API that stores experiment data in Azure Blob Storage                |
+| **MCP interface** | MCP tools hosted by the catalog API for project, experiment, and analysis actions |
+| **cli**           | Python package and CLI for publishing metrics from CSV files or notebooks          |
+| **ui**            | Svelte frontend for visualizing and comparing experiments                         |
+| **catalog.tests** | xUnit tests for the catalog API                                                   |
 
 ## Key Concepts
 
-- **Project**: A collection of experiments sharing the same baseline, grounding data, and evaluation configuration. Typically this aligns to a sprint. This is described in more detail in [the experimentation process](./experimentation-process.md).
-- **Experiment**: A hypothesis-driven collection of evaluation runs within a project.
-- **Set**: A group of results from a single evaluation run - also commonly called a permutation (e.g., 3 iterations × 12 ground truths).
-- **Ref**: A reference to a specific ground-truth entity being evaluated, allowing aggregation across iterations.
-- **Baseline**: A reference point for comparison. This can be set at both project and experiment levels.
+- A project is a collection of experiments sharing the same baseline, grounding data, and evaluation configuration. It typically aligns to a sprint. See [the experimentation process](./experimentation-process.md) for details.
+- An experiment is a hypothesis-driven collection of evaluation runs within a project.
+- A set is a group of results from a single evaluation run, also commonly called a permutation (for example, 3 iterations × 12 ground truths).
+- A ref identifies a specific ground-truth entity being evaluated, allowing aggregation across iterations.
+- A baseline is a reference point for comparison at the project or experiment level.
 
 ## Features
 
 ### Experiment Management
 
 - Create projects and experiments with hypotheses
+- Create projects, experiments, and push metric rows from the
+  [Experiment Catalog CLI](./cli/README.md) or the same Python API in notebooks
 - Set project-level and experiment-level baselines
-- Record arbitrary metrics without pre-definition
+- Record arbitrary metrics without requiring metric definitions, while
+  optionally adding metric-definition descriptions for inline comparison context
 - Annotate sets with commit hashes, configuration links, or notes
 
 ### Comparison & Analysis
 
-- Compare experiment results against baselines
+- Compare experiment results against baselines per set or per ref
 - View aggregate statistics across sets
+- Aggregate structured retrieval metrics with pooled or per-ref precision,
+  recall, and F1
+- Surface response-only aggregate comparison metadata such as distinct
+  contributing refs and per-ref WIN/TIE counts against the experiment baseline
+- Compute trusted runtime-only custom aggregate metrics from
+  administrator-managed Python files during comparison and meaningful-tags
+  analysis (see the
+  [Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics))
 - Drill down into individual ground-truth results
 - Compare metrics across multiple evaluation runs
+- Export raw metrics and direct-download artifact manifests at experiment or
+  set scope (see the [catalog API guide](./catalog/README.md#export-raw-metrics))
 
 ### Filtering Capabilities
 
-- **Metrics Filter**: Show/hide specific metrics in comparison views
-- **Tags Filter**: Filter ground truths by tags extracted from source data
-- **Free Filter**: Write custom filter expressions to find specific results
+- Use the metrics filter to show or hide specific metrics in comparison views
+- Use the tags filter to select ground truths by tags extracted from source data
+- Use **Ref Filter** (below **Tag Impact**) to select a set and metric, then
+  **apply** to compare only refs with that metric in that set. This makes partial
+  runs comparable: tag filters can narrow this boundary but never expand it.
+  **clear** removes the boundary. The selection is saved in the URL and carries
+  into set drilldowns and charts; full-dataset statistics are hidden while active.
+  An amber warning at the tag controls identifies the active ref boundary.
+  Ref filters belong to the project and experiment where they were applied;
+  leaving that experiment clears the filter, while drilldowns and charts retain it.
+- Use the free filter to write custom expressions that find specific results
 
 #### Free Filter Examples
 
@@ -105,11 +127,42 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0)
 - [Node.js 20+](https://nodejs.org/)
-- [Python 3.9+](https://www.python.org/) (for tags utility)
+- [Python 3.10+](https://www.python.org/downloads/) for the CLI, notebook
+  API, and optional runtime custom aggregate metrics
 - [Docker](https://www.docker.com/) (for containerized deployment)
 - Azure Storage Account
+- [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) (when using `INCLUDE_CREDENTIAL_TYPES=azcli`)
 
 ### Running Locally
+
+#### Experiment Catalog CLI
+
+Install the reusable CLI and notebook package:
+
+```bash
+python3 -m venv cli/.venv
+cli/.venv/bin/python -m pip install -e ./cli
+source cli/.venv/bin/activate
+export EXPERIMENT_CATALOG_BASE_URL=http://localhost:6010/api
+experiment-catalog --help
+```
+
+For example:
+
+```bash
+experiment-catalog create-project sprint-42
+experiment-catalog create-experiment \
+  --project sprint-42 notebook-test \
+  --hypothesis "The candidate prompt improves answer correctness."
+experiment-catalog push ./cli/examples/notebook-results.csv \
+  --project sprint-42 \
+  --experiment notebook-test \
+  --set candidate-a \
+  --dry-run
+```
+
+See the [CLI guide](./cli/README.md) for the CSV format, dry runs, metric
+pushes, and notebook examples.
 
 #### Backend API
 
@@ -131,6 +184,28 @@ You can find out more about the Free Filter syntax and use cases in the [UI READ
    ```
 
    Full configuration for the API can be found in the [Catalog README](./catalog/README.md).
+   Optional runtime custom aggregate metrics use the
+   `CUSTOM_AGGREGATE_*` settings documented in the
+   [Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics).
+
+   For local-only storage, set `AZURE_STORAGE_ACCOUNT_CONNSTRING=UseDevelopmentStorage=true`
+   instead of an Azure account name, and start Azurite **before** using the API.
+   From the repository root, run this in a separate terminal (Docker required):
+
+   ```bash
+   mkdir -p .azurite
+   docker run --rm --name experiment-catalog-azurite-blob-local \
+     -p 127.0.0.1:10000:10000 \
+     -v "$PWD/.azurite:/data" \
+     mcr.microsoft.com/azure-storage/azurite \
+     azurite-blob --blobHost 0.0.0.0 --location /data --skipApiVersionCheck
+   ```
+
+   `--skipApiVersionCheck` allows newer Azure Storage SDK requests against
+   Azurite versions that have not added that API version yet. Azurite data
+   stays in the ignored `.azurite/` directory. A connection refusal
+   on `127.0.0.1:10000` when listing projects means the local Blob emulator is
+   not listening; the API can start even when storage is unavailable.
 
 3. Run the API:
 
@@ -173,10 +248,18 @@ docker build --rm -t exp-catalog:latest -f catalog.Dockerfile .
 Run the container:
 
 ```bash
-docker run -p 6010:6010 \
-  -e AZURE_STORAGE_ACCOUNT_NAME=<your-storage-account> \
-  exp-catalog:latest
+docker run -p 6010:6010 -e AZURE_STORAGE_ACCOUNT_CONNSTRING="<your-connection-string>" exp-catalog:latest
 ```
+
+You can instead provide `AZURE_STORAGE_ACCOUNT_NAME` when the container has access to a supported Azure credential, such as a service principal or managed identity.
+
+The published runtime image includes `python3` for optional runtime custom
+aggregate metrics. For local development, place functions in
+[`catalog/user-defined-aggregates`](./catalog/user-defined-aggregates) and set
+`CUSTOM_AGGREGATE_FUNCTIONS_PATH` to that folder. For deployments, mount a
+trusted folder of `.py` files and set
+`CUSTOM_AGGREGATE_FUNCTIONS_PATH` as described in the
+[Catalog README](./catalog/README.md#runtime-custom-aggregate-metrics).
 
 ## ISE OSS Usage Attribution Disclosure
 
@@ -214,40 +297,38 @@ A `make`-based harness provides deterministic commands for local development and
 | Command          | Description                                          |
 | ---------------- | ---------------------------------------------------- |
 | `make setup`     | Install dependencies and prepare the dev environment |
-| `make smoke`     | Fast sanity check (build + quick tests)              |
-| `make lint`      | Run linters across all projects                      |
+| `make smoke`     | Build the .NET solution and UI                       |
+| `make lint`      | Run the configured repository linters                |
 | `make typecheck` | Run type checking across all projects                |
 | `make check`     | Run both lint and typecheck                          |
 | `make test`      | Run the full test suite                              |
-| `make security`  | Run security scanning                                |
+| `make security`  | Run the configured repository security checks        |
 | `make ci`        | CI-equivalent local run (smoke + check + test)       |
 
 Start with `make setup` after cloning, then use `make ci` before pushing changes to verify everything passes locally.
 
-## Governance and branch policy
+## Governance and Branch Policy
 
 This repository uses branch protection and CI checks as quality gates for `main`.
 
 Required merge policy:
 
 - Pull requests are required for all changes to `main`.
-- At least 1 approval is required before merge.
+- At least 2 approvals are required before merge.
 - Code owner review is required for protected areas.
-- Required checks must pass before merge:
-  - `Harness CI`
-  - `CodeQL / Analyze (csharp)`
-  - `CodeQL / Analyze (javascript)`
-  - `CodeQL / Analyze (python)`
-  - `PR Title Validation / validate-title`
+- Stale approvals are dismissed when new commits are pushed.
+- The latest push must be approved by someone other than its author.
+- All review threads must be resolved before merge.
+- Required checks must pass before merge: `Harness CI`, `CodeQL / Analyze (csharp)`, `CodeQL / Analyze (javascript)`, `CodeQL / Analyze (python)`, `PR Title Validation / validate-title`, and `Scorecard analysis`.
 - Force pushes and branch deletion are blocked on `main`.
 
 These checks are defined in repository workflows and should be set as required status checks in GitHub branch rules.
 
-## Community and roadmap
+## Community and Roadmap
 
 Current focus areas:
 
-- Expand evaluator and evaluation sample coverage.
+- Expand API, MCP, and UI test coverage.
 - Improve analytics and baseline-comparison usability in the UI.
 - Harden operational readiness with clearer SLO reporting.
 
@@ -261,14 +342,6 @@ Contribution and triage cadence:
 
 All examples for using the API can be found in [catalog.http](./catalog/catalog.http).
 
-## Evaluator Usage
-
-The evaluator is a .NET console application that can run inference and evaluation, then send results to the Experiment Catalog. You can find the evaluator in the [evaluator](./evaluator) directory with full instructions in the [evaluator README](./evaluator/README.md).
-
-## Evaluation Example
-
-You can find an example evaluation script in the [evaluation](./evaluation) directory.
-
 ## Synthetic and Sample Data Provenance
 
 This repository includes sample data intended only for local demos, testing, and validation workflows.
@@ -279,7 +352,9 @@ Data provenance policy:
 - Any generated or synthetic examples should be clearly labeled in-file and in documentation.
 - Contributors must document data origin, generation method, and intended usage when adding new sample datasets.
 
-The catalog service sample files are documented in [catalog/README.md](./catalog/README.md#sample-data).
+The runnable synthetic
+[`cli/examples/notebook-results.csv`](./cli/examples/notebook-results.csv)
+demonstrates the push format without using production data.
 
 ## Community Triage and Ownership
 

@@ -8,8 +8,10 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+.npmrc
 dist
 dist-ssr
+.svelte-check/
 *.local
 
 # Editor directories and files

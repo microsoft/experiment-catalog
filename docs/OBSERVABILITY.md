@@ -1,7 +1,7 @@
 ---
 title: Experiment Catalog Observability
 description: Observability standards and service level objectives for diagnosing and operating experiment-catalog workflows.
-ms.date: 2026-05-20
+ms.date: 2026-09-02
 ms.topic: reference
 ---
 
@@ -33,14 +33,30 @@ Availability error budget is 0.5% failed requests over a 30-day window.
 
 ## Current Instrumentation
 
-The catalog and evaluator services already use OpenTelemetry with Azure Monitor exporter:
+The catalog service uses OpenTelemetry with the Azure Monitor exporter:
 
 - `OpenTelemetry.Instrumentation.AspNetCore` for automatic HTTP tracing.
 - `OpenTelemetry.Instrumentation.Http` for outbound HTTP call tracing.
 - `Azure.Monitor.OpenTelemetry.Exporter` for export to Application Insights.
 - Configuration via `OPEN_TELEMETRY_CONNECTION_STRING` environment variable.
 
-## Required Event Fields
+## Request-scoped custom aggregate coverage
+
+When `CUSTOM_AGGREGATE_FUNCTIONS_PATH` is configured, runtime custom aggregate
+execution can occur on these request paths:
+
+- `GET /api/projects/{project}/experiments/{experiment}/compare`
+- `GET /api/projects/{project}/experiments/{experiment}/sets/{set}/compare-by-ref`
+- `POST /api/analysis/meaningful-tags`
+
+These requests are covered by the standard ASP.NET Core OpenTelemetry request
+traces. The Python subprocess currently contributes timing through structured
+application logs rather than a separate custom span or metric stream.
+
+## Preferred Event Fields for New Workflow Logs
+
+The runtime custom aggregate implementation documented below does not yet emit
+the full preferred field set on each log record.
 
 - `timestamp`
 - `level`
@@ -71,8 +87,25 @@ The catalog and evaluator services already use OpenTelemetry with Azure Monitor 
 - `statistics.calculated`
 - `analysis.started`
 - `analysis.completed`
-- `evaluation.started`
-- `evaluation.completed`
+
+## Current Structured Logs
+
+Runtime custom aggregate execution currently emits these structured `ILogger`
+message templates:
+
+- `custom aggregate execution completed for {GroupCount} groups in {DurationMs} ms.`
+- `custom aggregate execution timed out after {TimeoutSeconds} seconds.`
+- `Failed to get baseline experiment for project {projectName}.` on compare and
+  compare-by-ref requests when the project baseline cannot be loaded
+
+Current properties for this feature are therefore request-correlated fields such
+as `GroupCount`, `DurationMs`, `TimeoutSeconds`, and `projectName`, alongside
+the standard ASP.NET Core request/trace metadata.
+
+Any `stdout` emitted by aggregate imports or `aggregate(results)` functions is
+redirected to the Python process `stderr` so it does not corrupt the JSON
+protocol. Successful requests do not persist that output as structured logs; on
+failure, stderr is surfaced through the HTTP error path instead.
 
 ## Logging Rules
 

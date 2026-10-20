@@ -47,6 +47,7 @@ export const singleExperiment = {
 export const metricDefinitions: Record<string, object> = {
   accuracy: {
     name: 'accuracy',
+    description: 'Fraction of evaluated answers that are correct.',
     min: 0,
     max: 1,
     aggregate_function: 'Average',
@@ -55,6 +56,7 @@ export const metricDefinitions: Record<string, object> = {
   },
   latency: {
     name: 'latency',
+    description: 'Average inference latency in milliseconds.',
     min: 0,
     max: 10000,
     aggregate_function: 'Average',
@@ -63,6 +65,7 @@ export const metricDefinitions: Record<string, object> = {
   },
   cost: {
     name: 'cost',
+    description: 'Total estimated inference cost.',
     min: 0,
     max: 100,
     aggregate_function: 'Cost',
@@ -82,6 +85,7 @@ function makeMetric(
 ) {
   return {
     count,
+    unique_refs: 20,
     value,
     normalized: value,
     std_dev: stdDev,
@@ -123,9 +127,9 @@ export const setAResult = {
   created: '2026-01-20T09:00:00Z',
   runtime: 95,
   metrics: {
-    accuracy: makeMetric(0.87, 50, 0.05, [], { p_value: 0.03, ci_lower: 0.02, ci_upper: 0.08 }),
-    latency: makeMetric(380, 50, 25.0, [], { p_value: 0.12, ci_lower: -90, ci_upper: -50 }),
-    cost: makeMetric(14.2),
+    accuracy: { ...makeMetric(0.87, 50, 0.05, [], { p_value: 0.03, ci_lower: 0.02, ci_upper: 0.08 }), wins: 12, ties: 3 },
+    latency: { ...makeMetric(380, 50, 25.0, [], { p_value: 0.12, ci_lower: -90, ci_upper: -50 }), wins: 15, ties: 1 },
+    cost: { ...makeMetric(14.2), wins: 8, ties: 4 },
   },
   annotations: [{ text: 'Run note for set-a', uri: 'https://example.com/notes' }],
 };
@@ -141,9 +145,9 @@ export const setBResult = {
   created: '2026-01-25T11:00:00Z',
   runtime: 110,
   metrics: {
-    accuracy: makeMetric(0.85),
-    latency: makeMetric(420),
-    cost: makeMetric(11.8),
+    accuracy: { ...makeMetric(0.85), wins: 9, ties: 5 },
+    latency: { ...makeMetric(420), wins: 11, ties: 2 },
+    cost: { ...makeMetric(11.8), wins: 13, ties: 2 },
   },
   annotations: [],
 };

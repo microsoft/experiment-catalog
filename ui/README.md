@@ -1,5 +1,168 @@
 # Catalog UI
 
+## Type Checking
+
+`npm run check` runs `svelte-check --tsgo` with TypeScript 7.0.2, installed
+under the `@typescript/native` npm alias. TypeScript 6 remains installed as
+`typescript` for Svelte tooling that uses its JavaScript API and declares
+TypeScript 5/6 peer compatibility. Do not replace that package with TypeScript 7
+or bypass peer checks. The generated `.svelte-check/` cache is ignored.
+
+Playwright is pinned to stable 1.63.0 rather than the registry's prerelease
+`latest` tag. Update its test package and browser image together.
+
+## Card Display
+
+Project cards always show a compact **GROUND TRUTH** label above the emoji and
+note, with **Unknown** until a name is entered.
+Hover or focus the emoji (the faint star when empty) to choose one of 16 emojis
+or **No emoji** directly on the project card. Use the small edit button in the
+lower-right corner to open a dialog for the emoji, ground truth name, and note.
+Ground truth and note (40 characters each) are editable only in that dialog.
+Both paths send all three display fields in one update, preserving the other
+values when changing the emoji inline. Cancel or Escape leaves dialog edits
+unchanged; fields can be emptied individually and saved. Save errors remain
+visible by the relevant control.
+
+Experiment cards use the same inline emoji selector and lower-right edit
+button. Their emoji and read-only note sit at the bottom of each card,
+including beside cards with longer hypotheses; the note is editable alongside
+the emoji in the dialog. Changing the emoji inline preserves the existing
+note. The rest of the experiment card opens the experiment, including empty
+space above the footer. Project display fields live in container metadata,
+and experiment display fields live in the experiment blob metadata. Neither
+changes comparison data. The projects API returns the value as
+`ground_truth`; experiment and set pages show it as **GRND TRUTH** after the
+hypothesis, or **Unknown** when unset.
+Opening a project card uses the already-loaded project. Opening a project,
+experiment, set, or chart URL directly fetches only that project from
+`GET /api/projects/{projectName}` instead of listing all projects.
+
+The loading spinner is served from the same URL prefix as the UI, so it works
+both at the domain root and behind a virtual directory such as `/catalog/`.
+
+## Hiding Sets
+
+On a set detail page, **hide this set** prompts for confirmation and returns to
+the experiment when the set is hidden. Hidden sets are excluded from set lists
+and automatic comparisons, while their results remain available by direct
+link. Active experiment and project baselines cannot be hidden; choose a
+different baseline first.
+
+## Metric Formatting
+
+Metric-definition tags can opt numeric values into specialized display formats. The
+underlying values remain numeric and are unchanged for storage, aggregation,
+comparison, filtering, and export.
+
+- `elapsed_time` treats the metric value as milliseconds and displays at most two
+  adjacent units. For example, `1500` displays as `1s 500ms`, `62000` as `1m 2s`,
+  and `3900010` as `1h 5m`. Values are rounded normally at the precision of the
+  smaller displayed unit. Negative or non-finite absolute values display as
+  `-`; signed comparison deltas retain their sign. This formatting is used in
+  comparison values and summaries (deviation and range) and on distribution
+  chart axes. Charts clamp an inferred elapsed-time axis to zero, but honor
+  explicit metric-definition `min` and `max` bounds.
+- Metrics without a specialized formatter use comma-separated numeric values
+  while retaining the precision appropriate to their aggregate type. This
+  grouped formatting applies to comparison values, counts, costs, and
+  statistics; chart axes may abbreviate large values as `k` or `M`.
+
+## Comparison Legend And Toggles
+
+The experiment comparison page can show aggregate comparison metadata directly
+in each metric cell:
+
+- `xN` is the aggregate `count`: the number of metric observations represented
+  by that aggregate.
+- `(M refs)` is `unique_refs`: the number of distinct non-null refs that
+  contributed to that aggregate metric.
+- `WIN W` is the number of shared refs where the set's per-ref aggregate beats
+  the active comparison target's per-ref aggregate.
+- `TIE T` is the number of shared refs where the set's per-ref aggregate exactly
+  equals the active comparison target's per-ref aggregate.
+
+WIN and TIE appear alongside the other summary statistics, while the count and
+unique-ref count remain at the end of the core metric display:
+
+```text
+[value] [difference] (CV ..., DEV ..., RNG ..., WIN [winning-refs],
+TIE [tied-refs]) ... x[number-of-values] ([unique-refs] refs)
+```
+
+Important details:
+
+- **Select**, immediately after Experiment Baseline in the table header, opens
+  a modal to choose a project, experiment, and set. The selected target replaces
+  the Experiment Baseline column (and its set-detail row and chart group); its
+  header always shows the source experiment and shows the project when it
+  differs from the current view.
+  The modal's set menu shows annotations beneath each set name, just like the
+  comparison-column set menu. Options are loaded without tag or ref filters
+  from the project and experiment selected in the modal.
+  **Reset** replaces **Select** while the override is active.
+  The selection is an override in the shared URL `config` (`comparison_target`)
+  and remains active across project and experiment navigation until **Reset**
+  is pressed. The Experiment Baseline header is green by default and turns gold
+  for an active comparison target; set details, charts, and baseline-mode tag
+  impact use the same target.
+  **Reset** restores the experiment baseline; neither action changes the
+  stored baseline designations. Cross-project selections show a warning in the
+  selection modal, not on the comparison pages.
+  Set details show a highlighted override status directly above the results
+  table, so the active comparison is visible beside the data.
+  Their results use the current project's metric definitions, but current-project
+  tag filters are not applied to the imported set. Stored statistics are not
+  displayed with an override.
+- The **Project Baseline** column is shown by default. Its **Show** toggle can
+  hide the column without changing the experiment baseline used for comparisons;
+  the choice is saved in shared URL configuration as `show_project_baseline`.
+- Project Baseline and Experiment Baseline headers identify their source
+  experiment above the set name, including when it is the current experiment.
+- `WIN` is shown by default on the experiment comparison page.
+- `TIE` is hidden by default until the user enables the toggle.
+- Wins use metric direction from the `lower-is-better` metric-definition tag;
+  when the tag is absent, higher values win.
+- Ties use exact equality. Version 1 does not apply any tolerance.
+- Only shared refs with numeric values on both the candidate aggregate and the
+  active comparison target aggregate are paired.
+- The active comparison target does not show `WIN` or `TIE` counts for itself.
+- These fields are response-only comparison metadata, not persisted metric
+  values.
+
+## Metric Descriptions In The UI
+
+Metric definitions can include an optional `description` field. When present,
+the experiment comparison page can display the text in italics on a line below
+the corresponding metric row. Use the **Metric Desc** option in the
+**Show** controls to reveal these rows. The option is hidden by default
+and is persisted in shared URL configuration as `show_desc`.
+
+Descriptions are presentation metadata only. They help users understand what a
+metric means, but they do not affect metric submission requirements, stored
+results, aggregation behavior, or analysis semantics.
+
+## Data And File Access
+
+The experiment page's **download** dialog provides three data-access workflows:
+
+- **download** retrieves the complete stored experiment JSONL.
+- **export** retrieves raw per-iteration metrics as a notebook-friendly CSV.
+- **manifest** retrieves JSONL containing the exact stored artifact URIs for
+  inference files, evaluation files, or both. The dialog includes Python
+  examples for reading metric exports and downloading artifacts directly with
+  `DefaultAzureCredential`.
+
+The dialog operates at experiment scope. Set-scoped JSON/CSV metric exports and
+JSON/JSONL manifests are also available through the
+[`/api/analysis` endpoints](../catalog/README.md#export-raw-metrics). Metric
+CSV rows use `(set, ref, iteration)` join keys; retrieval metrics are split into
+`.found` and `.expected` columns containing JSON arrays. Manifest downloads are
+location lists only: the catalog does not proxy files or build ZIP archives.
+The Python artifact example requires `azure-identity` and
+`azure-storage-blob`, a supported `DefaultAzureCredential` login, and blob
+authorization for every listed URI.
+
 ## Free Filter
 
 The free filter allows you to narrow down ground-truth results to those meeting specific criteria. This is essential when evaluating experimentation results to identify patterns, regressions, improvements, or unexpected behaviors across your test cases.

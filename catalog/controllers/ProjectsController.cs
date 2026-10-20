@@ -19,6 +19,15 @@ public class ProjectsController : ControllerBase
         return Ok(projects);
     }
 
+    [HttpGet("{projectName}")]
+    public async Task<ActionResult<Project>> GetProject(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await storageService.GetProjectAsync(projectName, cancellationToken));
+    }
+
     [HttpPost]
     public async Task<IActionResult> AddProject(
         [FromServices] IStorageService storageService,
@@ -35,8 +44,28 @@ public class ProjectsController : ControllerBase
             return BadRequest("an project name is required.");
         }
 
+        if (project.Emoji is not null || project.Note is not null || project.GroundTruth is not null)
+        {
+            return BadRequest("project metadata fields must be updated after project creation.");
+        }
+
         await storageService.AddProjectAsync(project, cancellationToken);
         return Ok();
+    }
+
+    [HttpPut("{projectName}/display")]
+    public async Task<ActionResult<Project>> UpdateDisplay(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromBody, Required] ProjectDisplay display,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || display is null)
+        {
+            return BadRequest("a project name and display are required.");
+        }
+
+        return Ok(await storageService.SetProjectDisplayAsync(projectName, display, cancellationToken));
     }
 
     [HttpGet("{projectName}/tags")]

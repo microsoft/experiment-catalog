@@ -25,9 +25,8 @@ test.describe('Error states', () => {
   });
 
   test('failed experiments fetch shows error', async ({ errorPage: page }) => {
-    // Projects succeed
-    await page.route('**/api/projects', (route) =>
-      route.fulfill({ json: data.projectsList }),
+    await page.route('**/api/projects/alpha-project', (route) =>
+      route.fulfill({ json: data.projectsList[0] }),
     );
     // Experiments fail
     await page.route('**/api/projects/*/experiments', (route) =>
@@ -41,9 +40,9 @@ test.describe('Error states', () => {
   test('failed comparison fetch shows error on experiment page', async ({
     errorPage: page,
   }) => {
-    // Projects and experiments succeed
-    await page.route('**/api/projects', (route) =>
-      route.fulfill({ json: data.projectsList }),
+    // Project and experiment succeed
+    await page.route('**/api/projects/alpha-project', (route) =>
+      route.fulfill({ json: data.projectsList[0] }),
     );
     await page.route('**/api/projects/*/experiments', (route) =>
       route.fulfill({ json: data.experimentsList }),
@@ -69,8 +68,8 @@ test.describe('Error states', () => {
   });
 
   test('failed compare-by-ref shows error on SetPage', async ({ errorPage: page }) => {
-    await page.route('**/api/projects', (route) =>
-      route.fulfill({ json: data.projectsList }),
+    await page.route('**/api/projects/alpha-project', (route) =>
+      route.fulfill({ json: data.projectsList[0] }),
     );
     await page.route('**/api/projects/*/experiments', (route) =>
       route.fulfill({ json: data.experimentsList }),

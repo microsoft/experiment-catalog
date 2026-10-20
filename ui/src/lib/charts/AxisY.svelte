@@ -1,11 +1,18 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getLayerCakeContext } from "layercake";
+  import { formatMetricValue } from "../metricFormatters";
 
-  const { yScale, width } = getContext("LayerCake") as any;
+  interface Props {
+    metricDefinition?: MetricDefinition;
+  }
+
+  let { metricDefinition }: Props = $props();
+
+  const chart = getLayerCakeContext();
 
   // Generate nice tick values
-  function getTicks(scale: any): number[] {
-    const [min, max] = scale.domain();
+  function getTicks(domain: number[]): number[] {
+    const [min, max] = domain;
     const range = max - min;
     const step = niceStep(range / 5);
     const ticks: number[] = [];
@@ -29,27 +36,33 @@
   }
 
   function formatTick(value: number): string {
-    if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
-    if (Math.abs(value) >= 1000) return `${(value / 1000).toFixed(0)}k`;
-    if (Number.isInteger(value)) return value.toString();
-    return value.toFixed(4);
+    return formatMetricValue(value, metricDefinition?.tags, (numericValue) => {
+      if (Math.abs(numericValue) >= 1000000) {
+        return `${(numericValue / 1000000).toFixed(1)}M`;
+      }
+      if (Math.abs(numericValue) >= 1000) {
+        return `${(numericValue / 1000).toFixed(0)}k`;
+      }
+      if (Number.isInteger(numericValue)) return numericValue.toString();
+      return numericValue.toFixed(4);
+    });
   }
 </script>
 
-{#each getTicks($yScale) as tick}
+{#each getTicks(chart.yScale.domain()) as tick}
   <!-- Grid line spanning full width -->
   <line
     x1={0}
-    x2={$width}
-    y1={$yScale(tick)}
-    y2={$yScale(tick)}
+    x2={chart.width}
+    y1={chart.yScale(tick)}
+    y2={chart.yScale(tick)}
     stroke="#334155"
     stroke-width="1"
   />
   <!-- Tick label -->
   <text
     x={-12}
-    y={$yScale(tick)}
+    y={chart.yScale(tick)}
     text-anchor="end"
     dominant-baseline="middle"
     fill="#94a3b8"
@@ -59,4 +72,3 @@
     {formatTick(tick)}
   </text>
 {/each}
-

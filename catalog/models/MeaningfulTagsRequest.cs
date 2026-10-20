@@ -37,4 +37,7 @@ public class MeaningfulTagsRequest
 
     [JsonProperty("compare_to")]
     public MeaningfulTagsComparisonMode CompareTo { get; set; } = MeaningfulTagsComparisonMode.Baseline;
+
+    [JsonProperty("comparison_target")]
+    public ComparisonTarget? ComparisonTarget { get; set; }
 }

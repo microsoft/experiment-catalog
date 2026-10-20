@@ -12,8 +12,31 @@ test.describe('SetPage drill-down', () => {
   test('displays project, experiment, and set headings', async ({ mockedPage: page }) => {
     await page.goto(base);
     await expect(page.getByText('PROJECT: alpha-project')).toBeVisible();
-    await expect(page.getByText('EXPERIMENT: exp-001')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'EXPERIMENT: exp-001' })).toBeVisible();
     await expect(page.getByText('SET: set-a')).toBeVisible();
+  });
+
+  test('shows the project ground truth after the hypothesis, or Unknown when unset', async ({ mockedPage: page }) => {
+    await page.goto(base);
+    const groundTruth = page.locator('.meta-row').filter({ hasText: 'GRND TRUTH' });
+    await expect(groundTruth).toContainText('Unknown');
+    await page.route('**/api/projects/alpha-project', (route) =>
+      route.fulfill({
+        json: { name: 'alpha-project', ground_truth: 'GT v2' },
+      }),
+    );
+    await page.reload();
+    await expect(groundTruth).toContainText('GT v2');
+    await expect(groundTruth).not.toContainText('Unknown');
+    const hypothesis = page.locator('.meta-row').filter({ hasText: 'Hypothesis' });
+    const hypothesisBounds = await hypothesis.boundingBox();
+    const groundTruthBounds = await groundTruth.boundingBox();
+    const createdBounds = await page.locator('.meta-row').filter({ hasText: 'Created' }).boundingBox();
+    expect(groundTruthBounds!.y).toBeGreaterThan(hypothesisBounds!.y);
+    expect(groundTruthBounds!.y).toBeLessThan(createdBounds!.y);
+    const hypothesisValue = await hypothesis.locator('span').nth(1).boundingBox();
+    const groundTruthValue = await groundTruth.locator('span').nth(1).boundingBox();
+    expect(groundTruthValue!.x).toBe(hypothesisValue!.x);
   });
 
   test('back button navigates away from set page', async ({ mockedPage: page }) => {
@@ -140,6 +163,60 @@ test.describe('SetPage drill-down', () => {
     });
 
     await expect(baselineBtn).toBeEnabled();
+  });
+
+  test('canceling hide does not send a request or leave the set', async ({ mockedPage: page }) => {
+    let requests = 0;
+    await page.route('**/sets/set-a/hidden', (route) => {
+      requests++;
+      return route.fulfill({ status: 200 });
+    });
+    await page.goto(base);
+    page.once('dialog', async (dialog) => {
+      expect(dialog.message()).toContain('set-a');
+      await dialog.dismiss();
+    });
+    await page.getByRole('button', { name: 'hide this set' }).click();
+    await expect(page.getByText('SET: set-a')).toBeVisible();
+    expect(requests).toBe(0);
+  });
+
+  test('confirmed hide sends a PUT and returns to the experiment', async ({ mockedPage: page }) => {
+    await page.route('**/sets/set-a/hidden', (route) => route.fulfill({ status: 200 }));
+    await page.goto(base);
+    page.once('dialog', (dialog) => dialog.accept());
+    const request = page.waitForRequest((req) =>
+      req.url().endsWith('/sets/set-a/hidden') && req.method() === 'PUT');
+    await page.getByRole('button', { name: 'hide this set' }).click();
+    await request;
+    await expect(page.locator('h3', { hasText: 'SET: set-a' })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: 'EXPERIMENT: exp-001' })).toBeVisible();
+    expect(page.url()).not.toContain('page=set:');
+  });
+
+  test('hiding an active baseline shows the conflict and keeps the set', async ({ mockedPage: page }) => {
+    await page.route('**/sets/set-a/hidden', (route) =>
+      route.fulfill({ status: 409, body: 'choose a different experiment baseline before hiding this set.' }),
+    );
+    await page.goto(base);
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.getByRole('button', { name: 'hide this set' }).click();
+    await expect(page.getByRole('alert'))
+      .toHaveText('HTTP 409: choose a different experiment baseline before hiding this set.');
+    await expect(page.getByText('SET: set-a')).toBeVisible();
+  });
+
+  test('does not offer hiding a known experiment baseline', async ({ mockedPage: page }) => {
+    await page.route('**/sets/*/compare-by-ref**', (route) =>
+      route.fulfill({
+        json: {
+          ...data.comparisonByRef,
+          experiment_baseline: { ...data.comparisonByRef.experiment_baseline, set: 'set-a' },
+        },
+      }),
+    );
+    await page.goto(base);
+    await expect(page.getByRole('button', { name: 'hide this set' })).toBeDisabled();
   });
 
   test('support resource links in iteration rows', async ({ mockedPage: page }) => {

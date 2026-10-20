@@ -4,6 +4,7 @@ import {
     decodeConfig,
     sanitizeProjectTagQuerystring,
     sanitizeTagQuerystring,
+    scopeRefFilterConfig,
     sortMetrics,
     type ViewConfig,
 } from "./Tools";
@@ -31,17 +32,27 @@ describe("encodeConfig", () => {
 
     it("encodes boolean toggle values", () => {
         const cfg: ViewConfig = {
+            show_desc: true,
             show_val: false,
+            show_diff: false,
             show_cv: false,
             show_std: true,
             show_range: true,
+            show_win: false,
+            show_tie: true,
+            show_project_baseline: false,
         };
         const encoded = encodeConfig(cfg);
         const decoded = decodeConfig(encoded!);
+        expect(decoded.show_desc).toBe(true);
         expect(decoded.show_val).toBe(false);
+        expect(decoded.show_diff).toBe(false);
         expect(decoded.show_cv).toBe(false);
         expect(decoded.show_std).toBe(true);
         expect(decoded.show_range).toBe(true);
+        expect(decoded.show_win).toBe(false);
+        expect(decoded.show_tie).toBe(true);
+        expect(decoded.show_project_baseline).toBe(false);
     });
 
     it("encodes show_important_only true", () => {
@@ -58,6 +69,19 @@ describe("encodeConfig", () => {
         expect(decoded.show_important_only).toBe(false);
     });
 
+    it("round-trips a comparison target inside URL config", () => {
+        const target = { project: "another-project", experiment: "other-experiment", set: "baseline-2" };
+        expect(decodeConfig(encodeConfig({ comparison_target: target })!).comparison_target).toEqual(target);
+    });
+
+    it("preserves a ref boundary together with tags in URL config", () => {
+        const config = {
+            ref_filter: { project: "project", experiment: "experiment", set: "partial", metric: "score" },
+            tags: "include-tags=focus",
+        };
+        expect(decodeConfig(encodeConfig(config)!)).toEqual(config);
+    });
+
     it("preserves metrics array", () => {
         const cfg: ViewConfig = { metrics: ["a", "b", "c"] };
         const encoded = encodeConfig(cfg);
@@ -68,6 +92,40 @@ describe("encodeConfig", () => {
 describe("decodeConfig", () => {
     it("returns empty object for falsy input", () => {
         expect(decodeConfig("")).toEqual({});
+    });
+
+    describe("scopeRefFilterConfig", () => {
+        const filter = { project: "project", experiment: "experiment", set: "partial", metric: "score" };
+        const config: ViewConfig = { ref_filter: filter, tags: "include-tags=focus", show_std: false };
+
+        it("preserves the ref boundary for the same project and experiment", () => {
+            expect(scopeRefFilterConfig(config, "project", "experiment")).toEqual(config);
+        });
+
+        it.each([
+            ["other-project", "experiment"],
+            ["project", "other-experiment"],
+            ["other-project", "other-experiment"],
+            ["project", undefined],
+            [undefined, undefined],
+        ])("removes only the ref boundary in context %s/%s", (project, experiment) => {
+            expect(scopeRefFilterConfig(config, project, experiment)).toEqual({
+                tags: "include-tags=focus",
+                show_std: false,
+            });
+            expect(config.ref_filter).toEqual(filter);
+        });
+
+        it.each([
+            { set: "partial", metric: "score" },
+            { ...filter, project: undefined },
+            { ...filter, experiment: undefined },
+            { ...filter, set: "" },
+            { ...filter, metric: 123 },
+        ])("rejects unscoped or malformed URL filters: %j", (refFilter) => {
+            const decoded = decodeConfig(btoa(JSON.stringify({ ref_filter: refFilter, show_std: false })));
+            expect(scopeRefFilterConfig(decoded, "project", "experiment")).toEqual({ show_std: false });
+        });
     });
 
     it("returns empty object for garbage input", () => {

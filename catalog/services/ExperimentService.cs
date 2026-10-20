@@ -14,7 +14,8 @@ namespace Catalog;
 public class ExperimentService(
     ILogger<ExperimentService> logger,
     IStorageService storageService,
-    IConfigFactory<IConfig> configFactory)
+    IConfigFactory<IConfig> configFactory,
+    IDerivedMetricService derivedMetricService)
 {
     /// <summary>
     /// Lists the distinct set names for an experiment.
@@ -65,19 +66,32 @@ public class ExperimentService(
         string experimentName,
         string includeTagsStr = "",
         string excludeTagsStr = "",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ComparisonTarget? target = null,
+        RefFilter? refFilter = null)
     {
         var comparison = new Comparison();
+        var derivedGroups = new List<DerivedMetricGroup>();
+        IDictionary<string, Result>? projectBaselineByRef = null;
+        IDictionary<string, Result>? experimentBaselineByRef = null;
+        var setsByRef = new Dictionary<string, IDictionary<string, Result>>();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
+        var refs = await ResolveRefFilterAsync(experiment, refFilter, cancellationToken);
+        comparison.RefFilterRefs = refs;
 
         // get the project baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
             var baselineSet = baseline.BaselineSet ?? baseline.LastSet;
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
+            var baselineSetResults = baselineFiltered
+                .Where(result => result.Set == baselineSet)
+                .ToList();
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonEntity
             {
@@ -87,6 +101,16 @@ public class ExperimentService(
                 Result = baseline.AggregateSet(baselineSet, baselineFiltered),
                 Count = baseline.Results?.Count(x => x.Set == baselineSet), // unfiltered count
             };
+            AddDerivedGroup(
+                derivedGroups,
+                comparison.ProjectBaseline.Result,
+                baselineSetResults);
+            projectBaselineByRef = baseline.AggregateSetByRef(baselineSet, baselineFiltered);
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                projectBaselineByRef,
+                baselineSet,
+                baselineSetResults);
         }
         catch (Exception e)
         {
@@ -97,9 +121,11 @@ public class ExperimentService(
         var config = await configFactory.GetAsync(cancellationToken);
 
         // get the experiment baseline
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
         var experimentBaselineSet = experiment.BaselineSet ?? experiment.FirstSet;
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
+        var experimentBaselineResults = experimentFiltered
+            .Where(result => result.Set == experimentBaselineSet)
+            .ToList();
         experiment.MetricDefinitions = comparison.MetricDefinitions;
         comparison.ExperimentBaseline =
             string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase)
@@ -112,13 +138,54 @@ public class ExperimentService(
                 Result = experiment.AggregateSet(experimentBaselineSet, experimentFiltered),
                 Count = experiment.Results?.Count(x => x.Set == experimentBaselineSet), // unfiltered count
             };
+        if (!ReferenceEquals(comparison.ExperimentBaseline, comparison.ProjectBaseline))
+        {
+            AddDerivedGroup(
+                derivedGroups,
+                comparison.ExperimentBaseline?.Result,
+                experimentBaselineResults);
+            experimentBaselineByRef = experiment.AggregateSetByRef(
+                experimentBaselineSet,
+                experimentFiltered);
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                experimentBaselineByRef,
+                experimentBaselineSet,
+                experimentBaselineResults);
+        }
+        else
+        {
+            experimentBaselineByRef = projectBaselineByRef;
+        }
+
+        IDictionary<string, Result>? targetByRef = experimentBaselineByRef;
+        if (target is not null)
+        {
+            var (targetExperiment, targetResults) = await LoadTargetAsync(
+                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken, refs);
+            comparison.ComparisonTarget = new ComparisonEntity
+            {
+                Project = target.Project,
+                Experiment = target.Experiment,
+                Set = target.Set,
+                Result = targetExperiment.AggregateSet(target.Set, targetResults),
+                Count = targetExperiment.Results?.Count(x => x.Set == target.Set),
+            };
+            var targetSetResults = targetResults.Where(x => x.Set == target.Set).ToList();
+            AddDerivedGroup(derivedGroups, comparison.ComparisonTarget.Result, targetSetResults);
+            targetByRef = targetExperiment.AggregateSetByRef(target.Set, targetResults);
+            AddDerivedGroupsByRef(derivedGroups, targetByRef, target.Set, targetSetResults);
+        }
 
         // get the sets
         comparison.Sets = experiment.AggregateAllSets(experimentFiltered)
             .Select(x =>
             {
+                var setResults = experimentFiltered
+                    .Where(result => result.Set == x.Set)
+                    .ToList();
                 // find matching statistics
-                var statistics = experiment.Statistics?.LastOrDefault(y =>
+                var statistics = target is null && refFilter is null ? experiment.Statistics?.LastOrDefault(y =>
                 {
                     if (y.Set != x.Set) return false;
                     if (y.BaselineExperiment != comparison.ExperimentBaseline?.Experiment) return false;
@@ -128,7 +195,7 @@ public class ExperimentService(
                     if (y.NumSamples != config.CALC_PVALUES_USING_X_SAMPLES) return false;
                     if (y.ConfidenceLevel != config.CONFIDENCE_LEVEL) return false;
                     return true;
-                });
+                }) : null;
 
                 // fold statistics into result metrics
                 if (statistics?.Metrics is not null && x.Metrics is not null)
@@ -144,14 +211,67 @@ public class ExperimentService(
                     }
                 }
 
-                return new ComparisonEntity
+                var entity = new ComparisonEntity
                 {
                     Project = projectName,
                     Experiment = experiment.Name,
                     Set = x.Set,
                     Result = x,
                 };
-            });
+                AddDerivedGroup(
+                    derivedGroups,
+                    entity.Result,
+                    setResults);
+                var setByRef = experiment.AggregateSetByRef(x.Set, experimentFiltered);
+                if (!string.IsNullOrEmpty(x.Set) && setByRef is not null)
+                {
+                    setsByRef[x.Set] = setByRef;
+                }
+                AddDerivedGroupsByRef(
+                    derivedGroups,
+                    setByRef,
+                    x.Set,
+                    setResults);
+                return entity;
+            })
+            .ToList();
+
+        await derivedMetricService.ApplyAsync(
+            derivedGroups,
+            comparison.MetricDefinitions,
+            cancellationToken);
+
+        var effectiveTarget = comparison.ComparisonTarget ?? comparison.ExperimentBaseline;
+        if (!IsSameEntity(comparison.ProjectBaseline, effectiveTarget))
+        {
+            ComparisonMetricCalculator.ApplyWinAndTieCounts(
+                comparison.ProjectBaseline?.Result,
+                projectBaselineByRef,
+                targetByRef,
+                comparison.MetricDefinitions);
+        }
+        if (target is not null && !IsSameEntity(comparison.ExperimentBaseline, effectiveTarget))
+        {
+            ComparisonMetricCalculator.ApplyWinAndTieCounts(
+                comparison.ExperimentBaseline?.Result,
+                experimentBaselineByRef,
+                targetByRef,
+                comparison.MetricDefinitions);
+        }
+        foreach (var entity in comparison.Sets)
+        {
+            if (entity.Set is null ||
+                IsSameEntity(entity, effectiveTarget) ||
+                !setsByRef.TryGetValue(entity.Set, out var setByRef))
+            {
+                continue;
+            }
+            ComparisonMetricCalculator.ApplyWinAndTieCounts(
+                entity.Result,
+                setByRef,
+                targetByRef,
+                comparison.MetricDefinitions);
+        }
 
         return comparison;
     }
@@ -172,18 +292,24 @@ public class ExperimentService(
         string setName,
         string includeTagsStr = "",
         string excludeTagsStr = "",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        ComparisonTarget? target = null,
+        RefFilter? refFilter = null)
     {
         var comparison = new ComparisonByRef();
+        var derivedGroups = new List<DerivedMetricGroup>();
         var (includeTags, excludeTags) = await LoadTagsAsync(projectName, includeTagsStr, excludeTagsStr, cancellationToken);
         comparison.MetricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
             .ToDictionary(x => x.Name);
+        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
+        experiment.MetricDefinitions = comparison.MetricDefinitions;
+        var refs = await ResolveRefFilterAsync(experiment, refFilter, cancellationToken);
 
         // get the project baseline
         try
         {
             var baseline = await storageService.GetProjectBaselineAsync(projectName, cancellationToken);
-            var baselineFiltered = baseline.Filter(includeTags, excludeTags);
+            var baselineFiltered = baseline.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
             baseline.MetricDefinitions = comparison.MetricDefinitions;
             comparison.ProjectBaseline = new ComparisonByRefEntity
             {
@@ -192,6 +318,10 @@ public class ExperimentService(
                 Set = baseline.BaselineSet ?? baseline.LastSet,
                 Results = baseline.AggregateSetByRef(baseline.BaselineSet ?? baseline.LastSet, baselineFiltered),
             };
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                comparison.ProjectBaseline,
+                baselineFiltered);
         }
         catch (Exception e)
         {
@@ -199,8 +329,7 @@ public class ExperimentService(
         }
 
         // get the experiment info
-        var experiment = await storageService.GetExperimentAsync(projectName, experimentName, cancellationToken: cancellationToken);
-        var experimentFiltered = experiment.Filter(includeTags, excludeTags);
+        var experimentFiltered = experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? [];
         experiment.MetricDefinitions = comparison.MetricDefinitions;
 
         // get the experiment baseline
@@ -217,6 +346,24 @@ public class ExperimentService(
                 Set = experiment.BaselineSet ?? experiment.FirstSet,
                 Results = experiment.AggregateSetByRef(experiment.BaselineSet ?? experiment.FirstSet, experimentFiltered),
             };
+            AddDerivedGroupsByRef(
+                derivedGroups,
+                comparison.ExperimentBaseline,
+                experimentFiltered);
+        }
+
+        if (target is not null)
+        {
+            var (targetExperiment, targetResults) = await LoadTargetAsync(
+                projectName, experiment, target, includeTags, excludeTags, comparison.MetricDefinitions, cancellationToken, refs);
+            comparison.ComparisonTarget = new ComparisonByRefEntity
+            {
+                Project = target.Project,
+                Experiment = target.Experiment,
+                Set = target.Set,
+                Results = targetExperiment.AggregateSetByRef(target.Set, targetResults),
+            };
+            AddDerivedGroupsByRef(derivedGroups, comparison.ComparisonTarget, targetResults);
         }
 
         // get the set experiment
@@ -227,8 +374,67 @@ public class ExperimentService(
             Set = setName,
             Results = experiment.AggregateSetByRef(setName, experimentFiltered),
         };
+        AddDerivedGroupsByRef(
+            derivedGroups,
+            comparison.ExperimentSet,
+            experimentFiltered);
+
+        await derivedMetricService.ApplyAsync(
+            derivedGroups,
+            comparison.MetricDefinitions,
+            cancellationToken);
 
         return comparison;
+    }
+
+    private async Task<(Experiment Experiment, List<Result> Results)> LoadTargetAsync(
+        string currentProject,
+        Experiment currentExperiment,
+        ComparisonTarget target,
+        IList<Tag> includeTags,
+        IList<Tag> excludeTags,
+        Dictionary<string, MetricDefinition> metricDefinitions,
+        CancellationToken cancellationToken,
+        IReadOnlySet<string>? refs = null)
+    {
+        var experiment = target.Project == currentProject && target.Experiment == currentExperiment.Name
+            ? currentExperiment
+            : await storageService.GetExperimentAsync(
+                target.Project, target.Experiment, cancellationToken: cancellationToken);
+        if (!experiment.Sets.Contains(target.Set))
+        {
+            throw new HttpException(404, "comparison target set not found.");
+        }
+        experiment.MetricDefinitions = metricDefinitions;
+        var results = target.Project == currentProject
+            ? experiment.Filter(includeTags, excludeTags, refs)?.ToList() ?? []
+            : experiment.Filter(null, null, refs)?.ToList() ?? [];
+        return (experiment, results);
+    }
+
+    private async Task<IReadOnlySet<string>?> ResolveRefFilterAsync(
+        Experiment experiment,
+        RefFilter? filter,
+        CancellationToken cancellationToken)
+    {
+        if (filter is null) return null;
+        if (string.IsNullOrWhiteSpace(filter.Set) || string.IsNullOrWhiteSpace(filter.Metric))
+        {
+            throw new HttpException(400, "ref-set and ref-metric must both be provided.");
+        }
+        if (!experiment.Sets.Contains(filter.Set))
+        {
+            throw new HttpException(404, "ref filter set not found.");
+        }
+        var results = experiment.Results?.Where(x => x.Set == filter.Set).ToList() ?? [];
+        var byRef = experiment.AggregateSetByRef(filter.Set, results);
+        var groups = new List<DerivedMetricGroup>();
+        AddDerivedGroupsByRef(groups, byRef, filter.Set, results);
+        await derivedMetricService.ApplyAsync(groups, experiment.MetricDefinitions!, cancellationToken);
+        return byRef?
+            .Where(x => x.Value.Metrics?.ContainsKey(filter.Metric) == true)
+            .Select(x => x.Key)
+            .ToHashSet(StringComparer.Ordinal) ?? [];
     }
 
     /// <summary>
@@ -247,10 +453,11 @@ public class ExperimentService(
         string setName,
         string includeTagsStr = "",
         string excludeTagsStr = "",
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? metricProject = null)
     {
         // init
-        var metricDefinitions = (await storageService.GetMetricsAsync(projectName, cancellationToken))
+        var metricDefinitions = (await storageService.GetMetricsAsync(metricProject ?? projectName, cancellationToken))
             .ToDictionary(x => x.Name);
 
         // get the experiment and filter the results
@@ -276,5 +483,56 @@ public class ExperimentService(
         }
 
         return results;
+    }
+
+    private static void AddDerivedGroup(
+        ICollection<DerivedMetricGroup> groups,
+        Result? target,
+        IEnumerable<Result> results)
+    {
+        if (target is null) return;
+        groups.Add(new DerivedMetricGroup(
+            groups.Count.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            results.ToList(),
+            target));
+    }
+
+    private static bool IsSameEntity(
+        ComparisonEntity? left,
+        ComparisonEntity? right) =>
+        left is not null &&
+        right is not null &&
+        left.Project == right.Project &&
+        left.Experiment == right.Experiment &&
+        left.Set == right.Set;
+
+    private static void AddDerivedGroupsByRef(
+        ICollection<DerivedMetricGroup> groups,
+        ComparisonByRefEntity? entity,
+        IReadOnlyCollection<Result> results)
+    {
+        if (entity?.Results is null || string.IsNullOrEmpty(entity.Set)) return;
+        AddDerivedGroupsByRef(groups, entity.Results, entity.Set, results);
+    }
+
+    private static void AddDerivedGroupsByRef(
+        ICollection<DerivedMetricGroup> groups,
+        IDictionary<string, Result>? targets,
+        string? set,
+        IReadOnlyCollection<Result> results)
+    {
+        if (targets is null || string.IsNullOrEmpty(set)) return;
+        var resultsByRef = results
+            .Where(result => result.Set == set && !string.IsNullOrEmpty(result.Ref))
+            .GroupBy(result => result.Ref!)
+            .ToDictionary(group => group.Key, group => group.AsEnumerable());
+        foreach (var (reference, target) in targets)
+        {
+            resultsByRef.TryGetValue(reference, out var matchingResults);
+            AddDerivedGroup(
+                groups,
+                target,
+                matchingResults ?? []);
+        }
     }
 }

@@ -1,0 +1,18 @@
+export const experimentEmojis = [
+    { id: "star", label: "Star", symbol: "⭐" },
+    { id: "rocket", label: "Rocket", symbol: "🚀" },
+    { id: "bulb", label: "Light bulb", symbol: "💡" },
+    { id: "flask", label: "Flask", symbol: "🧪" },
+    { id: "chart", label: "Chart", symbol: "📊" },
+    { id: "search", label: "Search", symbol: "🔍" },
+    { id: "flag", label: "Flag", symbol: "🚩" },
+    { id: "warning", label: "Warning", symbol: "⚠️" },
+    { id: "target", label: "Target", symbol: "🎯" },
+    { id: "lightning", label: "Lightning", symbol: "⚡" },
+    { id: "puzzle", label: "Puzzle", symbol: "🧩" },
+    { id: "compass", label: "Compass", symbol: "🧭" },
+    { id: "robot", label: "Robot", symbol: "🤖" },
+    { id: "check", label: "Check", symbol: "✅" },
+    { id: "seedling", label: "Seedling", symbol: "🌱" },
+    { id: "trophy", label: "Trophy", symbol: "🏆" },
+] as const;

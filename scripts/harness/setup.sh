@@ -69,11 +69,23 @@ if [ -d "ui" ] && [ -f "ui/package.json" ]; then
   cd "$root_dir"
 fi
 
-# --- Python (optional, for evaluation/) ---
-echo "==> Checking Python (optional, for evaluation/)..."
+# --- Python ---
+echo "==> Checking Python..."
 if command -v python3 >/dev/null 2>&1; then
   python_version=$(python3 --version 2>&1)
   ok "$python_version"
+
+  if [ -d "cli" ] && [ -f "cli/pyproject.toml" ]; then
+    echo "==> Installing Experiment Catalog CLI..."
+    if [ ! -d "cli/.venv" ]; then
+      python3 -m venv cli/.venv
+    fi
+    if cli/.venv/bin/python -m pip install -q -e ./cli; then
+      ok "experiment-catalog CLI installed"
+    else
+      fail "experiment-catalog CLI installation"
+    fi
+  fi
 
   if [ -d "evaluation" ] && [ -f "evaluation/requirements.txt" ]; then
     echo "==> Setting up Python venv for evaluation..."
@@ -111,7 +123,7 @@ if command -v python3 >/dev/null 2>&1; then
     ok "pip-audit already available"
   fi
 else
-  warn "Python 3 not found — evaluation/ scripts won't work"
+  fail "Python 3 not found"
 fi
 
 # --- Optional tools ---

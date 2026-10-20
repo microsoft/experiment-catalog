@@ -14,6 +14,10 @@ Project tools:
 | `AddTagToProject(project, tagName, refs)` | Add/update a tag and associated refs. |
 | `GetMetricDefinitions(project)` | Read metric definitions. |
 
+For REST clients that already know a project name, use
+`GET /api/projects/{project}` to read its emoji, note, and `ground_truth`
+without calling the project collection endpoint.
+
 Experiment tools:
 
 | Tool | Use |
@@ -36,6 +40,9 @@ Analysis tools:
 | `MeaningfulTags(project, experiment, set, metric, excludeTags, compareTo)` | Rank tag subsets by metric impact. |
 
 Current MCP gap: result upload and metric definition writes are REST operations.
+The repository's Experiment Catalog CLI wraps these REST operations for project
+creation, experiment creation, and CSV metric pushes. Its
+`experiment_catalog.Catalog` class exposes the same implementation to notebooks.
 
 ## REST Endpoints
 
@@ -63,10 +70,41 @@ Assume `{baseUrl}` includes `/api`, for example `http://localhost:6010/api`.
 | `PUT` | `/projects/{project}/metrics` | Add/update metric definitions. |
 | `POST` | `/analysis/statistics` | Enqueue statistics. |
 | `POST` | `/analysis/meaningful-tags` | Meaningful tag analysis. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/metrics` | Export raw per-iteration metrics for every set as JSON or CSV. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics` | Export raw per-iteration metrics for one set as JSON or CSV. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/artifacts` | List inference and evaluation artifact locations for every set as JSON or JSONL. |
+| `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/artifacts` | List inference and evaluation artifact locations for one set as JSON or JSONL. |
 | `GET` | `/settings` | UI settings. |
 | `GET` | `/download?url=...` | Download support document if enabled. |
 
 The `sets` query parameter exists on compare but current controller ignores it; filter by tags or compare all sets instead.
+
+Metrics export endpoints return JSON by default. Add `?format=csv` for a wide
+CSV with `set`, `ref`, `iteration`, and one column per metric. These exports
+exclude annotations, aggregate statistics, support-document URIs, and policies.
+
+Artifact manifest endpoints return JSON by default. Add `?format=jsonl` for a
+downloadable manifest and use `types=inference`, `types=evaluation`, or
+`types=inference,evaluation` to select artifact types. Each row contains
+`type`, `set`, `ref`, `iteration`, and the exact stored Azure Blob `uri`.
+Duplicate type/URI pairs are emitted once. Artifact content is not proxied or
+zipped by these endpoints.
+
+When runtime custom aggregate functions are enabled by the catalog
+administrator, derived metrics are included in comparison, per-ref comparison,
+and Meaningful Tags responses. They are response-only values calculated from
+the filtered raw results; they are not returned by raw metric exports or
+included in the current statistics pipeline.
+
+Aggregate comparison metric objects may also contain:
+
+- `unique_refs`: distinct non-null refs contributing to the metric.
+- `wins`: shared refs where the set's per-ref aggregate beats the experiment
+  baseline, respecting `lower-is-better`.
+- `ties`: shared refs whose per-ref aggregate values are exactly equal.
+
+`wins` and `ties` are omitted for the baseline itself and when no numeric pairs
+exist. They are counts rather than rates.
 
 ## JSON Shapes
 
@@ -98,6 +136,26 @@ Support document URIs are optional. It is common to set `inference_uri` and `eva
 }
 ```
 
+Retrieval result:
+
+```json
+{
+  "ref": "q1",
+  "set": "set-000",
+  "metrics": {
+    "retrieval_f1": {
+      "found": ["A", "B", "D"],
+      "expected": ["B", "C", "D"]
+    }
+  }
+}
+```
+
+`found` order is retrieval rank. `expected` is an unordered binary-relevance
+set, and duplicate IDs are rejected. Analysis JSON exports preserve this
+object. CSV exports use `<metric>.found` and `<metric>.expected` columns whose
+cells contain JSON arrays.
+
 Annotation:
 
 ```json
@@ -114,6 +172,7 @@ Metric definition:
 ```json
 {
   "name": "generation_correctness",
+  "description": "Fraction of evaluated answers judged correct.",
   "min": 0,
   "max": 1,
   "aggregate_function": "Average",
@@ -122,6 +181,10 @@ Metric definition:
   "tags": []
 }
 ```
+
+`description` is optional presentation metadata. On the experiment comparison
+page, users can enable **Metric Desc** to show it in italics below the
+corresponding metric row.
 
 Tag:
 

@@ -8,6 +8,15 @@ public class Metric
     [JsonProperty("count", NullValueHandling = NullValueHandling.Ignore)]
     public int? Count { get; set; }
 
+    [JsonProperty("unique_refs", NullValueHandling = NullValueHandling.Ignore)]
+    public int? UniqueRefs { get; set; }
+
+    [JsonProperty("wins", NullValueHandling = NullValueHandling.Ignore)]
+    public int? Wins { get; set; }
+
+    [JsonProperty("ties", NullValueHandling = NullValueHandling.Ignore)]
+    public int? Ties { get; set; }
+
     [JsonProperty("value", NullValueHandling = NullValueHandling.Ignore)]
     public decimal? Value { get; set; }
 
@@ -40,4 +49,7 @@ public class Metric
 
     [JsonProperty("classification", NullValueHandling = NullValueHandling.Ignore)]
     public string? Classification { get; set; }
+
+    [JsonProperty("retrieval", NullValueHandling = NullValueHandling.Ignore)]
+    public RetrievalValue? Retrieval { get; set; }
 }

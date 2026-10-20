@@ -25,17 +25,16 @@ export function buildRefMap(results: Result[] | undefined): Map<string, Result[]
  * Extract and sort all unique metric names from a ComparisonByRef object.
  */
 export function extractByRefMetrics(comparison: ComparisonByRef): string[] {
+    const baselineResults = (comparison.comparison_target ?? comparison.experiment_baseline)?.results;
     const allMetrics = [
         ...(comparison.project_baseline?.results
             ? Object.values(comparison.project_baseline.results).flatMap(
                 (result) => Object.keys(result.metrics ?? {}),
             )
             : []),
-        ...(comparison.experiment_baseline?.results
-            ? Object.values(comparison.experiment_baseline.results).flatMap(
-                (result) => Object.keys(result.metrics ?? {}),
-            )
-            : []),
+        ...Object.values(baselineResults ?? {}).flatMap(
+            (result) => Object.keys(result.metrics ?? {}),
+        ),
         ...(comparison.experiment_set?.results
             ? Object.values(comparison.experiment_set.results).flatMap(
                 (result) => Object.keys(result.metrics ?? {}),
@@ -58,7 +57,7 @@ export function filterRefs(
     if (!filterFunc) return [...masterRefs];
     return masterRefs.filter((ref) =>
         filterFunc(
-            comparison.experiment_baseline?.results?.[ref],
+            (comparison.comparison_target ?? comparison.experiment_baseline)?.results?.[ref],
             comparison.experiment_set?.results?.[ref],
         ),
     );
@@ -71,9 +70,17 @@ export function extractMetricDefinitions(
     comparison: ComparisonByRef,
     metricNames: string[],
 ): MetricDefinition[] {
-    return metricNames
-        .map((name) => comparison.metric_definitions[name])
-        .filter((def) => def !== undefined);
+    return metricNames.map((name) =>
+        comparison.metric_definitions[name] ?? {
+            name,
+            min: null,
+            max: null,
+            aggregate_function: "Default",
+            order: Number.MAX_SAFE_INTEGER,
+            is_important: false,
+            tags: [],
+        },
+    );
 }
 
 /**

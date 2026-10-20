@@ -19,6 +19,14 @@ export async function mockAllRoutes(page: Page) {
     }
     return route.fulfill({ json: data.projectsList });
   });
+  await page.route('**/api/projects/*', (route) => {
+    if (route.request().method() !== 'GET') return route.fallback();
+    const name = decodeURIComponent(new URL(route.request().url()).pathname.split('/').pop() ?? '');
+    const project = data.projectsList.find((item) => item.name === name);
+    return project
+      ? route.fulfill({ json: project })
+      : route.fulfill({ status: 404, body: 'project not found' });
+  });
 
   // Experiments list (must come before the single-experiment pattern)
   await page.route(

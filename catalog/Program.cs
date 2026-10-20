@@ -61,6 +61,7 @@ builder.Services.AddSingleton<ISupportDocsService, AzureBlobSupportDocsService>(
 builder.Services.AddSingleton<CalculateStatisticsService>();
 builder.Services.AddSingleton<AnalysisService>();
 builder.Services.AddSingleton<ExperimentService>();
+builder.Services.AddSingleton<IDerivedMetricService, DerivedMetricService>();
 builder.Services.AddSingleton<ConcurrencyService>();
 builder.Services.AddHostedService<AzureBlobStorageMaintenanceService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<CalculateStatisticsService>());

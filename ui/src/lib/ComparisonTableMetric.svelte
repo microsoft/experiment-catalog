@@ -1,14 +1,26 @@
 <script lang="ts">
+  import {
+    ELAPSED_TIME_FORMAT_TAG,
+    formatMetricValue,
+    formatNumber,
+    hasMetricFormatter,
+  } from "./metricFormatters";
+
   interface Props {
     result?: Result;
     baseline?: Result;
     metric: string;
     definition?: MetricDefinition;
-    showActualValue?: boolean;
+    showValue?: boolean;
+    showDiff?: boolean;
+    requireBaselineForDiff?: boolean;
     showCoefficientOfVariation?: boolean;
     showStdDev?: boolean;
     showRange?: boolean;
     showCount?: boolean;
+    showUniqueRefs?: boolean;
+    showWin?: boolean;
+    showTie?: boolean;
     showStatistics?: boolean;
   }
 
@@ -17,11 +29,16 @@
     baseline = undefined,
     metric,
     definition = undefined,
-    showActualValue = true,
+    showValue = true,
+    showDiff = true,
+    requireBaselineForDiff = false,
     showCoefficientOfVariation = true,
     showStdDev = true,
     showRange = false,
     showCount = true,
+    showUniqueRefs = true,
+    showWin = true,
+    showTie = false,
     showStatistics = true,
   }: Props = $props();
 
@@ -35,13 +52,16 @@
   let lowerIsBetter: boolean = $derived(
     !!(definition && definition.tags && definition.tags.includes("lower-is-better"))
   );
+  let isElapsedTime: boolean = $derived(
+    hasMetricFormatter(definition?.tags, ELAPSED_TIME_FORMAT_TAG)
+  );
 
-  let diff: number = $derived.by(() => {
+  let diff: number | undefined = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
     const baselineMetric = baseline?.metrics?.[metric];
     const hasValidMetrics = resultMetric && baselineMetric;
-    return hasValidMetrics && resultMetric.value !== undefined && baselineMetric.value !== undefined
-      ? resultMetric.value - baselineMetric.value : 0;
+    return hasValidMetrics && resultMetric.value != null && baselineMetric.value != null
+      ? resultMetric.value - baselineMetric.value : requireBaselineForDiff ? undefined : 0;
   });
 
   let difp: number | undefined = $derived.by(() => {
@@ -78,34 +98,41 @@
     value: string;
   };
 
-  const formatNumber = (value: number) => value.toFixed(3);
+  const formatValue = (value: number, allowNegative = false) =>
+    formatMetricValue(value, definition?.tags, formatNumber, { allowNegative });
 
   let summaryParts: SummaryPart[] = $derived.by(() => {
     const resultMetric = result?.metrics?.[metric];
-    if (!isAvg || !resultMetric) return [];
+    if (!resultMetric) return [];
 
     const parts: SummaryPart[] = [];
-    if (showCoefficientOfVariation && coefficientOfVariation !== undefined) {
+    if (isAvg && showCoefficientOfVariation && coefficientOfVariation !== undefined) {
       parts.push({
         label: "cv",
         value: `${(coefficientOfVariation * 100).toFixed(1)}%`,
       });
     }
-    if (showStdDev && resultMetric.std_dev !== undefined) {
-      parts.push({ label: "dev", value: formatNumber(resultMetric.std_dev) });
+    if (isAvg && showStdDev && resultMetric.std_dev !== undefined) {
+      parts.push({ label: "dev", value: formatValue(resultMetric.std_dev) });
     }
-    if (showRange) {
+    if (isAvg && showRange) {
       if (
         resultMetric.range_min !== undefined &&
         resultMetric.range_max !== undefined
       ) {
         parts.push({
           label: "rng",
-          value: `${formatNumber(resultMetric.range_min)}-${formatNumber(resultMetric.range_max)}`,
+          value: `${formatValue(resultMetric.range_min)}-${formatValue(resultMetric.range_max)}`,
         });
       } else if (resultMetric.range !== undefined) {
-        parts.push({ label: "rng", value: formatNumber(resultMetric.range) });
+        parts.push({ label: "rng", value: formatValue(resultMetric.range) });
       }
+    }
+    if (showWin && resultMetric.wins !== undefined) {
+      parts.push({ label: "win", value: resultMetric.wins.toString() });
+    }
+    if (showTie && resultMetric.ties !== undefined) {
+      parts.push({ label: "tie", value: resultMetric.ties.toString() });
     }
     return parts;
   });
@@ -113,28 +140,31 @@
 
 <nobr>
   {#if result && result.metrics && result.metrics[metric]}
-    {#if result.metrics[metric].value === undefined}
-      <span>-</span>
-    {:else if isCount}
-      <span>{result.metrics[metric].value.toLocaleString()}</span>
-    {:else if isCost}
-      <span
-        >{result.metrics[metric].value.toFixed(2) === "0.00" &&
-        result.metrics[metric].value > 0
-          ? ">$0.00"
-          : "$" +
-            result.metrics[metric].value.toFixed(2).toLocaleString()}</span
-      >
-    {:else}
-      <span
-        >{result.metrics[metric].value.toFixed(3) === "0.000" &&
-        result.metrics[metric].value > 0
-          ? ">0.00"
-          : result.metrics[metric].value.toFixed(3).toLocaleString()}</span
-      >
-      {#if isAvg && showActualValue}
-        <span class="actual"
-          >&nbsp;{difp != undefined && difp > 0 ? "+" : ""}{diff.toFixed(3)}&nbsp;</span
+    {#if showValue}
+      {#if result.metrics[metric].value === undefined}
+        <span class="value">-</span>
+      {:else if isCount}
+        <span class="value">{formatNumber(result.metrics[metric].value, 0)}</span>
+      {:else if isCost}
+        <span class="value"
+          >{result.metrics[metric].value.toFixed(2) === "0.00" &&
+          result.metrics[metric].value > 0
+            ? ">$0.00"
+            : "$" + formatNumber(result.metrics[metric].value, 2)}</span
+        >
+      {:else}
+        <span class="value">{isElapsedTime
+            ? formatValue(result.metrics[metric].value)
+            : result.metrics[metric].value.toFixed(3) === "0.000" &&
+          result.metrics[metric].value > 0
+            ? ">0.00"
+            : formatNumber(result.metrics[metric].value)}</span>
+      {/if}
+    {/if}
+    {#if result.metrics[metric].value !== undefined}
+      {#if isAvg && showDiff && diff !== undefined}
+        <span class="diff"
+          >&nbsp;{diff >= 0 ? "+" : ""}{formatValue(diff, true)}&nbsp;</span
         >
       {/if}
     {/if}
@@ -146,7 +176,7 @@
           {part.value}{#if index < summaryParts.length - 1},{" "}{/if}{/each})</span
       >
     {/if}
-    {#if isAvg && diff === 0 && result.metrics[metric].value !== undefined}
+    {#if showDiff && isAvg && diff === 0 && result.metrics[metric].value !== undefined}
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40">
         <polygon
           points="10,15 35,15 35,35 10,35"
@@ -154,7 +184,7 @@
         />
       </svg>
     {/if}
-    {#if isAvg && diff > 0}
+    {#if showDiff && isAvg && diff !== undefined && diff > 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -168,7 +198,7 @@
         />
       </svg>
     {/if}
-    {#if isAvg && diff < 0}
+    {#if showDiff && isAvg && diff !== undefined && diff < 0}
       <svg
         xmlns="http://www.w3.org/2000/svg"
         viewBox="0 0 40 40"
@@ -183,25 +213,25 @@
       </svg>
     {/if}
 
-    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && !lowerIsBetter}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && !lowerIsBetter}
       <span class:difp-red={difp < 0} class:difp-green={difp > 0}
         >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
       >
     {/if}
-    {#if difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && lowerIsBetter}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && Number.isFinite(difp) && lowerIsBetter}
       <span class:difp-red={difp > 0} class:difp-green={difp < 0}
         >{difp > 0 ? "+" : ""}{(difp * 100).toFixed(0)}%</span
       >
     {/if}
-    {#if difp != undefined && !Number.isNaN(difp) && !Number.isFinite(difp)}
+    {#if showDiff && difp != undefined && !Number.isNaN(difp) && !Number.isFinite(difp)}
       <span class:difp-green={!lowerIsBetter} class:difp-red={lowerIsBetter}
         >&infin;%</span
       >
     {/if}
-    {#if difp != undefined && Number.isNaN(difp) && diff === 0}
+    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff === 0}
       <span>0%</span>
     {/if}
-    {#if difp != undefined && Number.isNaN(difp) && diff < 0}
+    {#if showDiff && difp != undefined && Number.isNaN(difp) && diff !== undefined && diff < 0}
       <span class:difp-green={lowerIsBetter} class:difp-red={!lowerIsBetter}
         >&infin;%</span
       >
@@ -212,14 +242,20 @@
         <span>&nbsp;</span>
       {/if}
       <span>x{result.metrics[metric].count}</span>
+      {#if showUniqueRefs && result.metrics[metric].unique_refs !== undefined}
+        <span>
+          ({result.metrics[metric].unique_refs}
+          {result.metrics[metric].unique_refs === 1 ? "ref" : "refs"})
+        </span>
+      {/if}
     {/if}
 
     {#if showStatistics && p_value != undefined && !Number.isNaN(p_value) && Number.isFinite(p_value)}
       <span class="pvalue">p={p_value.toFixed(2)}</span>
       {#if ci_lower != undefined && ci_upper != undefined}
         <span class="pvalue"
-          >({ci_lower.toFixed(3).toLocaleString()} to
-          {ci_upper.toFixed(3).toLocaleString()})</span
+          >({formatValue(ci_lower, true)} to
+          {formatValue(ci_upper, true)})</span
         >
       {/if}
     {/if}
@@ -242,7 +278,7 @@
     color: #6a6;
   }
 
-  .actual {
+  .diff {
     font-weight: lighter;
   }
 

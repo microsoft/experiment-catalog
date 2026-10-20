@@ -25,6 +25,8 @@ public class AzureBlobStorageService(
     ILogger<AzureBlobStorageService> logger) : IStorageService
 {
     private BlobServiceClient? blobServiceClient;
+    // Container metadata rejects IfMatch, so serialize read/modify/write within this instance.
+    private readonly SemaphoreSlim projectMetadataLock = new(1, 1);
 
     private async Task<BlobServiceClient> GetBlobServiceClientAsync(CancellationToken cancellationToken = default)
     {
@@ -208,22 +210,94 @@ public class AzureBlobStorageService(
         {
             if (blobContainerItem.Properties.Metadata.TryGetValue("exp_catalog_type", out var type) && type == "project")
             {
-                projects.Add(new Project { Name = blobContainerItem.Name });
+                projects.Add(ProjectFromMetadata(blobContainerItem.Name, blobContainerItem.Properties.Metadata));
             }
         }
         return projects;
     }
 
+    public async Task<Project> GetProjectAsync(string projectName, CancellationToken cancellationToken = default)
+    {
+        var client = await this.ConnectAsync(cancellationToken);
+        var containerClient = client.GetBlobContainerClient(projectName);
+        try
+        {
+            var properties = await containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            var metadata = properties.Value.Metadata;
+            if (!metadata.TryGetValue("exp_catalog_type", out var type) || type != "project")
+            {
+                throw new HttpException(404, "project not found.");
+            }
+
+            return ProjectFromMetadata(projectName, metadata);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            throw new HttpException(404, "project not found.");
+        }
+    }
+
     public async Task AddProjectAsync(Project project, CancellationToken cancellationToken = default)
     {
+        if (project.Emoji is not null || project.Note is not null || project.GroundTruth is not null)
+        {
+            throw new HttpException(400, "project metadata fields must be updated after project creation.");
+        }
+
         var client = await this.ConnectAsync(cancellationToken);
         var containerClient = client.GetBlobContainerClient(project.Name);
         await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
-        var metadata = new Dictionary<string, string>
+        await UpdateProjectMetadataAsync(
+            containerClient, metadata => metadata["exp_catalog_type"] = "project", cancellationToken);
+    }
+
+    public async Task<Project> SetProjectDisplayAsync(
+        string projectName,
+        ProjectDisplay display,
+        CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        await UpdateProjectMetadataAsync(
+            containerClient,
+            metadata =>
+            {
+                CardDisplayMetadata.Apply(metadata, new CardDisplay { Emoji = display.Emoji, Note = display.Note });
+                CardDisplayMetadata.ApplyGroundTruth(metadata, display.GroundTruth);
+            },
+            cancellationToken);
+        var properties = await containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        return ProjectFromMetadata(projectName, properties.Value.Metadata);
+    }
+
+    private static Project ProjectFromMetadata(string name, IDictionary<string, string> metadata)
+    {
+        var display = CardDisplayMetadata.Read(metadata);
+        return new Project
         {
-            { "exp_catalog_type", "project" }
+            Name = name,
+            Emoji = display.Emoji,
+            Note = display.Note,
+            GroundTruth = CardDisplayMetadata.ReadGroundTruth(metadata),
         };
-        await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+    }
+
+    private async Task UpdateProjectMetadataAsync(
+        BlobContainerClient containerClient,
+        Action<Dictionary<string, string>> update,
+        CancellationToken cancellationToken)
+    {
+        await projectMetadataLock.WaitAsync(cancellationToken);
+        try
+        {
+            var properties = await containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            var metadata = new Dictionary<string, string>(properties.Value.Metadata, StringComparer.OrdinalIgnoreCase);
+            update(metadata);
+            await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+        }
+        finally
+        {
+            projectMetadataLock.Release();
+        }
     }
 
     public async Task<IList<string>> ListTagsAsync(string projectName, CancellationToken cancellationToken = default)
@@ -348,6 +422,11 @@ public class AzureBlobStorageService(
 
     public async Task AddExperimentAsync(string projectName, Experiment experiment, CancellationToken cancellationToken = default)
     {
+        if (experiment.Emoji is not null || experiment.Note is not null)
+        {
+            throw new HttpException(400, "experiment display fields must be updated using the display endpoint.");
+        }
+
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experiment.Name}.jsonl");
         var response = await appendBlobClient.ExistsAsync(cancellationToken);
@@ -361,15 +440,65 @@ public class AzureBlobStorageService(
         await appendBlobClient.AppendBlockAsync(memoryStream, cancellationToken: cancellationToken);
     }
 
+    public async Task<Experiment> SetExperimentDisplayAsync(
+        string projectName,
+        string experimentName,
+        CardDisplay display,
+        CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
+        var optimizing = containerClient.GetAppendBlobClient($"{experimentName}-optimizing.jsonl");
+        if (await optimizing.ExistsAsync(cancellationToken))
+        {
+            throw new HttpException(409, "experiment is currently being optimized.");
+        }
+        if (!await appendBlobClient.ExistsAsync(cancellationToken))
+        {
+            throw new HttpException(404, "experiment not found.");
+        }
+
+        await UpdateExperimentMetadataAsync(
+            appendBlobClient, metadata => CardDisplayMetadata.Apply(metadata, display), cancellationToken);
+
+        return await LoadExperimentAsync(containerClient, experimentName, includeResults: false, cancellationToken: cancellationToken);
+    }
+
+    private static async Task UpdateExperimentMetadataAsync(
+        AppendBlobClient appendBlobClient,
+        Action<Dictionary<string, string>> update,
+        CancellationToken cancellationToken)
+    {
+        for (var attempt = 0; attempt < 3; attempt++)
+        {
+            var properties = await appendBlobClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+            var metadata = new Dictionary<string, string>(properties.Value.Metadata, StringComparer.OrdinalIgnoreCase);
+            update(metadata);
+            try
+            {
+                await appendBlobClient.SetMetadataAsync(
+                    metadata,
+                    new BlobRequestConditions { IfMatch = properties.Value.ETag },
+                    cancellationToken);
+                return;
+            }
+            catch (RequestFailedException ex) when (ex.Status == 412)
+            {
+            }
+        }
+
+        throw new HttpException(409, "experiment metadata was modified concurrently. Please try again.");
+    }
+
     public async Task SetExperimentAsBaselineAsync(string projectName, string experimentName, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
-        var metadata = new Dictionary<string, string>
-        {
-            { "exp_catalog_type", "project" },
-            { "baseline", experimentName }
-        };
-        await containerClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+        await UpdateProjectMetadataAsync(
+            containerClient, metadata =>
+            {
+                metadata["exp_catalog_type"] = "project";
+                metadata["baseline"] = experimentName;
+            }, cancellationToken);
     }
 
     public async Task SetBaselineForExperiment(string projectName, string experimentName, string setName, CancellationToken cancellationToken = default)
@@ -387,11 +516,16 @@ public class AzureBlobStorageService(
         var appendBlobClient = containerClient.GetAppendBlobClient($"{experimentName}.jsonl");
         var response = await appendBlobClient.ExistsAsync(cancellationToken);
         if (!response.Value) throw new HttpException(404, "experiment not found.");
-        var metadata = new Dictionary<string, string>
+        if (setName != ":project")
         {
-            { "baseline", setName }
-        };
-        await appendBlobClient.SetMetadataAsync(metadata, cancellationToken: cancellationToken);
+            var experiment = await LoadExperimentAsync(containerClient, experimentName, cancellationToken: cancellationToken);
+            if (experiment.HiddenSets.Contains(setName))
+            {
+                throw new HttpException(409, "a hidden set cannot be used as an experiment baseline.");
+            }
+        }
+        await UpdateExperimentMetadataAsync(
+            appendBlobClient, metadata => metadata["baseline"] = setName, cancellationToken);
     }
 
     private async Task AddStorageRecord(string projectName, string experimentName, string json, CancellationToken cancellationToken = default)
@@ -418,6 +552,38 @@ public class AzureBlobStorageService(
         result.X = "R";
         var serializedJson = JsonConvert.SerializeObject(result);
         await AddStorageRecord(projectName, experimentName, serializedJson, cancellationToken);
+    }
+
+    public async Task HideSetAsync(
+        string projectName,
+        string experimentName,
+        string setName,
+        CancellationToken cancellationToken = default)
+    {
+        var containerClient = await ConnectAsync(projectName, cancellationToken);
+        var experiment = await LoadExperimentAsync(containerClient, experimentName, cancellationToken: cancellationToken);
+        if (experiment.HiddenSets.Contains(setName)) return;
+        if (experiment.Results?.Any(result => result.Set == setName) != true)
+        {
+            throw new HttpException(404, "set not found.");
+        }
+
+        if (!string.Equals(experiment.Baseline, ":project", StringComparison.OrdinalIgnoreCase) &&
+            (experiment.BaselineSet ?? experiment.FirstSet) == setName)
+        {
+            throw new HttpException(409, "choose a different experiment baseline before hiding this set.");
+        }
+
+        var projectProperties = await containerClient.GetPropertiesAsync(cancellationToken: cancellationToken);
+        if (projectProperties.Value.Metadata.TryGetValue("baseline", out var projectBaselineName) &&
+            projectBaselineName == experimentName &&
+            (experiment.BaselineSet ?? experiment.LastSet) == setName)
+        {
+            throw new HttpException(409, "choose a different project baseline set before hiding this set.");
+        }
+
+        var record = new HiddenSetRecord { X = "X", Set = setName };
+        await AddStorageRecord(projectName, experimentName, JsonConvert.SerializeObject(record), cancellationToken);
     }
 
     public async Task AddStatisticsAsync(string projectName, string experimentName, Statistics statistics, CancellationToken cancellationToken = default)
@@ -462,21 +628,7 @@ public class AzureBlobStorageService(
             string? line;
             while ((line = await streamReader.ReadLineAsync(cancellationToken)) is not null)
             {
-                var result = JsonConvert.DeserializeObject<Result>(line);
-                if (result is null) continue;
-
-                if (result.X == "P")
-                {
-                    var statistics = JsonConvert.DeserializeObject<Statistics>(line);
-                    if (statistics is not null)
-                    {
-                        experiment.Statistics.Add(statistics);
-                    }
-                }
-                else
-                {
-                    experiment.Results.Add(result);
-                }
+                experiment.ApplyStorageRecord(line);
             }
         }
 
@@ -485,6 +637,9 @@ public class AzureBlobStorageService(
         {
             experiment.Baseline = baseline;
         }
+        var display = CardDisplayMetadata.Read(properties.Value.Metadata);
+        experiment.Emoji = display.Emoji;
+        experiment.Note = display.Note;
         experiment.Metadata = new Dictionary<string, object>
         {
             { "block_count", properties.Value.BlobCommittedBlockCount },

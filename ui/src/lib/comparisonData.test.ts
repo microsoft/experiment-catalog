@@ -4,6 +4,7 @@ import {
     buildSelectedEntities,
     filterImportantMetrics,
     sanitizeCheckedMetrics,
+    extractComparisonFilterOptions,
 } from "./comparisonData";
 
 // Minimal stubs matching the global Comparison / ComparisonEntity types
@@ -32,6 +33,35 @@ describe("extractSortedMetrics", () => {
         expect(extractSortedMetrics(makeComparison())).toEqual([]);
     });
 
+    describe("extractComparisonFilterOptions", () => {
+        it("shares all source metrics across sets, including metrics absent from a selected set", () => {
+            const comparison = makeComparison({
+                metric_definitions: {
+                    latency: { order: 1 } as MetricDefinition,
+                    accuracy: { order: 2 } as MetricDefinition,
+                },
+                project_baseline: makeEntity("project-baseline", ["project-only"]),
+                experiment_baseline: makeEntity("baseline", ["baseline-only"]),
+                comparison_target: makeEntity("target", ["target-only"]),
+                sets: [
+                    makeEntity("partial", ["accuracy"]),
+                    makeEntity("complete", ["accuracy", "latency"]),
+                ],
+            });
+            expect(extractComparisonFilterOptions(comparison)).toEqual({
+                sets: ["partial", "complete"],
+                metrics: ["latency", "accuracy", "baseline-only", "project-only"],
+            });
+        });
+
+        it("returns empty options when no sets or metrics are available", () => {
+            expect(extractComparisonFilterOptions(makeComparison())).toEqual({
+                sets: [],
+                metrics: [],
+            });
+        });
+    });
+
     it("deduplicates metrics across baselines and sets", () => {
         const comparison = makeComparison({
             project_baseline: makeEntity("pb", ["accuracy", "f1"]),
@@ -41,6 +71,14 @@ describe("extractSortedMetrics", () => {
         const result = extractSortedMetrics(comparison);
         expect(result).toHaveLength(4);
         expect(new Set(result).size).toBe(4);
+    });
+
+    it("excludes metrics unique to a replaced experiment baseline", () => {
+        const comparison = makeComparison({
+            experiment_baseline: makeEntity("baseline", ["old"]),
+            comparison_target: makeEntity("target", ["new"]),
+        });
+        expect(extractSortedMetrics(comparison)).toEqual(["new"]);
     });
 
     it("sorts by metric_definitions order", () => {

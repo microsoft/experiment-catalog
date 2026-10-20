@@ -90,7 +90,7 @@ test.describe('Create Project modal', () => {
 test.describe('Create Experiment modal', () => {
   test.beforeEach(async ({ mockedPage: page }) => {
     await page.goto('/');
-    await page.getByRole('button', { name: 'alpha-project' }).click();
+    await page.getByRole('button', { name: 'alpha-project', exact: true }).click();
     await expect(
       page.getByRole('heading', { name: /Experiments in alpha-project/ }),
     ).toBeVisible();

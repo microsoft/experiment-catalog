@@ -15,4 +15,10 @@ if [ -d "ui" ] && [ -f "ui/package.json" ]; then
   cd "$root_dir"
 fi
 
+echo "==> Smoke: compiling Experiment Catalog CLI..."
+PYTHONPATH=cli/src python3 -m compileall -q cli/src
+
+echo "==> Smoke: compiling custom aggregate runner..."
+python3 -m compileall -q catalog/aggregate-runtime catalog/user-defined-aggregates
+
 echo "Smoke check passed."

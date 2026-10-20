@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { getContext } from "svelte";
+  import { getLayerCakeContext } from "layercake";
 
   interface Props {
     labels: string[];
@@ -8,19 +8,19 @@
 
   let { labels, annotations = [] }: Props = $props();
 
-  const { width, height } = getContext("LayerCake") as any;
+  const chart = getLayerCakeContext();
 
   function bandWidth(): number {
-    return $width / (labels.length || 1);
+    return chart.width / (labels.length || 1);
   }
 </script>
 
 <!-- Baseline -->
 <line
   x1={0}
-  x2={$width}
-  y1={$height}
-  y2={$height}
+  x2={chart.width}
+  y1={chart.height}
+  y2={chart.height}
   stroke="#334155"
   stroke-width="1"
 />
@@ -32,7 +32,7 @@
   {@const groupAnnotations = annotations[i] ?? []}
   <text
     {x}
-    y={$height + 22}
+    y={chart.height + 22}
     text-anchor="middle"
     fill="#c8d0dc"
     font-size="13"
@@ -49,4 +49,3 @@
     {/each}
   </text>
 {/each}
-

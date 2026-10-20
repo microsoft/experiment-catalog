@@ -40,5 +40,8 @@ public interface IConfig
     string? EXTERNAL_HOST { get; set; }
     string? PATH_BASE { get; set; }
     bool SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT { get; set; }
+    string? CUSTOM_AGGREGATE_FUNCTIONS_PATH { get; set; }
+    string CUSTOM_AGGREGATE_PYTHON_EXECUTABLE { get; set; }
+    int CUSTOM_AGGREGATE_TIMEOUT_SECONDS { get; set; }
     bool IsAuthenticationEnabled { get; }
 }
