@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Catalog;
 
 public interface IConfig
@@ -44,4 +46,5 @@ public interface IConfig
     string CUSTOM_AGGREGATE_PYTHON_EXECUTABLE { get; set; }
     int CUSTOM_AGGREGATE_TIMEOUT_SECONDS { get; set; }
     bool IsAuthenticationEnabled { get; }
+    IList<CustomLink> CustomLinks { get; set; }
 }

@@ -7,6 +7,13 @@ import * as data from './mocks/data';
  * Individual tests can override specific routes after calling this.
  */
 export async function mockAllRoutes(page: Page) {
+  await page.route('**/api/settings', (route) =>
+    route.fulfill({ json: {} }),
+  );
+  await page.route('**/api/projects/*/links', (route) =>
+    route.fulfill({ json: [] }),
+  );
+
   // Auth
   await page.route('**/auth/status', (route) =>
     route.fulfill({ json: data.authNotRequired }),

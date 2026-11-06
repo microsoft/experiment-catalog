@@ -407,6 +407,8 @@ public class ComparisonOverrideTests
             Task.FromResult<IList<string>>(["focus"]);
         public Task AddTagAsync(string project, Tag tag, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddMetricsAsync(string project, IList<MetricDefinition> metrics, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task<IList<CustomLink>> GetLinksAsync(string project, CancellationToken cancellationToken = default) => throw new NotSupportedException();
+        public Task SetLinksAsync(string project, IList<CustomLink> links, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<IList<Experiment>> GetExperimentsAsync(string project, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task AddExperimentAsync(string project, Experiment experiment, CancellationToken cancellationToken = default) => throw new NotSupportedException();
         public Task<Experiment> SetExperimentDisplayAsync(string project, string experiment, CardDisplay display, CancellationToken cancellationToken = default) => throw new NotSupportedException();

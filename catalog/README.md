@@ -42,6 +42,8 @@ To configure the solution, you must provide the following environment variables.
 
 - **PATH_TEMPLATE** [OPTIONAL]: A template string for constructing URIs to inference, evaluation, and ground truth output files. Use `{0}` as a placeholder for the URI. When running on localhost, it is common to set this to `http://localhost:6010/api/download?url={0}`. When running deployed, it is common to set this to `/api/download?url={0}`. Either of these options will give you a JSON download of the file when you click on the link in the UI. However, if you want to create your own visualization and analysis of the inference, evaluation, and ground truth output files, you can set this to a different URL that will allow you to do that.
 
+- **ITERATION_LINK_&lt;name&gt;**, **REF_LINK_&lt;name&gt;**, **SET_LINK_&lt;name&gt;**, **EXPERIMENT_LINK_&lt;name&gt;** [OPTIONAL]: Named custom URL templates for external visualization and analysis tools. See [Custom links](#custom-links).
+
 - **CUSTOM_AGGREGATE_FUNCTIONS_PATH** [OPTIONAL, DEFAULT: unset/disabled]: Local folder containing administrator-deployed trusted `.py` files for runtime custom aggregate metrics. When this setting is empty, custom aggregate execution is disabled.
 
 - **CUSTOM_AGGREGATE_PYTHON_EXECUTABLE** [DEFAULT: python3]: Python executable used to run runtime custom aggregate functions. The host must have this executable available. The published `catalog.Dockerfile` runtime image installs `python3`.
@@ -99,6 +101,68 @@ When using OIDC authentication behind a reverse proxy (or at a sub-path), use th
 - **EXTERNAL_SCHEME** [OPTIONAL]: The scheme (e.g., `https`) used when constructing the OIDC redirect URI (`/auth/callback`). This setting is **only** used for OIDC authentication flows — it does not affect other request handling. If unset, the app falls back to the `X-Forwarded-Proto` header and then `Request.Scheme`. **Required for Azure Container Apps with OIDC** — the Container App Environment performs TLS termination at the Envoy ingress, so the app always sees `http` in `Request.Scheme` even though external clients connect over HTTPS. Set `EXTERNAL_SCHEME=https` to ensure the OIDC redirect URI uses the correct protocol.
 
 - **EXTERNAL_HOST** [OPTIONAL]: The public hostname (e.g., `apps.example.com`) used by external clients. Overrides `Request.Host` when constructing OIDC redirect URIs. Falls back to `Request.Host` if unset. Use this when the reverse proxy forwards requests using an internal hostname that differs from the public domain.
+
+## Custom links
+
+Administrators can define deployment-wide links using one environment variable
+per link. The case-sensitive suffix is the displayed name:
+
+```dotenv
+ITERATION_LINK_trace=https://tools.example/trace?inf={inf}&eval={eval}
+REF_LINK_cow=https://tools.example/ref?project={project}&experiment={experiment}&set={set}&ref={ref}&baseline={baseline-set}
+SET_LINK_dashboard=https://tools.example/set?project={project}&experiment={experiment}&set={set}
+EXPERIMENT_LINK_report=https://tools.example/experiment?project={project}&experiment={experiment}
+```
+
+Project-specific links use `GET /api/projects/{project}/links` and
+`PUT /api/projects/{project}/links`. PUT replaces the complete project list,
+stored as `links.json` in the project's existing storage container:
+
+```json
+[
+  {
+    "scope": "ref",
+    "name": "cow",
+    "url": "https://project-tools.example/analyze?ref={ref}&baseline={baseline-project}/{baseline-experiment}/{baseline-set}"
+  }
+]
+```
+
+GET returns only stored project definitions, or `[]` if none exist. Deployment
+defaults are exposed separately as `custom_links` in `GET /api/settings`.
+The UI merges by the exact `(scope, name)` pair: project definitions override
+matching defaults and append new links. PUT `[]` clears project definitions
+but does not disable deployment defaults. Environment links are sorted by
+scope/name; project additions retain their JSON order. These definitions are
+visible to UI users; do not put credentials in their URLs.
+
+| Scope | Placement | Available placeholders |
+| --- | --- | --- |
+| `iteration` | Beside `gt`, `inf`, and `eval` on expanded compare-by-ref iteration rows | `{project}`, `{experiment}`, `{set}`, `{ref}`, `{gt}`, `{inf}`, `{eval}` |
+| `ref` | Beside the ref on each compare-by-ref aggregate row, even with iterations collapsed | `{project}`, `{experiment}`, `{set}`, `{ref}` |
+| `set` | Optional LINKS metadata row after CREATED on compare-by-ref | `{project}`, `{experiment}`, `{set}` |
+| `experiment` | Optional LINKS metadata row after CREATED and before TAG IMPACT on compare | `{project}`, `{experiment}` |
+
+All scopes also support `{baseline-project}`, `{baseline-experiment}`, and
+`{baseline-set}`, referring to the active comparison target, or the experiment
+baseline when no override is selected. Ordinary placeholders describe the
+owning row, including on baseline and cross-project comparison rows; those rows
+use their own project's link definitions. Artifact placeholders contain the
+iteration's corresponding URI as returned by the API. There is no synthetic
+iteration-number placeholder.
+
+Values are URL-encoded individually and substituted once, including repeated
+placeholders. Templates must be absolute HTTP(S) URLs and use only supported
+placeholders for their scope. Invalid environment definitions fail configuration
+loading; invalid PUT bodies return HTTP 400 without replacing stored links.
+Links with unavailable placeholder values are hidden. Links open in a new tab,
+and existing artifact buttons are unchanged. Experiment and set links are displayed as
+white, underlined, comma-separated names in their page's LINKS metadata row. Reload the page after updating
+project definitions; environment changes require restarting the backend.
+
+The compare table pins metric names and their checkboxes during horizontal
+scrolling. Compare-by-ref pins Source and Ref; offsets track actual column
+widths, including changes when iterations are expanded.
 
 ## Concepts
 

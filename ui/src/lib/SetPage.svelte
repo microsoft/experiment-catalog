@@ -6,6 +6,8 @@
   import TagsFilter from "./TagsFilter.svelte";
   import RefFilterWarning from "./RefFilterWarning.svelte";
   import FreeFilter from "./FreeFilter.svelte";
+  import CustomLinks from "./CustomLinks.svelte";
+  import { expandLink, linkContext, loadCustomLinks } from "./customLinks";
   import { sanitizeProjectTagQuerystring, type ViewConfig } from "./Tools";
   import {
     getComparisonByRef,
@@ -27,6 +29,7 @@
     experiment: Experiment;
     setName: string;
     config?: ViewConfig;
+    uiSettings?: UiSettings;
     onunselectSet?: () => void;
     onchangeConfig?: (config: ViewConfig) => void;
   }
@@ -36,6 +39,7 @@
     experiment,
     setName,
     config = {},
+    uiSettings = {},
     onunselectSet,
     onchangeConfig,
   }: Props = $props();
@@ -43,6 +47,7 @@
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let hiding = $state(false);
   let hideError = $state("");
+  let sourceColumnWidth = $state(0);
 
   const unselectSet = () => {
     onunselectSet?.();
@@ -54,6 +59,12 @@
   let showBaselineResults = $state(false);
   let comparison: ComparisonByRef | undefined = $state();
   let comparisonTarget = $derived(comparison?.comparison_target ?? comparison?.experiment_baseline);
+  let customLinksByProject: Record<string, CustomLink[]> = $state({});
+  let currentEntity = $derived({ project: project.name, experiment: experiment.name, set: setName });
+  let setLinkContext = $derived(linkContext(currentEntity, comparisonTarget));
+  let hasSetLinks = $derived((customLinksByProject[project.name] ?? []).some(
+    (link) => link.scope === "set" && !!expandLink(link.url, setLinkContext),
+  ));
   let isBaselineSet = $derived(
     [comparison?.project_baseline, comparison?.experiment_baseline].some((entity) =>
       entity?.project === project.name &&
@@ -130,6 +141,15 @@
         tagFilters || undefined,
         config.comparison_target,
         config.ref_filter,
+      );
+
+      customLinksByProject = await loadCustomLinks(
+        [
+          project.name,
+          comparison.project_baseline?.project,
+          comparisonTarget?.project,
+        ].filter((name): name is string => !!name),
+        uiSettings.custom_links ?? [],
       );
 
       // get a list of all refs in the chosen results
@@ -303,6 +323,19 @@
     }).format(new Date(experiment.created))}
   </span>
 </div>
+{#if hasSetLinks}
+  <div class="meta-row">
+    <span class="meta-label">Links</span>
+    <span>
+      <CustomLinks
+        links={customLinksByProject[project.name]}
+        scope="set"
+        context={setLinkContext}
+        plain
+      />
+    </span>
+  </div>
+{/if}
 <h3>
   <span>SET: {setName}</span>
   <button
@@ -357,10 +390,10 @@
       <span>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</span>
     </div>
   {/if}
-  <table>
+  <table style:--first-column-width={`${sourceColumnWidth}px`}>
     <thead>
       <tr>
-        <th>Source</th>
+        <th bind:clientWidth={sourceColumnWidth}>Source</th>
         <th>Ref</th>
         {#each selectedMetrics as metric}
           <th>{metric}</th>
@@ -376,7 +409,14 @@
                 "-"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={customLinksByProject[comparison.project_baseline?.project]}
+              scope="ref"
+              context={linkContext(comparison.project_baseline, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -400,7 +440,14 @@
                 "-"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={comparisonTarget ? customLinksByProject[comparisonTarget.project] : []}
+              scope="ref"
+              context={linkContext(comparisonTarget, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -444,6 +491,11 @@
                     >(eval)</button
                   >
                 {/if}
+                <CustomLinks
+                  links={comparisonTarget ? customLinksByProject[comparisonTarget.project] : []}
+                  scope="iteration"
+                  context={linkContext(comparisonTarget, comparisonTarget, result)}
+                />
               </td>
               <td class="label"><nobr>{result.ref}</nobr></td>
               {#each selectedMetrics as metric}
@@ -471,7 +523,14 @@
                 "MISSING"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={customLinksByProject[project.name]}
+              scope="ref"
+              context={linkContext(currentEntity, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -527,6 +586,11 @@
                     >(eval)</button
                   >
                 {/if}
+                <CustomLinks
+                  links={customLinksByProject[project.name]}
+                  scope="iteration"
+                  context={linkContext(currentEntity, comparisonTarget, result)}
+                />
               </td>
               <td class="label"><nobr>{result.ref}</nobr></td>
               {#each selectedMetrics as metric}
@@ -590,7 +654,7 @@
     position: sticky;
     top: 0;
     background-color: #373;
-    z-index: 1;
+    z-index: 3;
     border-bottom: 1px solid #ddd;
   }
 
@@ -602,14 +666,17 @@
   }
 
   tr.experiment-baseline {
+    --row-background: #444;
     background-color: #444;
   }
 
   tr.project-baseline {
+    --row-background: #454;
     background-color: #454;
   }
 
   tr.set-aggregate {
+    --row-background: #444;
     background-color: #444;
   }
 
@@ -623,6 +690,23 @@
     text-align: left;
     font-weight: bold;
     padding-right: 3rem;
+  }
+
+  th:nth-child(-n + 2),
+  td:nth-child(-n + 2):not([colspan]) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--row-background, #242424);
+  }
+
+  th:nth-child(2),
+  td:nth-child(2):not([colspan]) {
+    left: var(--first-column-width);
+  }
+
+  th:nth-child(-n + 2) {
+    background-color: #373;
   }
 
   .selection {

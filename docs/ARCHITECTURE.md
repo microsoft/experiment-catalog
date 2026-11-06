@@ -53,6 +53,12 @@ results through the catalog API or Python client.
   `description`. This metadata travels with `metric_definitions` for UI
   rendering, but it is not required for result submission and does not
   participate in aggregation or storage of per-result metric values.
+- `CustomLink` validates named HTTP(S) templates and scope-specific placeholders.
+  Deployment defaults come from `<SCOPE>_LINK_<name>` environment variables.
+  Project GET/PUT `/links` endpoints read/replace a separate `links.json` blob,
+  never merged defaults. The UI merges by `(scope, name)` for each owning project,
+  URL-encodes substituted values, and resolves `baseline-*` against the active
+  comparison target, without modifying result records or baseline designations.
 - `cli/src/experiment_catalog/models.py` defines and validates the CSV and
   in-memory result contracts before API writes begin; catalog-side result rules
   can still reject individual rows.

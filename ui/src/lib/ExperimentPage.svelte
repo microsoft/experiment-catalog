@@ -5,6 +5,8 @@
   import MeaningfulTags from "./MeaningfulTags.svelte";
   import RefFilterControls from "./RefFilterControls.svelte";
   import SelectComparisonTargetModal from "./SelectComparisonTargetModal.svelte";
+  import CustomLinks from "./CustomLinks.svelte";
+  import { expandLink, linkContext } from "./customLinks";
   import type { ComparisonTarget, RefFilter, ViewConfig } from "./Tools";
   import {
     useProjectBaseline,
@@ -57,6 +59,14 @@
   let ready: boolean = $state(false);
   let dataAccessOpen: boolean = $state(false);
   let targetModalOpen = $state(false);
+  let customLinks: CustomLink[] = $state([]);
+  let linkBaseline: ComparisonEntity | null | undefined = $state();
+  let experimentLinkContext = $derived(
+    linkContext({ project: project.name, experiment: experiment.name }, linkBaseline),
+  );
+  let hasExperimentLinks = $derived(customLinks.some(
+    (link) => link.scope === "experiment" && !!expandLink(link.url, experimentLinkContext),
+  ));
 
   // Initialize from config on mount
   onMount(() => {
@@ -306,6 +316,14 @@
       }).format(new Date(experiment.created))}
     </span>
   </div>
+  {#if hasExperimentLinks}
+    <div class="meta-row">
+      <span class="meta-label">Links</span>
+      <span>
+        <CustomLinks links={customLinks} scope="experiment" context={experimentLinkContext} plain />
+      </span>
+    </div>
+  {/if}
   {#if experiment.annotations}
     {#each experiment.annotations as annotation}
       <div class="meta-row">
@@ -496,6 +514,11 @@
       {showImportantOnly}
       target={config.comparison_target}
       refFilter={config.ref_filter}
+      {uiSettings}
+      onlinksLoaded={(links, baseline) => {
+        customLinks = links;
+        linkBaseline = baseline;
+      }}
       bind:this={comparisonTable}
       onchooseTarget={() => (targetModalOpen = true)}
       onresetTarget={resetTarget}

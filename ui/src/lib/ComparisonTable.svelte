@@ -4,6 +4,7 @@
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import RefFilterWarning from "./RefFilterWarning.svelte";
+  import { loadCustomLinks } from "./customLinks";
   import {
     getComparison,
     addAnnotation as apiAddAnnotation,
@@ -38,6 +39,8 @@
     showImportantOnly?: boolean;
     target?: ComparisonTarget;
     refFilter?: RefFilter;
+    uiSettings?: UiSettings;
+    onlinksLoaded?: (links: CustomLink[], baseline?: ComparisonEntity | null) => void;
     onchooseTarget?: () => void;
     onresetTarget?: () => void;
     ondrilldown?: (set: string) => void;
@@ -67,6 +70,8 @@
     showImportantOnly = false,
     target,
     refFilter,
+    uiSettings = {},
+    onlinksLoaded,
     onchooseTarget,
     onresetTarget,
     ondrilldown,
@@ -81,6 +86,7 @@
   let controls: ComparisonTableMetric[] = $state([]);
   let selected: (ComparisonEntity | null)[] = $state([]);
   let metricsHighlighted: Set<string> = $state(new Set());
+  let checkboxColumnWidth = $state(0);
 
   const drilldown = (set: string) => {
     ondrilldown?.(set);
@@ -199,6 +205,13 @@
         refFilter,
       );
 
+      const baseline = comparison.comparison_target ?? comparison.experiment_baseline;
+      const customLinksByProject = await loadCustomLinks(
+        [project.name],
+        uiSettings.custom_links ?? [],
+      );
+      onlinksLoaded?.(customLinksByProject[project.name] ?? [], baseline);
+
       // get a list of metrics
       metrics = extractSortedMetrics(comparison);
 
@@ -290,10 +303,10 @@
     <button class="btn" onclick={onresetTarget}>reset</button>
   {/if}
 {:else if comparison}
-  <table>
+  <table style:--first-column-width={`${checkboxColumnWidth}px`}>
     <thead>
       <tr>
-        <th class="checkbox-column"></th>
+        <th class="checkbox-column" bind:clientWidth={checkboxColumnWidth}></th>
         <th></th>
         {#if showProjectBaseline}
           <th>
@@ -428,7 +441,8 @@
 <style>
   table {
     width: 100%;
-    border-collapse: collapse;
+    border-collapse: separate;
+    border-spacing: 0;
   }
 
   th {
@@ -473,7 +487,21 @@
   }
 
   .highlighted {
+    --row-background: #333333;
     background-color: #333333;
+  }
+
+  th:nth-child(-n + 2),
+  td:nth-child(-n + 2):not([colspan]) {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--row-background, #242424);
+  }
+
+  th:nth-child(2),
+  td:nth-child(2):not([colspan]) {
+    left: var(--first-column-width);
   }
 
   input[type="checkbox"] {

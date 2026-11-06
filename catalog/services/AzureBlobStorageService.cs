@@ -388,6 +388,27 @@ public class AzureBlobStorageService(
         return metric;
     }
 
+    public async Task<IList<CustomLink>> GetLinksAsync(string projectName, CancellationToken cancellationToken = default)
+    {
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var blobClient = containerClient.GetBlobClient("links.json");
+        if (!await blobClient.ExistsAsync(cancellationToken)) return new List<CustomLink>();
+        var response = await blobClient.DownloadContentAsync(cancellationToken);
+        var links = JsonConvert.DeserializeObject<List<CustomLink>>(response.Value.Content.ToString())
+            ?? throw new Exception("the link contents were not valid.");
+        CustomLinkConfiguration.Validate(links);
+        return links;
+    }
+
+    public async Task SetLinksAsync(string projectName, IList<CustomLink> links, CancellationToken cancellationToken = default)
+    {
+        CustomLinkConfiguration.Validate(links);
+        var containerClient = await this.ConnectAsync(projectName, cancellationToken);
+        var blobClient = containerClient.GetBlobClient("links.json");
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(links)));
+        await blobClient.UploadAsync(stream, overwrite: true, cancellationToken: cancellationToken);
+    }
+
     public async Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default)
     {
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
