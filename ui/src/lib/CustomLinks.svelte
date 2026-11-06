@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { expandLink, type LinkContext } from "./customLinks";
+  import { resolveCustomLinks, type LinkContext } from "./customLinks";
 
   interface Props {
     links?: CustomLink[];
@@ -9,11 +9,7 @@
   }
 
   let { links = [], scope, context, plain = false }: Props = $props();
-  let resolved = $derived(
-    links.filter((link) => link.scope === scope)
-      .map((link) => ({ name: link.name, url: expandLink(link.url, context) }))
-      .filter((link) => link.url !== undefined),
-  );
+  let resolved = $derived(resolveCustomLinks(links, scope, context));
 </script>
 
 {#each resolved as link, index}

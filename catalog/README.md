@@ -133,6 +133,10 @@ defaults are exposed separately as `custom_links` in `GET /api/settings`.
 The UI merges by the exact `(scope, name)` pair: project definitions override
 matching defaults and append new links. If a project's link metadata cannot be
 loaded, its deployment defaults remain available and comparison data still renders.
+Link metadata is loaded once per owning project per page, independently of
+comparison requests; even a pending metadata request does not delay the table.
+Links requiring baseline values are hidden while the comparison reloads or if
+it fails, rather than retaining URLs for an earlier target.
 PUT `[]` clears project definitions
 but does not disable deployment defaults. Environment links are sorted by
 scope/name; project additions retain their JSON order. These definitions are

@@ -8,6 +8,20 @@ namespace Catalog;
 
 public class CustomLink : IValidatableObject
 {
+    public static void ValidateDefinitions(IList<CustomLink> links)
+    {
+        var keys = new HashSet<(string, string)>();
+        foreach (var link in links)
+        {
+            if (link is null) throw new ValidationException("Link definitions cannot be null.");
+            Validator.ValidateObject(link, new ValidationContext(link), validateAllProperties: true);
+            if (!keys.Add((link.Scope, link.Name)))
+            {
+                throw new ValidationException($"Duplicate {link.Scope} link name: {link.Name}.");
+            }
+        }
+    }
+
     [JsonProperty("scope", Required = Required.Always)]
     public string Scope { get; set; } = "";
 

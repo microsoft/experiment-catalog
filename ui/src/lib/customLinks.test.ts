@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { expandLink, linkContext, loadCustomLinks, mergeCustomLinks } from "./customLinks";
+import { expandLink, linkContext, loadCustomLinks, mergeCustomLinks, resolveCustomLinks } from "./customLinks";
 import { getProjectLinks } from "./api";
 
 vi.mock("./api", () => ({ getProjectLinks: vi.fn() }));
@@ -68,6 +68,18 @@ describe("custom links", () => {
             context,
         )).toBe("https://tools.example/foreign/other/reference/item?baseline=target/chosen/chosen-set");
         expect(context.inf).toBe("https://artifact.example");
+    });
+
+    it("resolves only available links for the requested scope in display order", () => {
+        expect(resolveCustomLinks([
+            { scope: "experiment", name: "missing", url: "https://tools.example/{baseline-set}" },
+            { scope: "set", name: "other scope", url: "https://tools.example/{set}" },
+            { scope: "experiment", name: "report", url: "https://tools.example/{experiment}" },
+            { scope: "experiment", name: "details", url: "https://tools.example/details" },
+        ], "experiment", { experiment: "first", set: "set-a" })).toEqual([
+            { name: "report", url: "https://tools.example/first" },
+            { name: "details", url: "https://tools.example/details" },
+        ]);
     });
 
     it.each([

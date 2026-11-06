@@ -4,7 +4,6 @@
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import RefFilterWarning from "./RefFilterWarning.svelte";
-  import { loadCustomLinks } from "./customLinks";
   import {
     getComparison,
     addAnnotation as apiAddAnnotation,
@@ -39,8 +38,7 @@
     showImportantOnly?: boolean;
     target?: ComparisonTarget;
     refFilter?: RefFilter;
-    uiSettings?: UiSettings;
-    onlinksLoaded?: (links: CustomLink[], baseline?: ComparisonEntity | null) => void;
+    onbaselineChange?: (baseline?: ComparisonEntity | null) => void;
     onchooseTarget?: () => void;
     onresetTarget?: () => void;
     ondrilldown?: (set: string) => void;
@@ -70,8 +68,7 @@
     showImportantOnly = false,
     target,
     refFilter,
-    uiSettings = {},
-    onlinksLoaded,
+    onbaselineChange,
     onchooseTarget,
     onresetTarget,
     ondrilldown,
@@ -202,6 +199,7 @@
     const request = ++comparisonRequest;
     try {
       loadingState = "loading";
+      onbaselineChange?.(undefined);
       await reconcileTagFilters();
       if (request !== comparisonRequest) return;
 
@@ -216,13 +214,8 @@
       if (request !== comparisonRequest) return;
 
       const baseline = loadedComparison.comparison_target ?? loadedComparison.experiment_baseline;
-      const customLinksByProject = await loadCustomLinks(
-        [project.name],
-        uiSettings.custom_links ?? [],
-      );
-      if (request !== comparisonRequest) return;
       comparison = loadedComparison;
-      onlinksLoaded?.(customLinksByProject[project.name] ?? [], baseline);
+      onbaselineChange?.(baseline);
 
       // get a list of metrics
       metrics = extractSortedMetrics(comparison);
@@ -252,6 +245,7 @@
     } catch (error) {
       if (request !== comparisonRequest) return;
       console.error(error);
+      onbaselineChange?.(undefined);
       loadingState = "error";
     }
   };
@@ -316,7 +310,7 @@
     <button class="btn" onclick={onresetTarget}>reset</button>
   {/if}
 {:else if comparison}
-  <table style:--first-column-width={`${checkboxColumnWidth}px`}>
+  <table class="pinned-columns" style:--first-column-width={`${checkboxColumnWidth}px`}>
     <thead>
       <tr>
         <th class="checkbox-column" bind:clientWidth={checkboxColumnWidth}></th>
@@ -502,19 +496,6 @@
   .highlighted {
     --row-background: #333333;
     background-color: #333333;
-  }
-
-  th:nth-child(-n + 2),
-  td:nth-child(-n + 2):not([colspan]) {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background-color: var(--row-background, #242424);
-  }
-
-  th:nth-child(2),
-  td:nth-child(2):not([colspan]) {
-    left: var(--first-column-width);
   }
 
   input[type="checkbox"] {

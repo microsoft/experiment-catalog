@@ -6,7 +6,7 @@ compatibility: Requires a reachable Experiment Catalog API and/or experiment-cat
 metadata:
   spec_version: "1.0"
   version: "1.0.0"
-  catalog_skill_version: "1.8.0"
+  catalog_skill_version: "1.9.0"
   catalog_project: "microsoft/experiment-catalog"
 ---
 
@@ -16,7 +16,7 @@ Use this skill to operate a running Experiment Catalog and analyze its content. 
 
 ## What To Load
 
-- Use `references/operations.md` for project, experiment, baseline, metric, tag, and result workflows.
+- Use `references/operations.md` for project, experiment, baseline, metric, tag, custom link, and result workflows.
 - Use `references/analysis.md` for comparison, per-ref diagnosis, p-values, meaningful tags, and final summaries.
 - Use `references/api-and-mcp.md` for exact MCP tool names, REST endpoints, request shapes, and response fields.
 - Use `references/downstream-integration.md` when adapting another repo to publish results into the catalog.

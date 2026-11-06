@@ -7,7 +7,8 @@
   import RefFilterWarning from "./RefFilterWarning.svelte";
   import FreeFilter from "./FreeFilter.svelte";
   import CustomLinks from "./CustomLinks.svelte";
-  import { expandLink, linkContext, loadCustomLinks } from "./customLinks";
+  import CustomLinksRow from "./CustomLinksRow.svelte";
+  import { linkContext, loadCustomLinks } from "./customLinks";
   import { sanitizeProjectTagQuerystring, type ViewConfig } from "./Tools";
   import {
     getComparisonByRef,
@@ -67,10 +68,9 @@
   let comparisonTarget = $derived(comparison?.comparison_target ?? comparison?.experiment_baseline);
   let customLinksByProject: Record<string, CustomLink[]> = $state({});
   let currentEntity = $derived({ project: project.name, experiment: experiment.name, set: setName });
-  let setLinkContext = $derived(linkContext(currentEntity, comparisonTarget));
-  let hasSetLinks = $derived((customLinksByProject[project.name] ?? []).some(
-    (link) => link.scope === "set" && !!expandLink(link.url, setLinkContext),
-  ));
+  let setLinkContext = $derived.by(() =>
+    linkContext(currentEntity, loadingState === "loaded" ? comparisonTarget : undefined),
+  );
   let isBaselineSet = $derived(
     [comparison?.project_baseline, comparison?.experiment_baseline].some((entity) =>
       entity?.project === project.name &&
@@ -89,6 +89,16 @@
   // Pre-computed maps for O(1) lookup instead of O(n) filter in template
   let resultsByRef: Map<string, Result[]> = $state(new Map());
   let baselineResultsByRef: Map<string, Result[]> = $state(new Map());
+
+  const loadProjectLinks = (projects: string[]) => {
+    for (const name of new Set(projects)) {
+      if (Object.hasOwn(customLinksByProject, name)) continue;
+      customLinksByProject[name] = uiSettings.custom_links ?? [];
+      void loadCustomLinks([name], uiSettings.custom_links ?? []).then((links) => {
+        if (!destroyed) customLinksByProject[name] = links[name] ?? [];
+      });
+    }
+  };
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -153,17 +163,14 @@
       );
       if (request !== comparisonRequest) return;
 
-      const loadedCustomLinks = await loadCustomLinks(
+      comparison = loadedComparison;
+      loadProjectLinks(
         [
           project.name,
           loadedComparison.project_baseline?.project,
           (loadedComparison.comparison_target ?? loadedComparison.experiment_baseline)?.project,
         ].filter((name): name is string => !!name),
-        uiSettings.custom_links ?? [],
       );
-      if (request !== comparisonRequest) return;
-      comparison = loadedComparison;
-      customLinksByProject = loadedCustomLinks;
 
       // get a list of all refs in the chosen results
       masterRefs = Object.keys(comparison.experiment_set?.results ?? {});
@@ -298,6 +305,7 @@
   // Initial fetch on mount
   onMount(() => {
     tagFilters = config.tags ?? "";
+    loadProjectLinks([project.name]);
     fetchComparison();
   });
 </script>
@@ -338,19 +346,11 @@
     }).format(new Date(experiment.created))}
   </span>
 </div>
-{#if hasSetLinks}
-  <div class="meta-row">
-    <span class="meta-label">Links</span>
-    <span>
-      <CustomLinks
-        links={customLinksByProject[project.name]}
-        scope="set"
-        context={setLinkContext}
-        plain
-      />
-    </span>
-  </div>
-{/if}
+<CustomLinksRow
+  links={customLinksByProject[project.name]}
+  scope="set"
+  context={setLinkContext}
+/>
 <h3>
   <span>SET: {setName}</span>
   <button
@@ -405,7 +405,7 @@
       <span>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</span>
     </div>
   {/if}
-  <table style:--first-column-width={`${sourceColumnWidth}px`}>
+  <table class="pinned-columns" style:--first-column-width={`${sourceColumnWidth}px`}>
     <thead>
       <tr>
         <th bind:clientWidth={sourceColumnWidth}>Source</th>
@@ -661,6 +661,7 @@
   }
 
   table {
+    --pinned-header-background: #373;
     width: 100%;
     border-collapse: collapse;
   }
@@ -705,23 +706,6 @@
     text-align: left;
     font-weight: bold;
     padding-right: 3rem;
-  }
-
-  th:nth-child(-n + 2),
-  td:nth-child(-n + 2):not([colspan]) {
-    position: sticky;
-    left: 0;
-    z-index: 1;
-    background-color: var(--row-background, #242424);
-  }
-
-  th:nth-child(2),
-  td:nth-child(2):not([colspan]) {
-    left: var(--first-column-width);
-  }
-
-  th:nth-child(-n + 2) {
-    background-color: #373;
   }
 
   .selection {

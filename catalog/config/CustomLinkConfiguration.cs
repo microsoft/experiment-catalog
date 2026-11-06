@@ -1,7 +1,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations;
 using System.Linq;
 
 namespace Catalog;
@@ -28,22 +27,8 @@ public static class CustomLinkConfiguration
             }
         }
 
-        Validate(links);
+        CustomLink.ValidateDefinitions(links);
         return links.OrderBy(link => link.Scope, StringComparer.Ordinal)
             .ThenBy(link => link.Name, StringComparer.Ordinal).ToList();
-    }
-
-    public static void Validate(IList<CustomLink> links)
-    {
-        var keys = new HashSet<(string, string)>();
-        foreach (var link in links)
-        {
-            if (link is null) throw new ValidationException("Link definitions cannot be null.");
-            Validator.ValidateObject(link, new ValidationContext(link), validateAllProperties: true);
-            if (!keys.Add((link.Scope, link.Name)))
-            {
-                throw new ValidationException($"Duplicate {link.Scope} link name: {link.Name}.");
-            }
-        }
     }
 }

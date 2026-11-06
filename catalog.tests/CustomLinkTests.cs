@@ -49,7 +49,7 @@ public class CustomLinkTests
     [InlineData("ref", "cow", "")]
     public void RejectsInvalidDefinitions(string scope, string name, string url)
     {
-        Assert.Throws<ValidationException>(() => CustomLinkConfiguration.Validate(
+        Assert.Throws<ValidationException>(() => CustomLink.ValidateDefinitions(
             [new CustomLink { Scope = scope, Name = name, Url = url }]));
     }
 
@@ -59,9 +59,9 @@ public class CustomLinkTests
         Assert.Throws<ValidationException>(() => CustomLinkConfiguration.FromEnvironment(
             new Hashtable { ["REF_LINK_"] = "https://tools.example" }));
         var link = new CustomLink { Scope = "ref", Name = "cow", Url = "https://tools.example/{ref}" };
-        Assert.Throws<ValidationException>(() => CustomLinkConfiguration.Validate([link, link]));
-        Assert.Throws<ValidationException>(() => CustomLinkConfiguration.Validate([null!]));
-        CustomLinkConfiguration.Validate(
+        Assert.Throws<ValidationException>(() => CustomLink.ValidateDefinitions([link, link]));
+        Assert.Throws<ValidationException>(() => CustomLink.ValidateDefinitions([null!]));
+        CustomLink.ValidateDefinitions(
             [link, new CustomLink { Scope = "set", Name = "cow", Url = "https://tools.example/{set}" }]);
     }
 

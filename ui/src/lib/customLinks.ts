@@ -64,3 +64,14 @@ export function expandLink(url: string, context: LinkContext): string | undefine
         return undefined;
     }
 }
+
+export function resolveCustomLinks(
+    links: CustomLink[],
+    scope: CustomLink["scope"],
+    context: LinkContext,
+): { name: string; url: string }[] {
+    return links.filter((link) => link.scope === scope).flatMap((link) => {
+        const url = expandLink(link.url, context);
+        return url === undefined ? [] : [{ name: link.name, url }];
+    });
+}

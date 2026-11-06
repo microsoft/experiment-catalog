@@ -132,7 +132,7 @@ public class ProjectsController : ControllerBase
 
         try
         {
-            CustomLinkConfiguration.Validate(links);
+            CustomLink.ValidateDefinitions(links);
         }
         catch (ValidationException ex)
         {

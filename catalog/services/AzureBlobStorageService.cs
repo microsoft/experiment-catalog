@@ -396,13 +396,12 @@ public class AzureBlobStorageService(
         var response = await blobClient.DownloadContentAsync(cancellationToken);
         var links = JsonConvert.DeserializeObject<List<CustomLink>>(response.Value.Content.ToString())
             ?? throw new Exception("the link contents were not valid.");
-        CustomLinkConfiguration.Validate(links);
+        CustomLink.ValidateDefinitions(links);
         return links;
     }
 
     public async Task SetLinksAsync(string projectName, IList<CustomLink> links, CancellationToken cancellationToken = default)
     {
-        CustomLinkConfiguration.Validate(links);
         var containerClient = await this.ConnectAsync(projectName, cancellationToken);
         var blobClient = containerClient.GetBlobClient("links.json");
         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(links)));
