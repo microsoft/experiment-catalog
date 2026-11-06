@@ -1,11 +1,14 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
   import MetricsFilter from "./MetricsFilter.svelte";
   import TagsFilter from "./TagsFilter.svelte";
   import RefFilterWarning from "./RefFilterWarning.svelte";
   import FreeFilter from "./FreeFilter.svelte";
+  import CustomLinks from "./CustomLinks.svelte";
+  import CustomLinksRow from "./CustomLinksRow.svelte";
+  import { linkContext, loadCustomLinks } from "./customLinks";
   import { sanitizeProjectTagQuerystring, type ViewConfig } from "./Tools";
   import {
     getComparisonByRef,
@@ -27,6 +30,7 @@
     experiment: Experiment;
     setName: string;
     config?: ViewConfig;
+    uiSettings?: UiSettings;
     onunselectSet?: () => void;
     onchangeConfig?: (config: ViewConfig) => void;
   }
@@ -36,6 +40,7 @@
     experiment,
     setName,
     config = {},
+    uiSettings = {},
     onunselectSet,
     onchangeConfig,
   }: Props = $props();
@@ -43,6 +48,13 @@
   let loadingState: "loading" | "loaded" | "error" = $state("loading");
   let hiding = $state(false);
   let hideError = $state("");
+  let sourceColumnWidth = $state(0);
+  let comparisonRequest = 0;
+  let destroyed = false;
+  onDestroy(() => {
+    destroyed = true;
+    comparisonRequest++;
+  });
 
   const unselectSet = () => {
     onunselectSet?.();
@@ -54,6 +66,11 @@
   let showBaselineResults = $state(false);
   let comparison: ComparisonByRef | undefined = $state();
   let comparisonTarget = $derived(comparison?.comparison_target ?? comparison?.experiment_baseline);
+  let customLinksByProject: Record<string, CustomLink[]> = $state({});
+  let currentEntity = $derived({ project: project.name, experiment: experiment.name, set: setName });
+  let setLinkContext = $derived.by(() =>
+    linkContext(currentEntity, loadingState === "loaded" ? comparisonTarget : undefined),
+  );
   let isBaselineSet = $derived(
     [comparison?.project_baseline, comparison?.experiment_baseline].some((entity) =>
       entity?.project === project.name &&
@@ -72,6 +89,16 @@
   // Pre-computed maps for O(1) lookup instead of O(n) filter in template
   let resultsByRef: Map<string, Result[]> = $state(new Map());
   let baselineResultsByRef: Map<string, Result[]> = $state(new Map());
+
+  const loadProjectLinks = (projects: string[]) => {
+    for (const name of new Set(projects)) {
+      if (Object.hasOwn(customLinksByProject, name)) continue;
+      customLinksByProject[name] = uiSettings.custom_links ?? [];
+      void loadCustomLinks([name], uiSettings.custom_links ?? []).then((links) => {
+        if (!destroyed) customLinksByProject[name] = links[name] ?? [];
+      });
+    }
+  };
 
   const emitConfigChange = () => {
     const newConfig: ViewConfig = { ...config };
@@ -119,17 +146,30 @@
   };
 
   const fetchComparison = async () => {
+    if (destroyed) return;
+    const request = ++comparisonRequest;
     try {
       loadingState = "loading";
       await reconcileTagFilters();
+      if (request !== comparisonRequest) return;
       // get the comparison
-      comparison = await getComparisonByRef(
+      const loadedComparison = await getComparisonByRef(
         project.name,
         experiment.name,
         setName,
         tagFilters || undefined,
         config.comparison_target,
         config.ref_filter,
+      );
+      if (request !== comparisonRequest) return;
+
+      comparison = loadedComparison;
+      loadProjectLinks(
+        [
+          project.name,
+          loadedComparison.project_baseline?.project,
+          (loadedComparison.comparison_target ?? loadedComparison.experiment_baseline)?.project,
+        ].filter((name): name is string => !!name),
       );
 
       // get a list of all refs in the chosen results
@@ -151,10 +191,12 @@
 
       // Mark as initialized after first load
       await tick();
+      if (request !== comparisonRequest) return;
       initialized = true;
 
       loadingState = "loaded";
     } catch (error) {
+      if (request !== comparisonRequest) return;
       console.error(error);
       loadingState = "error";
     }
@@ -263,6 +305,7 @@
   // Initial fetch on mount
   onMount(() => {
     tagFilters = config.tags ?? "";
+    loadProjectLinks([project.name]);
     fetchComparison();
   });
 </script>
@@ -303,6 +346,11 @@
     }).format(new Date(experiment.created))}
   </span>
 </div>
+<CustomLinksRow
+  links={customLinksByProject[project.name]}
+  scope="set"
+  context={setLinkContext}
+/>
 <h3>
   <span>SET: {setName}</span>
   <button
@@ -357,10 +405,10 @@
       <span>Comparing against: {config.comparison_target.project} / {config.comparison_target.experiment} / {config.comparison_target.set}</span>
     </div>
   {/if}
-  <table>
+  <table class="pinned-columns" style:--first-column-width={`${sourceColumnWidth}px`}>
     <thead>
       <tr>
-        <th>Source</th>
+        <th bind:clientWidth={sourceColumnWidth}>Source</th>
         <th>Ref</th>
         {#each selectedMetrics as metric}
           <th>{metric}</th>
@@ -376,7 +424,14 @@
                 "-"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={customLinksByProject[comparison.project_baseline?.project]}
+              scope="ref"
+              context={linkContext(comparison.project_baseline, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -400,7 +455,14 @@
                 "-"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={comparisonTarget ? customLinksByProject[comparisonTarget.project] : []}
+              scope="ref"
+              context={linkContext(comparisonTarget, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -444,6 +506,11 @@
                     >(eval)</button
                   >
                 {/if}
+                <CustomLinks
+                  links={comparisonTarget ? customLinksByProject[comparisonTarget.project] : []}
+                  scope="iteration"
+                  context={linkContext(comparisonTarget, comparisonTarget, result)}
+                />
               </td>
               <td class="label"><nobr>{result.ref}</nobr></td>
               {#each selectedMetrics as metric}
@@ -471,7 +538,14 @@
                 "MISSING"}</nobr
             ></td
           >
-          <td class="label"><nobr>{ref}</nobr></td>
+          <td class="label">
+            <nobr>{ref}</nobr>
+            <CustomLinks
+              links={customLinksByProject[project.name]}
+              scope="ref"
+              context={linkContext(currentEntity, comparisonTarget, undefined, ref)}
+            />
+          </td>
           {#each selectedMetrics as metric}
             <td>
               <ComparisonTableMetric
@@ -527,6 +601,11 @@
                     >(eval)</button
                   >
                 {/if}
+                <CustomLinks
+                  links={customLinksByProject[project.name]}
+                  scope="iteration"
+                  context={linkContext(currentEntity, comparisonTarget, result)}
+                />
               </td>
               <td class="label"><nobr>{result.ref}</nobr></td>
               {#each selectedMetrics as metric}
@@ -582,6 +661,7 @@
   }
 
   table {
+    --pinned-header-background: #373;
     width: 100%;
     border-collapse: collapse;
   }
@@ -590,7 +670,7 @@
     position: sticky;
     top: 0;
     background-color: #373;
-    z-index: 1;
+    z-index: 3;
     border-bottom: 1px solid #ddd;
   }
 
@@ -602,14 +682,17 @@
   }
 
   tr.experiment-baseline {
+    --row-background: #444;
     background-color: #444;
   }
 
   tr.project-baseline {
+    --row-background: #454;
     background-color: #454;
   }
 
   tr.set-aggregate {
+    --row-background: #444;
     background-color: #444;
   }
 

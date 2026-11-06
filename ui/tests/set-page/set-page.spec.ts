@@ -9,11 +9,125 @@ import * as data from '../mocks/data';
 test.describe('SetPage drill-down', () => {
   const base = '/?project=alpha-project&experiment=exp-001&page=set:set-a';
 
+  test('merges scoped links, expands baseline values, and hides missing iteration artifacts', async ({ mockedPage: page }) => {
+    await page.route('**/api/settings', (route) => route.fulfill({
+      json: {
+        custom_links: [
+          { scope: 'ref', name: 'cow', url: 'https://default.example/{ref}' },
+          { scope: 'iteration', name: 'trace', url: 'https://tools.example/trace?inf={inf}&eval={eval}&gt={gt}' },
+          { scope: 'set', name: 'dashboard', url: 'https://tools.example/{project}/{experiment}/{set}' },
+          { scope: 'set', name: 'details', url: 'https://tools.example/details?set={set}&baseline={baseline-project}/{baseline-experiment}/{baseline-set}' },
+          { scope: 'experiment', name: 'report', url: 'https://tools.example/{experiment}?baseline={baseline-project}/{baseline-experiment}/{baseline-set}' },
+        ],
+      },
+    }));
+    await page.route('**/api/projects/alpha-project/links', (route) => route.fulfill({
+      json: [{ scope: 'ref', name: 'cow', url: 'https://project.example/{project}/{experiment}/{set}/{ref}' }],
+    }));
+    await page.goto(base);
+    const linksRow = page.locator('.meta-row').filter({ has: page.getByText('Links', { exact: true }) });
+    await expect(linksRow.getByRole('link', { name: 'details', exact: true }))
+      .toHaveAttribute('href', 'https://tools.example/details?set=set-a&baseline=alpha-project/exp-001/baseline');
+    await expect(linksRow.getByRole('link', { name: 'dashboard', exact: true }))
+      .toHaveAttribute('href', 'https://tools.example/alpha-project/exp-001/set-a');
+    await expect(linksRow.locator('span').last()).toHaveText('dashboard, details');
+    await expect(linksRow.getByRole('link', { name: 'dashboard', exact: true }))
+      .toHaveCSS('text-decoration-line', 'underline');
+    await expect(linksRow.getByRole('link', { name: 'dashboard', exact: true }))
+      .toHaveCSS('color', await linksRow.evaluate((row) => getComputedStyle(row).color));
+    await expect(page.getByRole('link', { name: 'report', exact: true })).toHaveCount(0);
+    await expect(page.locator('h2').getByRole('link')).toHaveCount(0);
+    const createdBounds = await page.locator('.meta-row').filter({ hasText: 'Created' }).boundingBox();
+    const linksBounds = await linksRow.boundingBox();
+    expect(linksBounds!.y).toBeGreaterThanOrEqual(createdBounds!.y + createdBounds!.height);
+    await expect(page.locator('h3').getByRole('link')).toHaveCount(0);
+    await expect(page.locator('tr.set-aggregate').getByRole('link', { name: '(cow)', exact: true }))
+      .toHaveAttribute('href', 'https://project.example/alpha-project/exp-001/set-a/ref-1');
+    await expect(page.getByRole('link', { name: '(trace)', exact: true })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'toggle set iterations', exact: true }).click();
+    const trace = page.getByRole('link', { name: '(trace)', exact: true });
+    await expect(trace).toHaveAttribute('href',
+      `https://tools.example/trace?inf=${encodeURIComponent(data.setAResult.inference_uri)}&eval=${encodeURIComponent(data.setAResult.evaluation_uri)}&gt=${encodeURIComponent(data.setAResult.ground_truth_uri)}`);
+    await expect(trace).toHaveAttribute('target', '_blank');
+    await expect(trace).toHaveAttribute('rel', 'noopener noreferrer');
+    await page.getByRole('button', { name: 'toggle baseline iterations', exact: true }).click();
+    await expect(trace).toHaveCount(1);
+    await expect(page.getByRole('button', { name: '(inf)', exact: true })).toBeVisible();
+    await expect(page.getByRole('button', { name: '(eval)', exact: true })).toBeVisible();
+  });
+
+  test('uses the active cross-project comparison for baseline placeholders and its own project links', async ({ mockedPage: page }) => {
+    const target = { project: 'beta-project', experiment: 'exp-002', set: 'target-set' };
+    await page.route('**/api/settings', (route) => route.fulfill({
+      json: { custom_links: [
+        { scope: 'ref', name: 'inspect', url: 'https://default.example/{project}/{experiment}/{set}?baseline={baseline-project}/{baseline-experiment}/{baseline-set}' },
+      ] },
+    }));
+    await page.route('**/api/projects/beta-project/links', (route) => route.fulfill({
+      json: [{ scope: 'ref', name: 'inspect', url: 'https://foreign.example/{project}/{experiment}/{set}/{ref}' }],
+    }));
+    await page.route('**/api/projects/*/experiments/*/sets/*/compare-by-ref**', (route) => route.fulfill({
+      json: { ...data.comparisonByRef, comparison_target: { ...target, results: { 'ref-1': data.baselineResult } } },
+    }));
+    await page.goto(base);
+    await expect(page.locator('tr.set-aggregate').getByRole('link', { name: '(inspect)', exact: true }))
+      .toHaveAttribute('href', 'https://default.example/alpha-project/exp-001/set-a?baseline=beta-project/exp-002/target-set');
+    await expect(page.locator('tr.project-baseline').getByRole('link', { name: '(inspect)', exact: true }))
+      .toHaveAttribute('href', 'https://foreign.example/beta-project/exp-002/target-set/ref-1');
+  });
+
+  for (const scope of ['experiment', 'set']) {
+    test(`omits the set LINKS row for ${scope === 'experiment' ? 'experiment-only links' : 'unavailable baseline values'}`, async ({ mockedPage: page }) => {
+      await page.route('**/api/projects/alpha-project/links', (route) => route.fulfill({
+        json: [{ scope, name: 'unavailable', url: 'https://tools.example/{baseline-set}' }],
+      }));
+      await page.route('**/api/projects/*/experiments/*/sets/*/compare-by-ref**', (route) => route.fulfill({
+        json: { ...data.comparisonByRef, project_baseline: null, experiment_baseline: null },
+      }));
+      await page.goto(base);
+      await expect(page.locator('table')).toBeVisible();
+      await expect(page.locator('.meta-row').filter({ has: page.getByText('Links', { exact: true }) })).toHaveCount(0);
+    });
+  }
+
+  test('pins Source and Ref without overlap when scrolling horizontally, including after expanding iterations', async ({ mockedPage: page }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    await page.goto(base);
+    await expect(page.locator('tr.set-aggregate')).toBeVisible();
+    for (const expanded of [false, true]) {
+      if (expanded) {
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.getByRole('button', { name: 'toggle set iterations', exact: true }).click();
+        await expect(page.getByText('Set / set-a', { exact: true })).toBeVisible();
+      }
+      const positions = [];
+      for (const x of [100, 200]) {
+        await page.evaluate((offset) => window.scrollTo(offset, 0), x);
+        await expect.poll(() => page.evaluate(() => window.scrollX)).toBe(x);
+        positions.push(await page.locator('tr.set-aggregate').evaluate((row) =>
+          Array.from(row.children).slice(0, 3).map((cell) => {
+            const rect = cell.getBoundingClientRect();
+            return { left: rect.left, right: rect.right };
+          })));
+      }
+      expect(positions[1][0].left).toBeCloseTo(positions[0][0].left, 0);
+      expect(positions[1][1].left).toBeCloseTo(positions[0][1].left, 0);
+      expect(positions[1][0].right).toBeLessThanOrEqual(positions[1][1].left + 1);
+      expect(positions[1][2].left).toBeCloseTo(positions[0][2].left - 100, 0);
+      const headers = await page.locator('thead th').evaluateAll((cells) =>
+        cells.slice(0, 2).map((cell) => cell.getBoundingClientRect().left));
+      expect(headers[0]).toBeCloseTo(positions[1][0].left, 0);
+      expect(headers[1]).toBeCloseTo(positions[1][1].left, 0);
+    }
+  });
+
   test('displays project, experiment, and set headings', async ({ mockedPage: page }) => {
     await page.goto(base);
     await expect(page.getByText('PROJECT: alpha-project')).toBeVisible();
     await expect(page.getByRole('heading', { name: 'EXPERIMENT: exp-001' })).toBeVisible();
     await expect(page.getByText('SET: set-a')).toBeVisible();
+    await expect(page.locator('.meta-row').filter({ has: page.getByText('Links', { exact: true }) })).toHaveCount(0);
   });
 
   test('shows the project ground truth after the hypothesis, or Unknown when unset', async ({ mockedPage: page }) => {

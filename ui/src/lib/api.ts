@@ -99,6 +99,10 @@ export async function getProject(projectName: string): Promise<Project> {
     return fetchJson<Project>(`/api/projects/${encodeURIComponent(projectName)}`);
 }
 
+export async function getProjectLinks(projectName: string): Promise<CustomLink[]> {
+    return fetchJson<CustomLink[]>(`/api/projects/${encodeURIComponent(projectName)}/links`);
+}
+
 export async function createProject(name: string): Promise<Response> {
     return fetch(url("/api/projects"), {
         method: "POST",

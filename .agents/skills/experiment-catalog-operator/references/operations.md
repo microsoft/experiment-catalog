@@ -52,6 +52,20 @@ project. Use the collection route or `ListProjects()` when discovering projects.
 
 Project names must be valid catalog names. Keep one project aligned to one stable ground-truth set, metric set, and evaluation configuration.
 
+## Custom Links
+
+Custom links are REST-only. Use `GET /api/projects/{project}/links` to read the
+stored project list, preserve unrelated entries, then use
+`PUT /api/projects/{project}/links` to replace it with the updated array.
+Definitions use `scope`, `name`, and `url`; supported scopes are `experiment`,
+`set`, `ref`, and `iteration`. Duplicate `(scope, name)` pairs are rejected.
+
+GET does not include deployment defaults; those are `custom_links` in
+`GET /api/settings`. Do not copy merged defaults into project storage.
+Project entries override matching defaults, and PUT `[]` clears only project
+entries. Reload the UI after editing links. See `api-and-mcp.md` for templates,
+placeholders, and page-specific placement.
+
 ## Experiments
 
 MCP:

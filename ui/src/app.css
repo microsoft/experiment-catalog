@@ -27,6 +27,23 @@ body {
   display: flex;
 }
 
+.pinned-columns th:nth-child(-n + 2),
+.pinned-columns td:nth-child(-n + 2):not([colspan]) {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--row-background, #242424);
+}
+
+.pinned-columns th:nth-child(2),
+.pinned-columns td:nth-child(2):not([colspan]) {
+  left: var(--first-column-width);
+}
+
+.pinned-columns th:nth-child(-n + 2) {
+  background-color: var(--pinned-header-background, #242424);
+}
+
 #app {
   padding: 2rem;
 }

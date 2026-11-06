@@ -43,6 +43,95 @@ test.describe('Experiment page data display', () => {
     await expect(table.locator('td.label', { hasText: 'cost' })).toBeVisible();
   });
 
+  test('shows experiment links using the active baseline but leaves set links for compare-by-ref', async ({ mockedPage: page }) => {
+    await page.route('**/api/projects/alpha-project/links', (route) => route.fulfill({
+      json: [
+        { scope: 'experiment', name: 'report', url: 'https://tools.example/{project}/{experiment}?baseline={baseline-set}' },
+        { scope: 'experiment', name: 'details', url: 'https://tools.example/details?experiment={experiment}' },
+        { scope: 'set', name: 'dashboard', url: 'https://tools.example/{project}/{experiment}/{set}' },
+      ],
+    }));
+    await page.reload();
+    const linksRow = page.locator('.meta-row').filter({ has: page.getByText('Links', { exact: true }) });
+    await expect(linksRow.getByRole('link', { name: 'report', exact: true }))
+      .toHaveAttribute('href', 'https://tools.example/alpha-project/exp-001?baseline=baseline');
+    await expect(linksRow.locator('span').last()).toHaveText('report, details');
+    await expect(linksRow.getByRole('link', { name: 'report', exact: true }))
+      .toHaveCSS('text-decoration-line', 'underline');
+    await expect(linksRow.getByRole('link', { name: 'report', exact: true }))
+      .toHaveCSS('color', await linksRow.evaluate((row) => getComputedStyle(row).color));
+    await expect(page.locator('h2').getByRole('link')).toHaveCount(0);
+    const createdBounds = await page.locator('.meta-row').filter({ hasText: 'Created' }).boundingBox();
+    const linksBounds = await linksRow.boundingBox();
+    const impactBounds = await page.locator('.meta-row').filter({ hasText: 'Tag Impact' }).boundingBox();
+    expect(linksBounds!.y).toBeGreaterThanOrEqual(createdBounds!.y + createdBounds!.height);
+    expect(linksBounds!.y + linksBounds!.height).toBeLessThanOrEqual(impactBounds!.y);
+    await expect(page.getByRole('link', { name: /dashboard/ })).toHaveCount(0);
+  });
+
+  test('omits the Links row when no experiment links resolve', async ({ mockedPage: page }) => {
+    const linksRow = page.locator('.meta-row').filter({ has: page.getByText('Links', { exact: true }) });
+    await expect(page.locator('table')).toBeVisible();
+    await expect(linksRow).toHaveCount(0);
+    await page.route('**/api/projects/alpha-project/links', (route) => route.fulfill({
+      json: [{ scope: 'experiment', name: 'unavailable', url: 'https://tools.example/{baseline-set}' }],
+    }));
+    await page.route('**/api/projects/*/experiments/*/compare**', (route) => route.fulfill({
+      json: { ...data.comparison, project_baseline: null, experiment_baseline: null },
+    }));
+    await page.reload();
+    await expect(page.locator('table')).toBeVisible();
+    await expect(linksRow).toHaveCount(0);
+  });
+
+  test('pins metric names and checkboxes when scrolling horizontally', async ({ mockedPage: page }) => {
+    await page.setViewportSize({ width: 800, height: 900 });
+    const row = page.locator('tbody tr').filter({ has: page.locator('td.label', { hasText: 'accuracy' }) });
+    await expect(row).toBeVisible();
+    const positions = [];
+    for (const x of [150, 300]) {
+      await page.evaluate((offset) => window.scrollTo(offset, 0), x);
+      await expect.poll(() => page.evaluate(() => window.scrollX)).toBe(x);
+      positions.push(await row.evaluate((element) => Array.from(element.children).slice(0, 3).map((cell) => {
+        const rect = cell.getBoundingClientRect();
+        return { left: rect.left, right: rect.right };
+      })));
+    }
+    expect(positions[1][0].left).toBeCloseTo(positions[0][0].left, 0);
+    expect(positions[1][1].left).toBeCloseTo(positions[0][1].left, 0);
+    expect(positions[1][0].right).toBeLessThanOrEqual(positions[1][1].left + 1);
+    expect(positions[1][2].left).toBeCloseTo(positions[0][2].left - 150, 0);
+    await row.locator('input[type="checkbox"]').check();
+    await expect(row).toHaveClass(/highlighted/);
+    await expect(row.locator('td.label')).toHaveCSS('background-color', 'rgb(51, 51, 51)');
+  });
+
+  for (const override of [false, true]) {
+    test(`keeps ${override ? 'orange comparison-target' : 'green baseline'} borders behind pinned headers`, async ({ mockedPage: page }) => {
+      await page.setViewportSize({ width: 800, height: 900 });
+      const target = { project: 'alpha-project', experiment: 'exp-001', set: 'set-b' };
+      await page.route('**/api/projects/*/experiments/*/compare**', (route) => route.fulfill({
+        json: {
+          ...data.comparison,
+          ...(override ? { comparison_target: { ...target, result: data.setBResult } } : {}),
+        },
+      }));
+      const config = btoa(JSON.stringify({
+        show_project_baseline: false,
+        ...(override ? { comparison_target: target } : {}),
+      }));
+      await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+      const coloredHeader = page.locator(override ? 'th.active-target' : 'th.default-baseline');
+      await expect(coloredHeader).toBeVisible();
+      const pinnedHeader = page.locator('thead th').nth(1);
+      const before = await pinnedHeader.screenshot();
+      await page.evaluate(() => window.scrollTo(200, window.scrollY));
+      await expect.poll(() => page.evaluate(() => window.scrollX)).toBe(200);
+      const after = await pinnedHeader.screenshot();
+      expect(after.equals(before)).toBe(true);
+    });
+  }
+
   test('renders Project Baseline and Experiment Baseline columns', async ({ mockedPage: page }) => {
     const table = page.locator('table');
     await expect(table).toBeVisible();

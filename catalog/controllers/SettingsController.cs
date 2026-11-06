@@ -18,6 +18,7 @@ public class SettingsController : ControllerBase
         return new UiSettings
         {
             ShowOnlyImportantMetricsByDefault = config.SHOW_ONLY_IMPORTANT_METRICS_BY_DEFAULT,
+            CustomLinks = config.CustomLinks,
         };
     }
 }
