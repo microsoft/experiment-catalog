@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
   import ComparisonTableHeader from "./ComparisonTableHeader.svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import TagsFilter from "./TagsFilter.svelte";
@@ -87,6 +87,12 @@
   let selected: (ComparisonEntity | null)[] = $state([]);
   let metricsHighlighted: Set<string> = $state(new Set());
   let checkboxColumnWidth = $state(0);
+  let comparisonRequest = 0;
+  let destroyed = false;
+  onDestroy(() => {
+    destroyed = true;
+    comparisonRequest++;
+  });
 
   const drilldown = (set: string) => {
     ondrilldown?.(set);
@@ -192,24 +198,30 @@
   };
 
   const fetchComparison = async () => {
+    if (destroyed) return;
+    const request = ++comparisonRequest;
     try {
       loadingState = "loading";
       await reconcileTagFilters();
+      if (request !== comparisonRequest) return;
 
       // fetch comparison
-      comparison = await getComparison(
+      const loadedComparison = await getComparison(
         project.name,
         experiment.name,
         tagFilters || undefined,
         target,
         refFilter,
       );
+      if (request !== comparisonRequest) return;
 
-      const baseline = comparison.comparison_target ?? comparison.experiment_baseline;
+      const baseline = loadedComparison.comparison_target ?? loadedComparison.experiment_baseline;
       const customLinksByProject = await loadCustomLinks(
         [project.name],
         uiSettings.custom_links ?? [],
       );
+      if (request !== comparisonRequest) return;
+      comparison = loadedComparison;
       onlinksLoaded?.(customLinksByProject[project.name] ?? [], baseline);
 
       // get a list of metrics
@@ -238,6 +250,7 @@
       initialized = true;
       loadingState = "loaded";
     } catch (error) {
+      if (request !== comparisonRequest) return;
       console.error(error);
       loadingState = "error";
     }

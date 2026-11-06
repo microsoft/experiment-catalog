@@ -28,6 +28,26 @@ describe("custom links", () => {
         expect(links.foreign[0].url).toBe("https://foreign.example");
     });
 
+    it("falls back per project without discarding successful overrides or deployment defaults", async () => {
+        const defaults: CustomLink[] = [
+            { scope: "ref", name: "cow", url: "https://default.example/{ref}" },
+        ];
+        vi.mocked(getProjectLinks).mockImplementation(async (project) => {
+            if (project === "unavailable") throw new Error("HTTP 500");
+            return [{ ...defaults[0], url: "https://project.example/{ref}" }];
+        });
+        const warning = vi.spyOn(console, "warn").mockImplementation(() => {});
+        try {
+            const links = await loadCustomLinks(["unavailable", "available"], defaults);
+            expect(links.unavailable).toEqual(defaults);
+            expect(links.available[0].url).toBe("https://project.example/{ref}");
+            expect(defaults[0].url).toBe("https://default.example/{ref}");
+            expect(warning).toHaveBeenCalledOnce();
+        } finally {
+            warning.mockRestore();
+        }
+    });
+
     it("encodes values once, replaces repeated tokens, and does not recursively expand values", () => {
         expect(expandLink("https://tools.example/{ref}?again={ref}&inf={inf}", {
             ref: "a/b & {set}",

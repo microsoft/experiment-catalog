@@ -131,7 +131,9 @@ stored as `links.json` in the project's existing storage container:
 GET returns only stored project definitions, or `[]` if none exist. Deployment
 defaults are exposed separately as `custom_links` in `GET /api/settings`.
 The UI merges by the exact `(scope, name)` pair: project definitions override
-matching defaults and append new links. PUT `[]` clears project definitions
+matching defaults and append new links. If a project's link metadata cannot be
+loaded, its deployment defaults remain available and comparison data still renders.
+PUT `[]` clears project definitions
 but does not disable deployment defaults. Environment links are sorted by
 scope/name; project additions retain their JSON order. These definitions are
 visible to UI users; do not put credentials in their URLs.

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import ComparisonTableMetric from "./ComparisonTableMetric.svelte";
   import Annotations from "./Annotations.svelte";
   import MetricsFilter from "./MetricsFilter.svelte";
@@ -48,6 +48,12 @@
   let hiding = $state(false);
   let hideError = $state("");
   let sourceColumnWidth = $state(0);
+  let comparisonRequest = 0;
+  let destroyed = false;
+  onDestroy(() => {
+    destroyed = true;
+    comparisonRequest++;
+  });
 
   const unselectSet = () => {
     onunselectSet?.();
@@ -130,11 +136,14 @@
   };
 
   const fetchComparison = async () => {
+    if (destroyed) return;
+    const request = ++comparisonRequest;
     try {
       loadingState = "loading";
       await reconcileTagFilters();
+      if (request !== comparisonRequest) return;
       // get the comparison
-      comparison = await getComparisonByRef(
+      const loadedComparison = await getComparisonByRef(
         project.name,
         experiment.name,
         setName,
@@ -142,15 +151,19 @@
         config.comparison_target,
         config.ref_filter,
       );
+      if (request !== comparisonRequest) return;
 
-      customLinksByProject = await loadCustomLinks(
+      const loadedCustomLinks = await loadCustomLinks(
         [
           project.name,
-          comparison.project_baseline?.project,
-          comparisonTarget?.project,
+          loadedComparison.project_baseline?.project,
+          (loadedComparison.comparison_target ?? loadedComparison.experiment_baseline)?.project,
         ].filter((name): name is string => !!name),
         uiSettings.custom_links ?? [],
       );
+      if (request !== comparisonRequest) return;
+      comparison = loadedComparison;
+      customLinksByProject = loadedCustomLinks;
 
       // get a list of all refs in the chosen results
       masterRefs = Object.keys(comparison.experiment_set?.results ?? {});
@@ -171,10 +184,12 @@
 
       // Mark as initialized after first load
       await tick();
+      if (request !== comparisonRequest) return;
       initialized = true;
 
       loadingState = "loaded";
     } catch (error) {
+      if (request !== comparisonRequest) return;
       console.error(error);
       loadingState = "error";
     }

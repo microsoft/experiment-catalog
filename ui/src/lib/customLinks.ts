@@ -35,9 +35,14 @@ export async function loadCustomLinks(
     projects: string[],
     defaults: CustomLink[],
 ): Promise<Record<string, CustomLink[]>> {
-    const entries = await Promise.all([...new Set(projects)].map(async (project) =>
-        [project, mergeCustomLinks(defaults, await getProjectLinks(project))] as const,
-    ));
+    const entries = await Promise.all([...new Set(projects)].map(async (project) => {
+        try {
+            return [project, mergeCustomLinks(defaults, await getProjectLinks(project))] as const;
+        } catch (error) {
+            console.warn(`Could not load custom links for ${project}; using deployment defaults.`, error);
+            return [project, defaults] as const;
+        }
+    }));
     return Object.fromEntries(entries);
 }
 
