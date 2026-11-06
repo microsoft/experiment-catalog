@@ -64,8 +64,9 @@
   let experimentLinkContext = $derived(
     linkContext({ project: project.name, experiment: experiment.name }, linkBaseline),
   );
+  let comparisonKey = $derived(JSON.stringify([config.comparison_target, config.ref_filter]));
   $effect(() => {
-    JSON.stringify([config.comparison_target, config.ref_filter]);
+    comparisonKey;
     linkBaseline = undefined;
   });
 
@@ -493,7 +494,7 @@
 
 <div class="table">
   {#if ready}
-    {#key JSON.stringify([config.comparison_target, config.ref_filter])}
+    {#key comparisonKey}
     <ComparisonTable
       {project}
       {experiment}

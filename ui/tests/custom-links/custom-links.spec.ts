@@ -61,6 +61,103 @@ for (const byRef of [false, true]) {
   });
 }
 
+for (const overridden of [false, true]) {
+  for (const change of ['Value toggle', 'metric selection']) {
+    test(`preserves ${overridden ? 'target' : 'baseline'} links after ${change}`, async ({ mockedPage: page }) => {
+      const target = { project: 'alpha-project', experiment: 'exp-001', set: 'set-a' };
+      let comparisonRequests = 0;
+      await page.route('**/api/projects/*/links', (route) => route.fulfill({
+        json: [{
+          scope: 'experiment', name: 'report',
+          url: 'https://tools.example/{baseline-project}/{baseline-experiment}/{baseline-set}',
+        }],
+      }));
+      await page.route('**/api/projects/*/experiments/*/compare**', (route) => {
+        comparisonRequests++;
+        return route.fulfill({
+          json: {
+            ...data.comparison,
+            ...(overridden ? { comparison_target: { ...target, result: data.setAResult } } : {}),
+          },
+        });
+      });
+      const config = overridden ? `&config=${btoa(JSON.stringify({ comparison_target: target }))}` : '';
+      await page.goto(`/?project=alpha-project&experiment=exp-001${config}`);
+      const report = page.getByRole('link', { name: 'report', exact: true });
+      const href = `https://tools.example/alpha-project/exp-001/${overridden ? 'set-a' : 'baseline'}`;
+      await expect(report).toHaveAttribute('href', href);
+      const requestsBeforeChange = comparisonRequests;
+      if (change === 'Value toggle') {
+        await page.locator('.toggles').getByLabel('Value', { exact: true }).uncheck();
+        await expect.poll(() =>
+          JSON.parse(atob(new URL(page.url()).searchParams.get('config')!)).show_val,
+        ).toBe(false);
+      } else {
+        await page.locator('tbody tr')
+          .filter({ has: page.locator('td.label', { hasText: 'accuracy' }) })
+          .getByRole('checkbox').check();
+        await expect.poll(() =>
+          JSON.parse(atob(new URL(page.url()).searchParams.get('config')!)).checked_metrics,
+        ).toBe('accuracy');
+      }
+      await expect(report).toHaveAttribute('href', href);
+      expect(comparisonRequests).toBe(requestsBeforeChange);
+    });
+  }
+}
+
+for (const change of ['select', 'reset']) {
+  test(`restores baseline links after target ${change} sanitizes selected metrics`, async ({ mockedPage: page }) => {
+    const target = { project: 'alpha-project', experiment: 'exp-001', set: 'set-a' };
+    let removeAccuracy = false;
+    await page.route('**/api/projects/*/links', (route) => route.fulfill({
+      json: [{ scope: 'experiment', name: 'report', url: 'https://tools.example/{baseline-set}' }],
+    }));
+    await page.route('**/api/projects/*/experiments/*/compare**', (route) => {
+      const overridden = new URL(route.request().url()).searchParams.has('compare-project');
+      const comparison = {
+        ...structuredClone(data.comparison),
+        comparison_target: overridden ? { ...target, result: structuredClone(data.setAResult) } : undefined,
+      };
+      if (removeAccuracy) {
+        for (const entity of [
+          comparison.project_baseline, comparison.experiment_baseline,
+          comparison.comparison_target, ...comparison.sets,
+        ]) {
+          if (entity) Reflect.deleteProperty(entity.result.metrics, 'accuracy');
+        }
+      }
+      return route.fulfill({ json: comparison });
+    });
+    const config = btoa(JSON.stringify({
+      checked_metrics: 'accuracy',
+      ...(change === 'reset' ? { comparison_target: target } : {}),
+    }));
+    await page.goto(`/?project=alpha-project&experiment=exp-001&config=${config}`);
+    const report = page.getByRole('link', { name: 'report', exact: true });
+    await expect(report).toHaveAttribute('href', `https://tools.example/${change === 'reset' ? 'set-a' : 'baseline'}`);
+    await expect(page.locator('tbody tr')
+      .filter({ has: page.locator('td.label', { hasText: 'accuracy' }) })
+      .getByRole('checkbox')).toBeChecked();
+    if (change === 'select') {
+      await page.locator('th.default-baseline').getByRole('button', { name: 'select', exact: true }).click();
+      const dialog = page.getByRole('dialog', { name: 'Choose comparison target' });
+      await expect(dialog.getByRole('button', { name: 'Compare', exact: true })).toBeEnabled();
+      removeAccuracy = true;
+      await dialog.getByRole('button', { name: 'Compare', exact: true }).click();
+    } else {
+      removeAccuracy = true;
+      await page.locator('th.active-target').getByRole('button', { name: 'reset', exact: true }).click();
+    }
+    await expect(page.locator('table')).toBeVisible();
+    await expect(page.locator('td.label', { hasText: 'accuracy' })).toHaveCount(0);
+    await expect.poll(() =>
+      JSON.parse(atob(new URL(page.url()).searchParams.get('config')!)).checked_metrics,
+    ).toBeUndefined();
+    await expect(report).toHaveAttribute('href', `https://tools.example/${change === 'select' ? 'set-a' : 'baseline'}`);
+  });
+}
+
 for (const change of ['select', 'reset']) {
   test(`clears baseline links while ${change === 'select' ? 'selecting' : 'resetting'} a target, including failed comparisons`, async ({ mockedPage: page }) => {
     let hold = false;
