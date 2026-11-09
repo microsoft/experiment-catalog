@@ -5,6 +5,8 @@
   import MeaningfulTags from "./MeaningfulTags.svelte";
   import RefFilterControls from "./RefFilterControls.svelte";
   import SelectComparisonTargetModal from "./SelectComparisonTargetModal.svelte";
+  import CustomLinksRow from "./CustomLinksRow.svelte";
+  import { linkContext, loadCustomLinks } from "./customLinks";
   import type { ComparisonTarget, RefFilter, ViewConfig } from "./Tools";
   import {
     useProjectBaseline,
@@ -57,6 +59,16 @@
   let ready: boolean = $state(false);
   let dataAccessOpen: boolean = $state(false);
   let targetModalOpen = $state(false);
+  let customLinks: CustomLink[] = $state([]);
+  let linkBaseline: ComparisonEntity | null | undefined = $state();
+  let experimentLinkContext = $derived(
+    linkContext({ project: project.name, experiment: experiment.name }, linkBaseline),
+  );
+  let comparisonKey = $derived(JSON.stringify([config.comparison_target, config.ref_filter]));
+  $effect(() => {
+    comparisonKey;
+    linkBaseline = undefined;
+  });
 
   // Initialize from config on mount
   onMount(() => {
@@ -75,6 +87,12 @@
     showProjectBaseline = config.show_project_baseline ?? true;
     showImportantOnly = config.show_important_only ?? uiSettings.show_only_important_metrics_by_default ?? false;
     ready = true;
+    customLinks = uiSettings.custom_links ?? [];
+    let active = true;
+    void loadCustomLinks([project.name], customLinks).then((links) => {
+      if (active) customLinks = links[project.name] ?? [];
+    });
+    return () => { active = false; };
   });
 
   const emitConfigChange = () => {
@@ -306,6 +324,7 @@
       }).format(new Date(experiment.created))}
     </span>
   </div>
+  <CustomLinksRow links={customLinks} scope="experiment" context={experimentLinkContext} />
   {#if experiment.annotations}
     {#each experiment.annotations as annotation}
       <div class="meta-row">
@@ -475,7 +494,7 @@
 
 <div class="table">
   {#if ready}
-    {#key JSON.stringify([config.comparison_target, config.ref_filter])}
+    {#key comparisonKey}
     <ComparisonTable
       {project}
       {experiment}
@@ -496,6 +515,7 @@
       {showImportantOnly}
       target={config.comparison_target}
       refFilter={config.ref_filter}
+      onbaselineChange={(baseline) => { linkBaseline = baseline; }}
       bind:this={comparisonTable}
       onchooseTarget={() => (targetModalOpen = true)}
       onresetTarget={resetTarget}

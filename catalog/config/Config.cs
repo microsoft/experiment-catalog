@@ -143,6 +143,14 @@ public class Config : IConfig, IValidatableObject
 
     public bool IsAuthenticationEnabled => string.IsNullOrEmpty(OIDC_AUTHORITY) == false;
 
+    public IList<CustomLink> CustomLinks { get; set; } = new List<CustomLink>();
+
+    [SetValues]
+    public void LoadCustomLinks()
+    {
+        CustomLinks = CustomLinkConfiguration.FromEnvironment(Environment.GetEnvironmentVariables());
+    }
+
     [SetValues]
     public void ApplySupportDocsStorageDefaults()
     {

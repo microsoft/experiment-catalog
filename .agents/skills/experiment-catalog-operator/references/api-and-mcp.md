@@ -39,7 +39,8 @@ Analysis tools:
 | `CalculateStatistics(project, experiment)` | Enqueue p-value/statistics calculation. |
 | `MeaningfulTags(project, experiment, set, metric, excludeTags, compareTo)` | Rank tag subsets by metric impact. |
 
-Current MCP gap: result upload and metric definition writes are REST operations.
+Current MCP gap: result upload, metric definition writes, and custom link
+reads/writes are REST operations.
 The repository's Experiment Catalog CLI wraps these REST operations for project
 creation, experiment creation, and CSV metric pushes. Its
 `experiment_catalog.Catalog` class exposes the same implementation to notebooks.
@@ -68,13 +69,15 @@ Assume `{baseUrl}` includes `/api`, for example `http://localhost:6010/api`.
 | `PUT` | `/projects/{project}/tags` | Add/update tag. |
 | `GET` | `/projects/{project}/metrics` | Get metric definitions. |
 | `PUT` | `/projects/{project}/metrics` | Add/update metric definitions. |
+| `GET` | `/projects/{project}/links` | Read stored project custom link definitions, excluding deployment defaults. |
+| `PUT` | `/projects/{project}/links` | Replace all project custom link definitions, persisted as `links.json`. |
 | `POST` | `/analysis/statistics` | Enqueue statistics. |
 | `POST` | `/analysis/meaningful-tags` | Meaningful tag analysis. |
 | `GET` | `/analysis/projects/{project}/experiments/{experiment}/metrics` | Export raw per-iteration metrics for every set as JSON or CSV. |
 | `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/metrics` | Export raw per-iteration metrics for one set as JSON or CSV. |
 | `GET` | `/analysis/projects/{project}/experiments/{experiment}/artifacts` | List inference and evaluation artifact locations for every set as JSON or JSONL. |
 | `GET` | `/analysis/projects/{project}/experiments/{experiment}/sets/{set}/artifacts` | List inference and evaluation artifact locations for one set as JSON or JSONL. |
-| `GET` | `/settings` | UI settings. |
+| `GET` | `/settings` | UI settings, including deployment-wide `custom_links`. |
 | `GET` | `/download?url=...` | Download support document if enabled. |
 
 The `sets` query parameter exists on compare but current controller ignores it; filter by tags or compare all sets instead.
@@ -107,6 +110,54 @@ Aggregate comparison metric objects may also contain:
 exist. They are counts rather than rates.
 
 ## JSON Shapes
+
+Custom link definitions (`GET`/`PUT /projects/{project}/links`):
+
+```json
+[
+  {
+    "scope": "set",
+    "name": "Dashboard",
+    "url": "https://tools.example/view?project={project}&experiment={experiment}&set={set}&baseline={baseline-set}"
+  }
+]
+```
+
+Scopes are `experiment`, `set`, `ref`, and `iteration`. Each definition needs a
+non-empty name and an absolute HTTP(S) URL template. `(scope, name)` pairs must
+be unique. PUT replaces the full list; read and preserve unrelated definitions
+before adding a link. PUT `[]` clears project definitions, not deployment defaults.
+
+`GET /settings` returns deployment defaults separately:
+
+```json
+{
+  "show_only_important_metrics_by_default": false,
+  "custom_links": [
+    {"scope":"ref","name":"Inspect","url":"https://tools.example/ref?ref={ref}"}
+  ]
+}
+```
+
+Deployment definitions come from `<SCOPE>_LINK_<name>` environment variables,
+such as `REF_LINK_Inspect`. The UI merges them by exact `(scope, name)`, with
+project definitions overriding defaults. It loads metadata once per owning
+project per page, independently of comparison data, and falls back to deployment
+defaults when project metadata fails.
+
+| Scope | Placeholders | UI placement |
+| --- | --- | --- |
+| `experiment` | `{project}`, `{experiment}` | Compare LINKS metadata row after CREATED and before TAG IMPACT. |
+| `set` | `{project}`, `{experiment}`, `{set}` | Compare-by-ref LINKS metadata row after CREATED. |
+| `ref` | `{project}`, `{experiment}`, `{set}`, `{ref}` | Each aggregate ref row. |
+| `iteration` | `{project}`, `{experiment}`, `{set}`, `{ref}`, `{gt}`, `{inf}`, `{eval}` | Beside the existing artifact buttons on expanded iteration rows. |
+
+Every scope also accepts `{baseline-project}`, `{baseline-experiment}`, and
+`{baseline-set}`, referring to the active comparison target, or the experiment
+baseline without an override. Ordinary placeholders describe the owning row.
+Artifact placeholders are that iteration's corresponding URIs. Values are
+URL-encoded once, and links requiring unavailable values are hidden. There are
+no `project-baseline-*`, `comparison-target-*`, or synthetic `{iteration}` tokens.
 
 Project:
 

@@ -224,6 +224,7 @@
       {experiment}
       {setName}
       {config}
+      {uiSettings}
     />
   {:else if project && experiment && viewMode === "chart"}
     <ChartPage

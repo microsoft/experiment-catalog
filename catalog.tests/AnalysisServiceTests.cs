@@ -195,6 +195,12 @@ public class AnalysisServiceTests
             CancellationToken cancellationToken = default) =>
             throw new NotSupportedException();
 
+        public Task<IList<CustomLink>> GetLinksAsync(string projectName, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public Task SetLinksAsync(string projectName, IList<CustomLink> links, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
         public Task<IList<Experiment>> GetExperimentsAsync(
             string projectName,
             CancellationToken cancellationToken = default) =>

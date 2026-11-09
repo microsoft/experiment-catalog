@@ -18,6 +18,8 @@ public interface IStorageService
     Task<IList<Tag>> GetTagsAsync(string projectName, IEnumerable<string> tags, CancellationToken cancellationToken = default);
     Task AddMetricsAsync(string projectName, IList<MetricDefinition> metrics, CancellationToken cancellationToken = default);
     Task<IList<MetricDefinition>> GetMetricsAsync(string projectName, CancellationToken cancellationToken = default);
+    Task<IList<CustomLink>> GetLinksAsync(string projectName, CancellationToken cancellationToken = default);
+    Task SetLinksAsync(string projectName, IList<CustomLink> links, CancellationToken cancellationToken = default);
     Task<IList<Experiment>> GetExperimentsAsync(string projectName, CancellationToken cancellationToken = default);
     Task AddExperimentAsync(string projectName, Experiment experiment, CancellationToken cancellationToken = default);
     Task<Experiment> SetExperimentDisplayAsync(string projectName, string experimentName, CardDisplay display, CancellationToken cancellationToken = default);

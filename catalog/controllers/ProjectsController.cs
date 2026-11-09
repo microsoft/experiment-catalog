@@ -109,6 +109,40 @@ public class ProjectsController : ControllerBase
         return Ok(metrics);
     }
 
+    [HttpGet("{projectName}/links")]
+    public async Task<ActionResult<IList<CustomLink>>> GetLinks(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        CancellationToken cancellationToken)
+    {
+        return Ok(await storageService.GetLinksAsync(projectName, cancellationToken));
+    }
+
+    [HttpPut("{projectName}/links")]
+    public async Task<IActionResult> SetLinks(
+        [FromServices] IStorageService storageService,
+        [FromRoute, Required, ValidName, ValidProjectName] string projectName,
+        [FromBody, Required] IList<CustomLink> links,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrEmpty(projectName) || links is null)
+        {
+            return BadRequest("a project name and link definitions (as body) are required.");
+        }
+
+        try
+        {
+            CustomLink.ValidateDefinitions(links);
+        }
+        catch (ValidationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        await storageService.SetLinksAsync(projectName, links, cancellationToken);
+        return Ok();
+    }
+
     [HttpPut("{projectName}/metrics")]
     public async Task<IActionResult> AddMetricToProject(
         [FromServices] IStorageService storageService,
